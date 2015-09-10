@@ -1,9 +1,12 @@
 #!/bin/bash
 set -e
 
+echo "Excecuting common entrypoint"
+
 #-------------------
 #   Save env
 #-------------------
+echo " Dumping env..."
 
 # Save env vars for in-container usage (e.g. ssh)
 
@@ -22,9 +25,19 @@ done
 #-------------------
 #   Persistency
 #-------------------
-
+echo " Handling peristency..."
 # TODO...
 
+
+
+#-------------------
+#  Entrypoint
+#-------------------
+
+echo "Now executing container's entrypoint"
+echo ""
+
+exec /entrypoint.sh "$@"
 
 
 

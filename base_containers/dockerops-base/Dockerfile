@@ -86,19 +86,19 @@ COPY supervisord_sshd.conf /etc/supervisor/conf.d/
 #----------------------
 
 # Copy
-COPY docker-entrypoint.sh /
-COPY docker-entrypoint-common.sh /
+COPY entrypoint.sh /
+COPY entrypoint-common.sh /
 
 # Give right permissions
-RUN chmod 755 /docker-entrypoint.sh
-RUN chmod 755 /docker-entrypoint-common.sh
+RUN chmod 755 /entrypoint.sh
+RUN chmod 755 /entrypoint-common.sh
 
 
 #----------------------
 # Startup
 #----------------------
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["/entrypoint-common.sh"]
 
 
 

@@ -23,9 +23,10 @@ from collections import namedtuple
 #--------------------------
 
 DATA_DIR            = os.getenv('DATA_DIR', '/data/docker_data')
-MY_CONTAINERS_DIR   = os.getenv('MY_CONTAINERS_DIR', 'my_containers')
-BASE_CONTAINERS_DIR = os.getenv('BASE_CONTAINERS_DIR', 'base_containers')
+APPS_CONTAINERS_DIR = os.getenv('APPS_CONTAINERS_DIR', os.getcwd() + '/apps_containers')
+BASE_CONTAINERS_DIR = os.getenv('BASE_CONTAINERS_DIR', os.getcwd() + '/base_containers')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
+PROJECT_NAME        = os.getenv('PROJECT_NAME', 'dockerops').lower()
 
 # Defaults   
 defaults={}
@@ -65,7 +66,7 @@ def sanity_checks(container, instance=None):
     # Check container name 
     if not container:
         if clean:
-            abort('You must provide the container name or use the magic words "all" or "wide"') 
+            abort('You must provide the container name or use the magic words "all" or "reallyall"') 
         else:
             abort('You must provide the container name or use the magic word "all"')
     
@@ -75,21 +76,24 @@ def sanity_checks(container, instance=None):
         if run:
             instance = str(uuid.uuid4())[0:8]
             
-        if ssh or (clean and not container in ['all', 'wide']) or ip:
+        if ssh or (clean and not container in ['all', 'reallyall']) or ip:
             running_instances = get_running_instances_matching(container)         
             if len(running_instances) == 0:
                 abort('Could not find any running instance of container "{}"'.format(container))                
             if len(running_instances) > 1:
-                logger.info('Found more than one running instance for container "{}": {}, using the first one ("{}")..'.format(container, running_instances, running_instances[0]))            
+                if clean:
+                    abort('Found more than one running instance for container "{}": {}, please specity wich one.'.format(container, running_instances))            
+                else:
+                    logger.info('Found more than one running instance for container "{}": {}, using the first one ("{}")..'.format(container, running_instances, running_instances[0]))            
             instance = running_instances[0]
         
     if instance and build:
         abort('The build command does not make sense with an instance name (got "{}")'.format(instance))
     
     
-    # Avoid 'wide' name if building'
-    if build and container == 'wide':
-        abort('Sorry, you cannot use the word "wide" as a container name as it is reserverd.')
+    # Avoid 'reallyall' name if building'
+    if build and container == 'reallyall':
+        abort('Sorry, you cannot use the word "reallyall" as a container name as it is reserverd.')
     
     # Check container source if build:
     if build and container != 'all':
@@ -101,7 +105,7 @@ def sanity_checks(container, instance=None):
 
 
 def get_running_instances_matching(container):
-    running =  ps(container=container, capture=True)
+    running =  info(container=container, capture=True)
     instances = []
     if running:
         
@@ -122,10 +126,10 @@ def get_running_instances_matching(container):
 
 def get_container_dir(container=None):
     #logger.debug('Requested container dir for container %s', container )
-    if container == 'base':
+    if container == 'dockerops-base':
         return BASE_CONTAINERS_DIR + '/' + container
     else:
-        return MY_CONTAINERS_DIR + '/' + container
+        return APPS_CONTAINERS_DIR + '/' + container
 
 
 
@@ -201,7 +205,7 @@ def booleanize(*args, **kwargs):
 
 def get_containers_run_conf():
     try:
-        with open(MY_CONTAINERS_DIR+'/run.conf') as f:
+        with open(APPS_CONTAINERS_DIR+'/run.conf') as f:
             content = f.read().replace('\n','').replace('  ',' ')
             registered_containers = json.loads(content)
     except IOError:
@@ -217,7 +221,8 @@ def is_container_registered(container):
     
 def is_container_running(container, instance):
     '''Returns True if the container is running, False otherwise'''  
-    running = ps(container=container, instance=instance, capture=True)
+    running = info(container=container, instance=instance, capture=True)
+
     if running:
         # TODO: imporve this part, return a dict or something from ps
         for item in running [0]:
@@ -227,7 +232,7 @@ def is_container_running(container, instance):
 
 def container_exits_but_not_running(container, instance):
     '''Returns True if the container is existent but not running,, False otherwise'''  
-    running = ps(container=container, instance=instance, capture=True, allstates=True)
+    running = info(container=container, instance=instance, capture=True)
     if running:
         # TODO: imporve this part, return a dict or something from ps
         for item in running [0]:
@@ -270,7 +275,7 @@ def get_container_ip(container, instance):
     ''' Get the IP address of a given container'''
     
     # Do not use .format as there are too many graph brackets    
-    IP = shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + container + '-' +instance, capture=True).stdout
+    IP = shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + PROJECT_NAME + '-' + container + '-' +instance, capture=True).stdout
     
     if IP:
         try:
@@ -303,10 +308,10 @@ def build(container=None, progress=False, debug=False):
     if container.upper()=='ALL':
         # Build everything then obtain which containers we have to build
         
-        print '\nBuilding all containers'
+        print '\nBuilding all containers in {}'.format(APPS_CONTAINERS_DIR)
         
         try:
-            with open(MY_CONTAINERS_DIR+'/build.conf') as f:
+            with open(APPS_CONTAINERS_DIR+'/build.conf') as f:
                 content = f.read().replace('\n','').replace('  ',' ')
                 containers_to_build = json.loads(content)
         except Exception, e:
@@ -318,14 +323,14 @@ def build(container=None, progress=False, debug=False):
     
     else:
         # Build a given container
-        print '\nBuilding container "{}"'.format(container)
+        print '\nBuilding container "{}" as "{}/{}"'.format(container, PROJECT_NAME, container)
         
         
         # Check for required files
         print 'Getting remote files...'
         
         # Build command 
-        build_command = 'cd ' + get_container_dir(container) + '/.. &&' + 'docker build -t dockerops/' + container + ' ' + container
+        build_command = 'cd ' + get_container_dir(container) + '/.. &&' + 'docker build -t ' + PROJECT_NAME +'/' + container + ' ' + container
         
         # Build
         print 'Building...'
@@ -341,6 +346,7 @@ def build(container=None, progress=False, debug=False):
 
 @task
 def start(container,instance):
+    '''Start a stopped container. Use only if you know what you are doing.''' 
     if container_exits_but_not_running(container,instance):
         shell('docker start {}-{}'.format(container,instance), silent=True)
     else:
@@ -357,11 +363,12 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     (container, instance) = sanity_checks(container, instance)
         
     if container == 'all':
-        
-        # Check for build.conf
-                 
+
+        print '\nRunning all containers in {}'.format(APPS_CONTAINERS_DIR)
+
+        # Check for build.conf                
         try:
-            with open(MY_CONTAINERS_DIR+'/run.conf') as f:
+            with open(APPS_CONTAINERS_DIR+'/run.conf') as f:
                 content = f.read().replace('\n','').replace('  ',' ')
                 containers_to_run_confs = json.loads(content)
         except Exception, e:
@@ -389,7 +396,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
         logger.setLevel(logging.DEBUG)      
 
     # Run a specific container
-    print '\nRunning container "{}", instance "{}"...'.format(container,instance)
+    print '\nRunning container "{}" ("{}/{}"), instance "{}"...'.format(container, PROJECT_NAME, container,instance)
 
     # Set switches
     linked          = setswitch(linked=linked, instance=instance)
@@ -398,6 +405,9 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     persistent_opt  = setswitch(persistent_opt=persistent_opt, instance=instance)
     expose_ports    = setswitch(expose_ports=expose_ports, instance=instance)
     safemode        = setswitch(safemode=safemode, instance=instance)
+
+    # Init container conf
+    container_conf = None
 
     # Check if this container is already running
     if is_container_running(container,instance):
@@ -426,13 +436,11 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     if is_container_registered(container):
         
         # If the container is registered, the the rules of the run.conf applies, so:
-        
-        container_conf = None
         requested_ENV_VARs = {}    
         
         # 1) Read the conf if any
         try:
-            with open(MY_CONTAINERS_DIR+'/run.conf') as f:
+            with open(APPS_CONTAINERS_DIR+'/run.conf') as f:
                 content = f.read().replace('\n','').replace('  ',' ')
                 containers_to_run_confs = json.loads(content)
         except Exception, e:
@@ -470,11 +478,11 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                     if host_conf is None:
                         # Try to load the host conf:
                         try:
-                            with open(MY_CONTAINERS_DIR+'/host.conf') as f:
+                            with open(APPS_CONTAINERS_DIR+'/host.conf') as f:
                                 content = f.read().replace('\n','').replace('  ',' ')
                                 host_conf = json.loads(content)
                         except ValueError,e:
-                            abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(MY_CONTAINERS_DIR+'/host.conf'))  
+                            abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(APPS_CONTAINERS_DIR+'/host.conf'))  
                         except IOError, e:
                             host_conf = {}
                             
@@ -487,7 +495,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                         requested_ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
                         
                         # Then, dump the conf #TODO: dump just at the end..
-                        with open(MY_CONTAINERS_DIR+'/host.conf', 'w') as outfile:
+                        with open(APPS_CONTAINERS_DIR+'/host.conf', 'w') as outfile:
                             json.dump(host_conf, outfile)
                     
 
@@ -507,7 +515,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     #    else:
     #        run_cmd += 'export {}="{}" && '.format(ENV_VAR, str(ENV_VARs[ENV_VAR]))
        
-    run_cmd += 'docker run --name {}-{} '.format(container,instance)
+    run_cmd += 'docker run --name {}-{}-{} '.format(PROJECT_NAME, container,instance)
 
     # Handle linking...
     if linked:
@@ -537,7 +545,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                     link_instance = running_instances[0]
 
                 # Now add linking flag for this link
-                run_cmd += ' --link {}:{}'.format(link_container+'-'+link_instance, link_name)
+                run_cmd += ' --link {}:{}'.format(PROJECT_NAME+'-'+link_container+'-'+link_instance, link_name)
                 
                 # Also, add an env var with the linked container IP
                 ENV_VARs[link_name+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
@@ -564,13 +572,12 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     # Run!
     logger.debug('Command: %s', run_cmd) 
     if interactive:
-        print 'here'
-        run_cmd += ' -i -t dockerops/{}:latest {}'.format(container, seed_command)
+        run_cmd += ' -i -t {}/{}:latest {}'.format(PROJECT_NAME, container, seed_command)
         local(run_cmd)
         shell('fab clean:container={},instance={}'.format(container,instance), silent=True)
         
     else:
-        run_cmd += ' -d -t dockerops/{}:latest {}'.format(container, seed_command)   
+        run_cmd += ' -d -t {}/{}:latest {}'.format(PROJECT_NAME, container, seed_command)   
         if not shell(run_cmd, silent=True):
             abort('Something failed')
         print "Done."
@@ -581,42 +588,82 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
 @task
 def clean(container=None, instance=None):
     '''Clean a given container. If container name is set to "all" then clean all the containers according 
-    to the run.conf file. If container name is set to "wide" then all containers on th host are cleaned'''
+    to the run.conf file. If container name is set to "reallyall" then all containers on th host are cleaned'''
+    
+    # TODO: project-> clean containers in run.conf in reverse order, then 
+    #        all -> clean all containers of this project
+    #       reallyall -> clean all docker containers on the system
     
     # Sanitize...
     (container, instance) = sanity_checks(container,instance)
     
     #all: list containers to clean (check run.conf first)
-    #wide: warn and clean all
+    #reallyall: warn and clean all
     
-    if container == 'wide':
+    if container == 'reallyall':
         
         print ''
-        if confirm('Clean containers widely? WARNING: this will stop and remove *really all* Docker containers running on this system!'):
-            print 'Cleaning all Docker containers on the system...'
+        if confirm('Clean all containers? WARNING: this will stop and remove *really all* Docker containers running on this host!'):
+            print 'Cleaning all Docker containers on the host...'
             shell('docker stop $(docker ps -a -q) &> /dev/null', silent=True)
             shell('docker rm $(docker ps -a -q) &> /dev/null', silent=True)
 
     elif container == 'all':
-        
-        print ('\nThis action will clean the following containers intances:')
+                
         # Get container list to clean
+        one_in_conf = False
         containers_run_conf = get_containers_run_conf()
-        for container_conf in containers_run_conf:
-            print ' - container "{}", instance "{}"'.format(container_conf['container'], container_conf['instance'])
+        containers_run_conf = []
+        for container_conf in get_containers_run_conf():
+            if is_container_running(container=container_conf['container'], instance=container_conf['instance']):
+                if not one_in_conf:
+                    print ('\nThis action will clean the following containers intances according to run.conf:')
+                    one_in_conf =True  
+                print ' - container "{}" ("{}/{}"), instance "{}"'.format(container_conf['container'], PROJECT_NAME, container_conf['container'], container_conf['instance'])
+                containers_run_conf.append({'container':container_conf['container'], 'instance':container_conf['instance']})
 
-        if confirm('Proceed?'):
+        # Understand if There is more
+        more_runnign_containers_conf = []
+        
+        for item in ps(capture=True):
+            container = item[-1].split(',')[0]
+            instance  = item[-1].split('=')[1]
+            registered = False
             for container_conf in containers_run_conf:
+                if container == container_conf['container'] and instance == container_conf['instance']:
+                    registered = True
+            if not registered:
+                more_runnign_containers_conf.append({'container':container, 'instance':instance})
+                
+        if one_in_conf and more_runnign_containers_conf:
+            print '\nMoreover, the following containers instances will be clean as well as part of this project:'
+        elif more_runnign_containers_conf:
+            print '\nThe following containers instances will be clean as part of this project:'
+        else:
+            pass
+
+        for container_conf in more_runnign_containers_conf:
+            print ' - container "{}" ("{}/{}"), instance "{}"'.format(container_conf['container'], PROJECT_NAME, container_conf['container'], container_conf['instance'])
+        
+        # Sum the two lists
+        containers_to_clean_conf = containers_run_conf + more_runnign_containers_conf
+        
+        if not containers_to_clean_conf:
+            print '\nNothign to clean, exiting..'
+            return
+        print ''
+        if confirm('Proceed?'):
+            for container_conf in containers_to_clean_conf:
                 print 'Cleaning conatiner "{}", instance "{}"..'.format(container_conf['container'], container_conf['instance'])          
-                shell("docker stop "+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
-                shell("docker rm "+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
+                shell("docker stop "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
+                shell("docker rm "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
                         
     else:
         if not instance:
             abort('Cleanng a given container without providing an instance is not yet supported')
         else:
-            shell("docker stop "+container+"-"+instance+" &> /dev/null", silent=True)
-            shell("docker rm "+container+"-"+instance+" &> /dev/null", silent=True)
+            shell("docker stop "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
+            shell("docker rm "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
                             
         
     
@@ -643,10 +690,12 @@ def ssh(container=None, instance=None):
 
 @task
 def help():
+    '''Show this help'''
     shell('fab --list', capture=False)
 
 @task
 def ip(container=None, instance=None):
+    '''Get a contaimer IP'''
 
     # Sanitize...
     (container, instance) = sanity_checks(container,instance)
@@ -655,35 +704,49 @@ def ip(container=None, instance=None):
     print 'IP address for container: ', get_container_ip(container, instance)
 
 
+
+
 # TODO: split in function plus task, allstates goes in the function
+
 @task
-def ps(container=None, instance=None, capture=False, allstates=False):
+def info(container=None, instance=None, capture=False):
+    '''Obtain info about a given container'''
+    return ps(container=container, instance=instance, capture=capture, info=True)
+
+@task
+def ps(container=None, instance=None, capture=False, onlyrunning=False, info=False):
     '''Info on runnign containers. Give a container name to obtain informations only about that specific container.
-    Use the magic words 'all' to list also the not running ones, and 'wide' to list also the containers not managed by
+    Use the magic words 'all' to list also the not running ones, and 'reallyall' to list also the containers not managed by
     DockerOps (both running and not running)'''
 
-    # Handle magic words all and wide
-    if container or allstates:# in ['all', 'wide']:
-        out = shell('docker ps -a', capture=True)
+    known_containers_fullnames          = None
+
+    if not container:
+        container = 'project'
+
+    if not info and container not in ['all', 'platform', 'project', 'reallyall']:
+        abort('Sorry, I do not understant the command "{}"'.format(container))
+
+    if container == 'platform':
+        known_containers_fullnames = [conf['container']+'-'+conf['instancef'] for conf in get_containers_run_conf()]
+        
+    # Handle magic words all and reallyall
+    if onlyrunning: # in ['all', 'reallyall']:
+        out = shell('docker ps', capture=True)
         
     else:
-        out = shell('docker ps', capture=True)
+        out = shell('docker ps -a', capture=True)
     
     # If error:
     if out.exit_code != 0:
         print format_shell_error(out.stdout, out.stderr, out.exit_code)
-    
-    # Handle wide filtering
-    if container != 'wide':
-        known_containers = [conf['container'] for conf in get_containers_run_conf()]
-    else:
-        known_containers = None
-    
+
     index=[]
     content=[]
     
     # TODO: improve, use the first char position of the index to parse. Also, use a better coding please..!    
     for line in str(out.stdout).split('\n'):
+        
         if not index:
             count = 0
             for item in str(line).split('  '):
@@ -698,10 +761,16 @@ def ps(container=None, instance=None, capture=False, allstates=False):
                     if item == 'NAMES':
                         container_name_position = count
                         
+                    if item == 'IMAGE':
+                        container_image_name_position = count    
+                        
+                        
                     count += 1
                     index.append(item)
                     
         else:
+            
+            image_name = None
             count = 0
             line_content = []
             for item in str(line).split('  '):
@@ -721,14 +790,25 @@ def ps(container=None, instance=None, capture=False, allstates=False):
                 line_content.append(line_content[5])
                 line_content[5] = None
 
+            
 
             # Convert container names
             for i, item in enumerate(line_content):
+                
+                if i == container_image_name_position:
+                    image_name = item
+                    
+                
                 if i == container_name_position:
 
+                    # If only project containers:
+                    if not image_name:
+                        abort('Sorry, internal error (image name not defined)')
+
+                    # Filtering agains defined dockers
                     # If a containe name was given, filter against it:
-                    if container and (not container in ['all', 'wide']):
-                        if item.startswith(container):
+                    if container and not container in ['all', 'platform', 'project', 'reallyall']:
+                        if item.startswith(PROJECT_NAME+'-'+container):
                             if instance and not item.endswith('-'+instance):
                                 continue
                         else:
@@ -740,31 +820,42 @@ def ps(container=None, instance=None, capture=False, allstates=False):
                         else: 
                             continue
  
-                    # Handle Dockerops containers container 
-                    if ('-' in item):
-                        if known_containers is not None:
-                            # Filter against known_containers
-                            if item.split('-')[0] not in known_containers:
+                    # Handle Dockerops containers container
+                    if ('-' in item) and (not container == 'reallyall') and (image_name.startswith(PROJECT_NAME+'/')):
+                        if known_containers_fullnames is not None:
+                            # Filter against known_containers_fullnames
+                            if item not in known_containers_fullnames:
                                 logger.info('Skipping container "{}" as it is not recognized by DockerOps. Use the "all" magic word to list them'.format(item))
                                 continue
                             else:
-                                # Add it
-                                instance = item.split('-')[-1]
-                                item = '-'.join(item.split('-')[0:-1]) + ',instance='+str(instance)
+                                
+                                # Remove project name:
+                                if not item.startswith(PROJECT_NAME):
+                                    raise Exception('Error: this container ("{}") is not part of this project ("{}")?!'.format(item, PROJECT_NAME))
+                                item = item[len(PROJECT_NAME)+1:]    
+                                
+                                # Add it 
+                                container_instance = item.split('-')[-1]
+                                item = '-'.join(item.split('-')[0:-1]) + ',instance='+str(container_instance)
                                 line_content[container_name_position] = item
                                 content.append(line_content)    
                                 
-                            
                         else:
+                            
+                            # Remove project name:
+                            if not item.startswith(PROJECT_NAME):
+                                raise Exception('Error: this container ("{}") is not part of this project ("{}")?!'.format(item, PROJECT_NAME))
+                            item = item[len(PROJECT_NAME)+1:]
+                            
                             # Add it
-                            instance = item.split('-')[-1]
-                            item = '-'.join(item.split('-')[0:-1]) + ',instance='+str(instance)
+                            container_instance = item.split('-')[-1]
+                            item = '-'.join(item.split('-')[0:-1]) + ',instance='+str(container_instance)
                             line_content[container_name_position] = item
                             content.append(line_content)
                             
                     # Handle non-Dockerops containers 
                     else:
-                        if container=='wide': 
+                        if container=='reallyall': 
                             line_content[container_name_position] = item
                             content.append(line_content)
                         else:

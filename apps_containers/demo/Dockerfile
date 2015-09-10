@@ -5,15 +5,7 @@ MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 # Demo Stuff
 #----------------------
 
-
-#----------------------
-# Startup
-#----------------------
-
-ENTRYPOINT ["/docker-entrypoint.sh"]
-
-
-
+# apt-get install -y somepackage
 
 
 

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# Find DockerOps software directory
+
+# Credits: http://www.cyberciti.biz/faq/unix-linux-appleosx-bsd-bash-script-find-what-directory-itsstoredin/
+
+# Who am i?
+_script="$(readlink -f ${BASH_SOURCE[0]})"
+
+# Delete last component from $_script
+_base="$(dirname $_script)"
+
+# Set some default env vars
+if [ -z "$APPS_CONTAINERS_DIR" ]; then
+    # DEBUGecho "Defaulting apps_containers dir"
+    export APPS_CONTAINERS_DIR="$(pwd)/apps_containers"
+fi
+
+# Set some default env vars
+if [ -z "$PROJECT_NAME" ]; then
+    # DEBUG echo "Defaulting project name"
+    PWD=$(pwd)
+    export PROJECT_NAME="${PWD##*/}"
+fi
+
+
+cd $_base
+
+if [[ $# -eq 0 ]] ; then
+    fab help
+else
+    fab $@
+fi
+
