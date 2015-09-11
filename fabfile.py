@@ -285,6 +285,24 @@ def get_container_ip(container, instance):
             
     return IP
 
+
+
+#--------------------------
+# Installation management
+#--------------------------
+
+@task
+def install(how=''):
+    '''Install DockerOps (user/root)'''
+    shell(os.getcwd()+'/install.sh {}'.format(how), interactive=True)
+
+@task
+def uninstall(how=''):
+    '''Uninstall DockerOps (user/root)'''
+    shell(os.getcwd()+'/uninstall.sh {}'.format(how), interactive=True)
+
+
+
 #--------------------------
 # Containers management
 #--------------------------
@@ -506,16 +524,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                   The idea is to look in the entrypoint to obtain the ports to expose')
             
     # Start building run command
-    run_cmd = ''
-    
-    # TODO: is this approach still required?
-    #for ENV_VAR in ENV_VARs:
-    #    if isinstance(ENV_VAR, bool) or isinstance(ENV_VAR, float) or isinstance(ENV_VAR, int):
-    #        run_cmd += 'export {}={} && '.format(ENV_VAR, ENV_VARs[ENV_VAR])
-    #    else:
-    #        run_cmd += 'export {}="{}" && '.format(ENV_VAR, str(ENV_VARs[ENV_VAR]))
-       
-    run_cmd += 'docker run --name {}-{}-{} '.format(PROJECT_NAME, container,instance)
+    run_cmd = 'docker run --name {}-{}-{} '.format(PROJECT_NAME, container,instance)
 
     # Handle linking...
     if linked:
