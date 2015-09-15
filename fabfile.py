@@ -22,11 +22,12 @@ from collections import namedtuple
 # Conf
 #--------------------------
 
-DATA_DIR            = os.getenv('DATA_DIR', '/data/docker_data')
+PROJECT_NAME        = os.getenv('PROJECT_NAME', 'dockerops').lower()
+DATA_DIR            = os.getenv('DATA_DIR', './data')
 APPS_CONTAINERS_DIR = os.getenv('APPS_CONTAINERS_DIR', os.getcwd() + '/apps_containers')
 BASE_CONTAINERS_DIR = os.getenv('BASE_CONTAINERS_DIR', os.getcwd() + '/base_containers')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
-PROJECT_NAME        = os.getenv('PROJECT_NAME', 'dockerops').lower()
+
 
 # Defaults   
 defaults={}
