@@ -1,4 +1,5 @@
-**WARNING: this is alpha software under heavy development. First beta release is foreseen for October 2015.**
+**WARNING: this is alpha software under heavy development.**  
+**First beta release is foreseen for October 2015.**
 
 If you are interested in contributing please drop me a line at stefano.russo@gmail.com.
 
@@ -6,7 +7,7 @@ If you are interested in contributing please drop me a line at stefano.russo@gma
 DockerOps
 ===
 
-Simple yet powerful Docker operations orchestratorfor managing entire platforms. Allows to speed up both Dev (every developer can run its own instance of the platform) and Ops (what is put in production is deterministically tested before). 
+Simple yet powerful Docker operations orchestrator for managing entire platforms. Allows to speed up both Dev (every developer can run its own instance of the platform) and Ops (what is put in production is deterministically tested before). 
 
 Prerequisites
 ---
@@ -26,18 +27,22 @@ Quick start
 
 `cd DockerOps`
 
-`fab build:all` (Several minutes, use fab build:all,progress=True for verbose output)
+`./install.sh`
 
-`fab run:all` (Whatever value is fine for HOST_FQDN)
+Exit and re-open terminal
 
-`fab ps`
+`dockerops build:all` (Several minutes, use `dockerops build:all,progress=True` for verbose output)
 
-`fab ssh:demo`
+`dockerops run:all` (Whatever value is fine for HOST_FQDN)
 
-`ssh $BASE_IP_ADDRESS` (in the Docker)
+`dockerops ps`
 
-`exit` (in the Docker)
+`dockerops ssh:demo`
 
-`exit` (in the Docker)
+`ssh $BASE_CONTAINER_IP` (in the Docker, you are now connecting to the base Docker)
 
-`fab clean.all`
+`exit` (in the base Docker)
+
+`exit` (in the demo Docker)
+
+`dockerops clean:all`
