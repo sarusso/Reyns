@@ -16,14 +16,14 @@ from fabric.contrib.console import confirm
 from subprocess import Popen, PIPE
 from collections import namedtuple
 
-# TODO: Check taht we are in teh directory of the fab and not in one of its subfolders, abort in case
 
 #--------------------------
 # Conf
 #--------------------------
 
 PROJECT_NAME        = os.getenv('PROJECT_NAME', 'dockerops').lower()
-DATA_DIR            = os.getenv('DATA_DIR', './data')
+PROJECT_DIR         = os.getenv('PROJECT_DIR', os.getcwd())
+DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/' + PROJECT_NAME + '_data')
 APPS_CONTAINERS_DIR = os.getenv('APPS_CONTAINERS_DIR', os.getcwd() + '/apps_containers')
 BASE_CONTAINERS_DIR = os.getenv('BASE_CONTAINERS_DIR', os.getcwd() + '/base_containers')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
@@ -98,9 +98,10 @@ def sanity_checks(container, instance=None):
     
     # Check container source if build:
     if build and container != 'all':
+        print 'HEYYY', container, get_container_dir(container)
         container_dir = get_container_dir(container)
         if not os.path.exists(container_dir):
-            abort('This container ("{}") does not have a source directory. I was looking for "{}".'.format(container, container_dir))
+            abort('I cannot find this container ("{}") source directory. Are you in the projet\'s root? I was looking for "{}".'.format(container, container_dir))
             
     return (container, instance)
 
@@ -126,6 +127,8 @@ def get_running_instances_matching(container):
 
 
 def get_container_dir(container=None):
+    if not container:
+        raise Exception('get_container_dir: container is required, got "{}"'.format(container))
     #logger.debug('Requested container dir for container %s', container )
     if container == 'dockerops-base':
         return BASE_CONTAINERS_DIR + '/' + container
@@ -343,10 +346,9 @@ def build(container=None, progress=False, debug=False):
     else:
         # Build a given container
         print '\nBuilding container "{}" as "{}/{}"'.format(container, PROJECT_NAME, container)
-        
-        
-        # Check for required files
-        print 'Getting remote files...'
+                
+        # TODO: Check for required files. Use a local Cahce? use a checksum? Where to put the conf? a files.json in container's source dir?
+        # print 'Getting remote files...'
         
         # Build command 
         build_command = 'cd ' + get_container_dir(container) + '/.. &&' + 'docker build -t ' + PROJECT_NAME +'/' + container + ' ' + container
@@ -373,7 +375,8 @@ def start(container,instance):
 
 
 @task
-def run(container=None, instance=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, expose_ports=False, linked=None, interactive=False, seed_command=None, debug=False):
+# TODO: clarify difference between False and None.
+def run(container=None, instance=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, expose_ports=None, linked=None, interactive=False, seed_command=None, debug=False):
     '''Run a given container with a given instance. In no instance name is set,
     a standard insatnce with a random name is run. If container name is set to "all"
     then all the containers are run, according  to the run.conf file.'''
@@ -447,8 +450,8 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                 'CONTAINER': container,
                 'INSTANCE':  instance,
                 'PERSISTENT_DATA': persistent_data,
-                'PERSISTENT_LOG': persistent_data,
-                'PERSISTENT_OPT': persistent_data,
+                'PERSISTENT_LOG': persistent_log,
+                'PERSISTENT_OPT': persistent_opt,
                 }
     
     # Check if this container is listed in the run.conf:
@@ -516,9 +519,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                         # Then, dump the conf #TODO: dump just at the end..
                         with open(APPS_CONTAINERS_DIR+'/host.conf', 'w') as outfile:
                             json.dump(host_conf, outfile)
-                    
-
-    
+                     
         # Handle master instance non registered.
         if instance == 'master' and not is_container_registered(container):
             abort('Sorry, a master instance not registered is not yet supported. \
@@ -559,6 +560,52 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                 
                 # Also, add an env var with the linked container IP
                 ENV_VARs[link_name+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
+
+    # Handle persistency
+    if persistent_data or persistent_log or persistent_opt:
+
+        # Check project data dir exists:
+        if not os.path.exists(DATA_DIR):
+            logger.debug('Data dir not existent, creating it.. ({})'.format(DATA_DIR))
+            os.makedirs(DATA_DIR)
+            
+        # Check container instance dir exists:
+        container_instance_dir = DATA_DIR + '/' + container + '_' + instance
+        if not os.path.exists(container_instance_dir):
+            logger.debug('Data dir for container instance not existent, creating it.. ({})'.format(container_instance_dir))
+            os.mkdir(container_instance_dir)
+        
+        # Now mount the dir in /persistent in the Docker: here we just provide a persistent storage int he Docker conatiner.
+        # the handling of data, opt and log is done in the Dockerfile.
+        run_cmd += ' -v {}:/persistent'.format(container_instance_dir)    
+
+    # Handle exposed ports
+    if expose_ports:
+
+        # Obtain the ports to expose from the Dockerfile
+        try:
+            with open(get_container_dir(container)+'/Dockerfile') as f:
+                content = f.readlines()
+        except IOError:
+            abort('No Dockerfile found (?!) I was looiking in {}'.format(get_container_dir(container)+'/Dockerfile'))
+        
+        ports =[]
+        for line in content:
+            if line.startswith('EXPOSE'):
+                # Clean up the line
+                line_clean =  line.replace('\n','').replace(' ','').replace('EXPOSE','')
+                for port in line_clean.split(','):
+                    try:
+                        # Append while validating
+                        ports.append(int(port))
+                    except ValueError:
+                        abort('Got unknown port from container\'s dockerfile: "{}"'.format(port))
+
+        for port in ports:
+            internal_port = port
+            external_port = port
+            run_cmd += ' -p {}:{}'.format(internal_port, external_port)
+
 
     # Add env vars..
     for ENV_VAR in ENV_VARs:  

@@ -12,11 +12,16 @@ _base="$(dirname $_script)"
 
 # Set some default env vars
 if [ -z "$APPS_CONTAINERS_DIR" ]; then
-    # DEBUGecho "Defaulting apps_containers dir"
+    # DEBUG echo "Defaulting apps_containers dir"
     export APPS_CONTAINERS_DIR="$(pwd)/apps_containers"
 fi
 
 # Set some default env vars
+if [ -z "$PROJECT_DIR" ]; then
+    # DEBUG echo "Defaulting project_dir dir"
+    export PROJECT_DIR="$(pwd)"
+fi
+
 if [ -z "$PROJECT_NAME" ]; then
     # DEBUG echo "Defaulting project name"
     PWD=$(pwd)
