@@ -23,7 +23,7 @@ from collections import namedtuple
 
 PROJECT_NAME        = os.getenv('PROJECT_NAME', 'dockerops').lower()
 PROJECT_DIR         = os.getenv('PROJECT_DIR', os.getcwd())
-DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/' + PROJECT_NAME + '_data')
+DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/data_' + PROJECT_NAME)
 APPS_CONTAINERS_DIR = os.getenv('APPS_CONTAINERS_DIR', os.getcwd() + '/apps_containers')
 BASE_CONTAINERS_DIR = os.getenv('BASE_CONTAINERS_DIR', os.getcwd() + '/base_containers')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
@@ -441,7 +441,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     if container_exits_but_not_running(container,instance):
         if instance=='safemode':
             # Only for safemode instances we take the right of cleaning
-            shell('fab clean:{},isnatnce=safemode'.format(container), silent=True)
+            shell('fab clean:{},instance=safemode'.format(container), silent=True)
         else:
             abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking would be end up broken. Use fab clean:{0},instance={1} to clean it and start over clean, or fab start:{0},instance={1} if you know what you are doing.'.format(container,instance))
   
