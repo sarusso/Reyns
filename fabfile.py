@@ -1,4 +1,4 @@
-#--------------------------
+W#--------------------------
 # Imports
 #--------------------------
 
@@ -98,7 +98,7 @@ def sanity_checks(container, instance=None):
     
     # Check container source if build:
     if build and container != 'all':
-        print 'HEYYY', container, get_container_dir(container)
+        
         container_dir = get_container_dir(container)
         if not os.path.exists(container_dir):
             abort('I cannot find this container ("{}") source directory. Are you in the projet\'s root? I was looking for "{}".'.format(container, container_dir))
