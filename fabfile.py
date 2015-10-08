@@ -15,6 +15,7 @@ from fabric.api import task
 from fabric.contrib.console import confirm
 from subprocess import Popen, PIPE
 from collections import namedtuple
+from time import sleep
 
 
 #--------------------------
@@ -313,7 +314,7 @@ def uninstall(how=''):
 
 
 @task
-def build(container=None, progress=False, debug=False):
+def build(container=None, verbose=False, progress=False, debug=False):
     '''Build a given container. If container name is set to "all" then builds all the containers'''
 
     # Sanitize...
@@ -321,7 +322,12 @@ def build(container=None, progress=False, debug=False):
 
     # Switches
     progress = booleanize(progress=progress)
+    verbose  = booleanize(verbose=verbose)
     debug    = booleanize(progress=progress)
+    
+    # Backcomp #TODO: remove 'progress'
+    if verbose:
+        progress = True
     
     # Handle debug swicth:
     if debug:
@@ -472,7 +478,11 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
             if (container == item['container']) and instance == item['instance']:
                 logger.debug('Found conf for container "%s", instance "%s"', container, instance)
                 container_conf = item 
-            
+            # If instance in the conf is set to star, it then applied to every instance
+            elif (container == item['container']) and not item['instance']:
+                logger.debug('Found global conf for container "%s", instance "%s"', container, instance)
+                container_conf = item 
+                            
         # 2) Now, enumerate the vars required by this container:
         if container_conf and 'env_vars' in container_conf:
             requested_ENV_VARs = {var:container_conf['env_vars'][var] for var in container_conf['env_vars']} if 'env_vars' in container_conf else {}
@@ -638,7 +648,13 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
         if not shell(run_cmd, silent=True):
             abort('Something failed')
         print "Done."
-    
+   
+    # In the end, the sleep..
+    if container_conf and 'sleep' in container_conf:
+        to_sleep = int(container_conf['sleep'])
+        if to_sleep:
+            print "Now sleeping {} second to allow container setup...".format(to_sleep)
+            sleep(to_sleep)
  
     
     
@@ -865,7 +881,7 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
                     # Filtering agains defined dockers
                     # If a containe name was given, filter against it:
                     if container and not container in ['all', 'platform', 'project', 'reallyall']:
-                        if item.startswith(PROJECT_NAME+'-'+container):
+                        if item.startswith(PROJECT_NAME+'-'+container+'-'):
                             if instance and not item.endswith('-'+instance):
                                 continue
                         else:
