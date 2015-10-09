@@ -699,8 +699,9 @@ def clean(container=None, instance=None):
         more_runnign_containers_conf = []
         
         for item in ps(capture=True):
-            container = item[-1].split(',')[0]
-            instance  = item[-1].split('=')[1]
+            # TODO: let ps return a list of namedtuples..
+            container = item[6].split(',')[0]
+            instance  = item[6].split('=')[1]
             registered = False
             for container_conf in containers_run_conf:
                 if container == container_conf['container'] and instance == container_conf['instance']:
@@ -846,7 +847,7 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
             image_name = None
             count = 0
             line_content = []
-            print line
+
             for item in str(line).split('  '):
                 if item:
                     count += 1
