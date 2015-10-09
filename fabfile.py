@@ -653,7 +653,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     if container_conf and 'sleep' in container_conf:
         to_sleep = int(container_conf['sleep'])
         if to_sleep:
-            print "Now sleeping {} second to allow container setup...".format(to_sleep)
+            print "Now sleeping {} seconds to allow container setup...".format(to_sleep)
             sleep(to_sleep)
  
     
@@ -846,15 +846,19 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
             image_name = None
             count = 0
             line_content = []
+            print line
             for item in str(line).split('  '):
                 if item:
                     count += 1
-                    if item[0]==' ':
-                        item = item[1:]
+                    try:
+                        #Remove leading and trailing spaces
+                        if item[0]==' ':
+                            item = item[1:]
 
-                    if item[-1]==' ':
-                        item = item[:-1]                    
-                    # Parse container name
+                        if item[-1]==' ':
+                            item = item[:-1]                  
+                    except IndexError:
+                        pass
                     
                     line_content.append(item)
                     # DEBUGprint count, item
