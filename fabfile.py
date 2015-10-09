@@ -792,6 +792,9 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
     Use the magic words 'all' to list also the not running ones, and 'reallyall' to list also the containers not managed by
     DockerOps (both running and not running)'''
 
+    # TODO: this function has to be COMPLETELY refactored. Please do not look at this code.
+    # TODO: return a list of namedtuples instead of a list of lists
+
     known_containers_fullnames          = None
 
     if not container:
@@ -823,6 +826,11 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
         if not index:
             count = 0
             for item in str(line).split('  '):
+                
+                # Clean...
+                if not item or item == '\n' or item == " ":
+                    continue
+                
                 if item:    
                     if item[0]==' ':
                         item = item[1:]
@@ -848,6 +856,11 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
             line_content = []
 
             for item in str(line).split('  '):
+                
+                # Clean...
+                if not item or item == '\n' or item == " ":
+                    continue
+                
                 if item:
                     count += 1
                     try:
