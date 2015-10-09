@@ -115,13 +115,12 @@ def get_running_instances_matching(container):
         # TODO: Again, ps with capture on returns a list but shoudl return a dict.
         for container in running:
             fullname = container[-1]
-
             if ',instance=' in fullname:
                 instances.append(fullname.split('=')[1])
             elif '-' in fullname:
                 instances.append(fullname.split('-')[1])
             else:
-                logger.warnign('Got inkinw name format from ps: "{}".format(fullname)')
+                logger.warning('Got unknown name format from ps: "{}"'.format(fullname))
                
             
     return instances
@@ -659,7 +658,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     
     
 @task
-def clean(container=None, instance=None):
+def clean(container=None, instance=None, yes=False):
     '''Clean a given container. If container name is set to "all" then clean all the containers according 
     to the run.conf file. If container name is set to "reallyall" then all containers on th host are cleaned'''
     
@@ -700,8 +699,8 @@ def clean(container=None, instance=None):
         
         for item in ps(capture=True):
             # TODO: let ps return a list of namedtuples..
-            container = item[6].split(',')[0]
-            instance  = item[6].split('=')[1]
+            container = item[-1].split(',')[0]
+            instance  = item[-1].split('=')[1]
             registered = False
             for container_conf in containers_run_conf:
                 if container == container_conf['container'] and instance == container_conf['instance']:
@@ -939,8 +938,6 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
                         else:
                             continue
   
-                    
-    
     #-------------------
     # Print output
     #-------------------
