@@ -85,8 +85,9 @@ def sanity_checks(container, instance=None):
             if len(running_instances) > 1:
                 if clean:
                     abort('Found more than one running instance for container "{}": {}, please specity wich one.'.format(container, running_instances))            
-                else:
-                    logger.info('Found more than one running instance for container "{}": {}, using the first one ("{}")..'.format(container, running_instances, running_instances[0]))            
+                else:         
+                    if not confirm('WARNING: I found more than one running instance for container "{}": {}, i will be using the first one ("{}"). Porceed?'.format(container, running_instances, running_instances[0])) :
+                        abort('Stopped.')
             instance = running_instances[0]
         
     if instance and build:
@@ -735,6 +736,7 @@ def clean(container=None, instance=None, yes=False):
         if not instance:
             abort('Cleanng a given container without providing an instance is not yet supported')
         else:
+            print 'Cleaning conatiner "{}", instance "{}"..'.format(container,instance)          
             shell("docker stop "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
             shell("docker rm "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
                             
