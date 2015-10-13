@@ -403,17 +403,20 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
             abort('Got error in reading run.conf for automated execution: {}'.format(e))
         
         for container_conf in containers_to_run_confs:
-            
-            # Recursively call myself with proper args. The args of the call always win over the configuration(s)
-            run(container       = container_conf['container'],
-                instance        = container_conf['instance'],
-                persistent_data = persistent_data if persistent_data is not None else (container_conf['persistent_data'] if 'persistent_data' in container_conf else None),
-                persistent_log  = persistent_log  if persistent_log  is not None else (container_conf['persistent_log']  if 'persistent_log'  in container_conf else None),
-                persistent_opt  = persistent_opt  if persistent_opt  is not None else (container_conf['persistent_opt']  if 'persistent_opt'  in container_conf else None),
-                expose_ports    = expose_ports    if expose_ports    is not None else (container_conf['expose_ports']    if 'expose_ports'    in container_conf else None),
-                linked          = linked          if linked          is not None else (container_conf['linked']          if 'linked'          in container_conf else None),
-                safemode        = safemode,
-                debug           = debug)
+
+            # If instance in the conf is set to null, do not run the container.
+            if container_conf['instance']:
+                
+                # Recursively call myself with proper args. The args of the call always win over the configuration(s)
+                run(container       = container_conf['container'],
+                    instance        = container_conf['instance'],
+                    persistent_data = persistent_data if persistent_data is not None else (container_conf['persistent_data'] if 'persistent_data' in container_conf else None),
+                    persistent_log  = persistent_log  if persistent_log  is not None else (container_conf['persistent_log']  if 'persistent_log'  in container_conf else None),
+                    persistent_opt  = persistent_opt  if persistent_opt  is not None else (container_conf['persistent_opt']  if 'persistent_opt'  in container_conf else None),
+                    expose_ports    = expose_ports    if expose_ports    is not None else (container_conf['expose_ports']    if 'expose_ports'    in container_conf else None),
+                    linked          = linked          if linked          is not None else (container_conf['linked']          if 'linked'          in container_conf else None),
+                    safemode        = safemode,
+                    debug           = debug)
                 
         # Exit
         return
@@ -475,13 +478,12 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
             abort('Got error in reading run.conf for loading container info: {}'.format(e))        
     
         for item in containers_to_run_confs:
-            if (container == item['container']) and instance == item['instance']:
+            # The configuration for a given container is ALWAYS applied.
+            # TODO: Allow to have diffrent confs per different instances? COuld be useful for linking a node with a given server. 
+            # i.e. node instance A with server instance A, node instance B with server instance B. 
+            if (container == item['container']):
                 logger.debug('Found conf for container "%s", instance "%s"', container, instance)
-                container_conf = item 
-            # If instance in the conf is set to star, it then applied to every instance
-            elif (container == item['container']) and not item['instance']:
-                logger.debug('Found global conf for container "%s", instance "%s"', container, instance)
-                container_conf = item 
+                container_conf = item
                             
         # 2) Now, enumerate the vars required by this container:
         if container_conf and 'env_vars' in container_conf:
@@ -542,13 +544,14 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     if linked:
         if container_conf and 'links' in container_conf:
             for link in container_conf['links']:
-                
+                if not link:
+                    continue
                 # Shortcuts
                 link_name      = link['name']
                 link_container = link['container']
                 link_instance  = link['instance']
 
-                # Validate: detet if there is a running container for link['container'], link['instance']
+                # Validate: detect if there is a running container for link['container'], link['instance']
                 if link_instance:
                     # If a given instance name has been specified, we just need to check taht this container is running with this instance
                     
@@ -688,7 +691,8 @@ def clean(container=None, instance=None, force =False):
         containers_run_conf = get_containers_run_conf()
         containers_run_conf = []
         for container_conf in get_containers_run_conf():
-            if is_container_running(container=container_conf['container'], instance=container_conf['instance']):
+            if is_container_running(container=container_conf['container'], instance=container_conf['instance']) \
+              or container_exits_but_not_running(container=container_conf['container'], instance=container_conf['instance']):
                 if not one_in_conf:
                     print ('\nThis action will clean the following containers intances according to run.conf:')
                     one_in_conf =True  
