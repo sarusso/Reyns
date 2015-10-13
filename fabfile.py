@@ -597,7 +597,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
             with open(get_container_dir(container)+'/Dockerfile') as f:
                 content = f.readlines()
         except IOError:
-            abort('No Dockerfile found (?!) I was looiking in {}'.format(get_container_dir(container)+'/Dockerfile'))
+            abort('No Dockerfile found (?!) I was looking in {}'.format(get_container_dir(container)+'/Dockerfile'))
         
         ports =[]
         for line in content:
@@ -659,7 +659,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     
     
 @task
-def clean(container=None, instance=None, yes=False):
+def clean(container=None, instance=None, force =False):
     '''Clean a given container. If container name is set to "all" then clean all the containers according 
     to the run.conf file. If container name is set to "reallyall" then all containers on th host are cleaned'''
     
@@ -726,7 +726,7 @@ def clean(container=None, instance=None, yes=False):
             print '\nNothign to clean, exiting..'
             return
         print ''
-        if confirm('Proceed?'):
+        if force or confirm('Proceed?'):
             for container_conf in containers_to_clean_conf:
                 print 'Cleaning conatiner "{}", instance "{}"..'.format(container_conf['container'], container_conf['instance'])          
                 shell("docker stop "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
@@ -900,11 +900,20 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
                     # Filtering agains defined dockers
                     # If a containe name was given, filter against it:
                     if container and not container in ['all', 'platform', 'project', 'reallyall']:
-                        if item.startswith(PROJECT_NAME+'-'+container+'-'):
-                            if instance and not item.endswith('-'+instance):
+                        
+                        # Here we are filtering
+                        if container[-1] == '*':
+                            if item.startswith(PROJECT_NAME+'-'+container[0:-1]):
+                                if instance and not item.endswith('-'+instance):
+                                    continue
+                            else:
                                 continue
                         else:
-                            continue
+                            if item.startswith(PROJECT_NAME+'-'+container+'-'):
+                                if instance and not item.endswith('-'+instance):
+                                    continue
+                            else:
+                                continue
                         
                     if instance:
                         if item.endswith('-'+instance):
