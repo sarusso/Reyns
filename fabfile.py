@@ -79,16 +79,18 @@ def sanity_checks(container, instance=None):
             instance = str(uuid.uuid4())[0:8]
             
         if ssh or (clean and not container in ['all', 'reallyall']) or ip:
-            running_instances = get_running_instances_matching(container)         
+            running_instances = get_running_conatiners_instances_matching(container)         
             if len(running_instances) == 0:
-                abort('Could not find any running instance of container "{}"'.format(container))                
+                if not clean:
+                    abort('Could not find any running instance of container matching "{}"'.format(container))                
             if len(running_instances) > 1:
                 if clean:
                     abort('Found more than one running instance for container "{}": {}, please specity wich one.'.format(container, running_instances))            
                 else:         
                     if not confirm('WARNING: I found more than one running instance for container "{}": {}, i will be using the first one ("{}"). Porceed?'.format(container, running_instances, running_instances[0])) :
                         abort('Stopped.')
-            instance = running_instances[0]
+                container = running_instances[0][0]
+                instance  = running_instances[0][1]
         
     if instance and build:
         abort('The build command does not make sense with an instance name (got "{}")'.format(instance))
@@ -108,8 +110,14 @@ def sanity_checks(container, instance=None):
     return (container, instance)
 
 
-def get_running_instances_matching(container):
-    running =  info(container=container, capture=True)
+def get_running_conatiners_instances_matching(container,instance=None):
+    '''Return a list of [container_name, instance_name] mathcing the request.
+    Examples args:
+      container = postgres_2.4, instanceo=one
+      container = postgres_2.4, instanceo=None
+      container = postgres_*,instance=one
+      container = postgres_*,instance=None'''
+    running =  info(container=container, instance=instance, capture=True)
     instances = []
     if running:
         
@@ -117,9 +125,12 @@ def get_running_instances_matching(container):
         for container in running:
             fullname = container[-1]
             if ',instance=' in fullname:
-                instances.append(fullname.split('=')[1])
+                found_container = fullname.split(',')[0]
+                found_instance  = fullname.split('=')[1]
+                instances.append([found_container,found_instance])
+                
             elif '-' in fullname:
-                instances.append(fullname.split('-')[1])
+                raise Exception('Deprecated, fix me!!')
             else:
                 logger.warning('Got unknown name format from ps: "{}"'.format(fullname))
                
@@ -452,7 +463,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
             # Only for safemode instances we take the right of cleaning
             shell('fab clean:{},instance=safemode'.format(container), silent=True)
         else:
-            abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking would be end up broken. Use fab clean:{0},instance={1} to clean it and start over clean, or fab start:{0},instance={1} if you know what you are doing.'.format(container,instance))
+            abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking would be end up broken. Use dockerops clean:{0},instance={1} to clean it and start over clean, or dockerops start:{0},instance={1} if you know what you are doing.'.format(container,instance))
   
     # Obtain env vars to set. First, the always present ones
     ENV_VARs = {
@@ -543,6 +554,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     # Handle linking...
     if linked:
         if container_conf and 'links' in container_conf:
+
             for link in container_conf['links']:
                 if not link:
                     continue
@@ -551,22 +563,18 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                 link_container = link['container']
                 link_instance  = link['instance']
 
+                running_instances = get_running_conatiners_instances_matching(container) 
+
                 # Validate: detect if there is a running container for link['container'], link['instance']
-                if link_instance:
-                    # If a given instance name has been specified, we just need to check taht this container is running with this instance
-                    
-                    if not is_container_running(link_container, link_instance):
-                        abort('Could not find the container "{}", instance "{}" which is required for linking by container "{}", instance "{}"'.format(link_container, link_instance, container, instance))             
-  
-                else:
-                    
-                    # Obtain any running instance
-                    running_instances = get_running_instances_matching(link_container)         
-                    if len(running_instances) == 0:
-                        abort('Could not find any running instance of container "{}" which is required for linking by container "{}", instance "{}"'.format(link_container, container, instance))             
-                    if len(running_instances) > 1:
-                        logger.info('Found more than one running instance for container "{}" which is required for linking: {}. I will use the first one ({})..'.format(link_container, running_instances, running_instances[0]))   
-                    link_instance = running_instances[0]
+
+                # Obtain any running instance
+                running_instances = get_running_conatiners_instances_matching(link_container)         
+                if len(running_instances) == 0:
+                    abort('Could not find any running instance of container matching "{}" which is required for linking by container "{}", instance "{}"'.format(link_container, container, instance))             
+                if len(running_instances) > 1:
+                    logger.info('Found more than one running instance for container "{}" which is required for linking: {}. I will use the first one ({})..'.format(link_container, running_instances, running_instances[0]))   
+                link_container = running_instances[0][0]
+                link_instance  = running_instances[0][1]
 
                 # Now add linking flag for this link
                 run_cmd += ' --link {}:{}'.format(PROJECT_NAME+'-'+link_container+'-'+link_instance, link_name)
@@ -738,7 +746,7 @@ def clean(container=None, instance=None, force =False):
                         
     else:
         if not instance:
-            abort('Cleanng a given container without providing an instance is not yet supported')
+            print 'I did not find any running instance to clean, exiting..'
         else:
             print 'Cleaning conatiner "{}", instance "{}"..'.format(container,instance)          
             shell("docker stop "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
