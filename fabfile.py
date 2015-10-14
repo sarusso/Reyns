@@ -699,6 +699,8 @@ def clean(container=None, instance=None, force =False):
         containers_run_conf = get_containers_run_conf()
         containers_run_conf = []
         for container_conf in get_containers_run_conf():
+            if not container_conf['instance']:
+                continue
             if is_container_running(container=container_conf['container'], instance=container_conf['instance']) \
               or container_exits_but_not_running(container=container_conf['container'], instance=container_conf['instance']):
                 if not one_in_conf:
@@ -740,10 +742,13 @@ def clean(container=None, instance=None, force =False):
         print ''
         if force or confirm('Proceed?'):
             for container_conf in containers_to_clean_conf:
-                print 'Cleaning conatiner "{}", instance "{}"..'.format(container_conf['container'], container_conf['instance'])          
-                shell("docker stop "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
-                shell("docker rm "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
-                        
+                if not container_conf['instance']:
+                    print 'WARNING: I Cannot clean {}, instance='.format(container_conf['container'], container_conf['instance'])
+                else:
+                    print 'Cleaning conatiner "{}", instance "{}"..'.format(container_conf['container'], container_conf['instance'])          
+                    shell("docker stop "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
+                    shell("docker rm "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
+                            
     else:
         if not instance:
             print 'I did not find any running instance to clean, exiting..'
