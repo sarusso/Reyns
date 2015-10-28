@@ -46,7 +46,7 @@ RUN chown -R dockerops:dockerops /home/dockerops/.ssh
 # No pass sudo (for everyone, actually)
 COPY sudoers /etc/sudoers
 
-# bash_profile for loading corrct end (/env.sh created by docker-entrypoint-common.sh)
+# bash_profile for loading correct end (/env.sh created by docker-entrypoint-common.sh)
 RUN echo "source /env.sh" > /home/dockerops/.bash_profile
 
 #------------------------

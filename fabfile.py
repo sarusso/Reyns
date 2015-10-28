@@ -87,7 +87,7 @@ def sanity_checks(container, instance=None):
                 if clean:
                     abort('Found more than one running instance for container "{}": {}, please specity wich one.'.format(container, running_instances))            
                 else:         
-                    if not confirm('WARNING: I found more than one running instance for container "{}": {}, i will be using the first one ("{}"). Porceed?'.format(container, running_instances, running_instances[0])) :
+                    if not confirm('WARNING: I found more than one running instance for container "{}": {}, i will be using the first one ("{}"). Proceed?'.format(container, running_instances, running_instances[0])) :
                         abort('Stopped.')
                 container = running_instances[0][0]
                 instance  = running_instances[0][1]
@@ -105,13 +105,13 @@ def sanity_checks(container, instance=None):
         
         container_dir = get_container_dir(container)
         if not os.path.exists(container_dir):
-            abort('I cannot find this container ("{}") source directory. Are you in the projet\'s root? I was looking for "{}".'.format(container, container_dir))
+            abort('I cannot find this container ("{}") source directory. Are you in the project\'s root? I was looking for "{}".'.format(container, container_dir))
             
     return (container, instance)
 
 
 def get_running_conatiners_instances_matching(container,instance=None):
-    '''Return a list of [container_name, instance_name] mathcing the request.
+    '''Return a list of [container_name, instance_name] matching the request.
     Examples args:
       container = postgres_2.4, instanceo=one
       container = postgres_2.4, instanceo=None
@@ -121,7 +121,7 @@ def get_running_conatiners_instances_matching(container,instance=None):
     instances = []
     if running:
         
-        # TODO: Again, ps with capture on returns a list but shoudl return a dict.
+        # TODO: Again, ps with capture on returns a list but should return a dict.
         for container in running:
             fullname = container[-1]
             if ',instance=' in fullname:
@@ -150,7 +150,7 @@ def get_container_dir(container=None):
 
 
 def shell(command, capture=False, progress=False, interactive=False, silent=False):
-    '''Execute a command in the shell. By defualt prints everything. If the capture switch is set,
+    '''Execute a command in the shell. By default prints everything. If the capture switch is set,
     then it returns a namedtuple with stdout, stderr, and exit code.'''
     
     if capture and progress:
@@ -207,7 +207,7 @@ def booleanize(*args, **kwargs):
     else:
         raise Exception('Internal Error')
     
-    # Handle shortcut: an arg with its name equal to ist value is considered as True
+    # Handle shortcut: an arg with its name equal to its value is considered as True
     if name==value:
         return True
     
@@ -240,17 +240,17 @@ def is_container_running(container, instance):
     running = info(container=container, instance=instance, capture=True)
 
     if running:
-        # TODO: imporve this part, return a dict or something from ps
+        # TODO: improve this part, return a dict or something from ps
         for item in running [0]:
             if item and item.startswith('Up'):
                 return True
     return False
 
 def container_exits_but_not_running(container, instance):
-    '''Returns True if the container is existent but not running,, False otherwise'''  
+    '''Returns True if the container is existent but not running, False otherwise'''  
     running = info(container=container, instance=instance, capture=True)
     if running:
-        # TODO: imporve this part, return a dict or something from ps
+        # TODO: improve this part, return a dict or something from ps
         for item in running [0]:
             if item and not item.startswith('Up'):
                 return True
@@ -264,10 +264,10 @@ def setswitch(**kwargs):
     for i, swicth in enumerate(kwargs):
         
         if kwargs[swicth] is not None:
-            # If the arg is alreay set just return it
+            # If the arg is already set just return it
             return kwargs[swicth]
         else:
-            # Else set the defualt value
+            # Else set the default value
             try:
                 this_defaults = defaults[instance]
             except KeyError:
@@ -297,7 +297,7 @@ def get_container_ip(container, instance):
         try:
             socket.inet_aton(IP)
         except socket.error:
-            raise Exception('Error, I coudl not find a valid IP address for container "{}", instance "{}"'.format(container, instance))
+            raise Exception('Error, I could not find a valid IP address for container "{}", instance "{}"'.format(container, instance))
             
     return IP
 
@@ -364,7 +364,7 @@ def build(container=None, verbose=False, progress=False, debug=False):
         # Build a given container
         print '\nBuilding container "{}" as "{}/{}"'.format(container, PROJECT_NAME, container)
                 
-        # TODO: Check for required files. Use a local Cahce? use a checksum? Where to put the conf? a files.json in container's source dir?
+        # TODO: Check for required files. Use a local Cache? use a checksum? Where to put the conf? a files.json in container's source dir?
         # print 'Getting remote files...'
         
         # Build command 
@@ -388,14 +388,14 @@ def start(container,instance):
     if container_exits_but_not_running(container,instance):
         shell('docker start {}-{}'.format(container,instance), silent=True)
     else:
-        abort('Cannot start a container in not exited state. use "run" instead')
+        abort('Cannot start a container not in exited state. use "run" instead')
 
 
 @task
 # TODO: clarify difference between False and None.
 def run(container=None, instance=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, expose_ports=None, linked=None, interactive=False, seed_command=None, debug=False):
     '''Run a given container with a given instance. In no instance name is set,
-    a standard insatnce with a random name is run. If container name is set to "all"
+    a standard instance with a random name is run. If container name is set to "all"
     then all the containers are run, according  to the run.conf file.'''
     
     # Sanitize...
@@ -432,7 +432,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
         # Exit
         return
 
-    # Handle debug swicth:
+    # Handle debug switch:
     if booleanize(debug=debug):
         logger.info('Setting loglevel to DEBUG from now on..')
         logger.setLevel(logging.DEBUG)      
@@ -490,7 +490,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
     
         for item in containers_to_run_confs:
             # The configuration for a given container is ALWAYS applied.
-            # TODO: Allow to have diffrent confs per different instances? COuld be useful for linking a node with a given server. 
+            # TODO: Allow to have different confs per different instances? Could be useful for linking a node with a given server. 
             # i.e. node instance A with server instance A, node instance B with server instance B. 
             if (container == item['container']):
                 logger.debug('Found conf for container "%s", instance "%s"', container, instance)
@@ -514,7 +514,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
 
         # Do we still have missing values?
         if None in requested_ENV_VARs.values():
-            logger.debug('After checking the env I still cannot find some requred env vars, proceeding with the host conf')
+            logger.debug('After checking the env I still cannot find some required env vars, proceeding with the host conf')
         
             host_conf = None  
             for requested_ENV_VAR in requested_ENV_VARs:
@@ -531,7 +531,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                         except IOError, e:
                             host_conf = {}
                             
-                    # Try to see if we can set this var accoridng to the conf
+                    # Try to see if we can set this var according to the conf
                     if requested_ENV_VAR in host_conf:
                         requested_ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
                     else:
@@ -543,7 +543,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                         with open(APPS_CONTAINERS_DIR+'/host.conf', 'w') as outfile:
                             json.dump(host_conf, outfile)
                      
-        # Handle master instance non registered.
+        # Handle master instance not registered.
         if instance == 'master' and not is_container_registered(container):
             abort('Sorry, a master instance not registered is not yet supported. \
                   The idea is to look in the entrypoint to obtain the ports to expose')
@@ -596,7 +596,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
             logger.debug('Data dir for container instance not existent, creating it.. ({})'.format(container_instance_dir))
             os.mkdir(container_instance_dir)
         
-        # Now mount the dir in /persistent in the Docker: here we just provide a persistent storage int he Docker conatiner.
+        # Now mount the dir in /persistent in the Docker: here we just provide a persistent storage in the Docker container.
         # the handling of data, opt and log is done in the Dockerfile.
         run_cmd += ' -v {}:/persistent'.format(container_instance_dir)    
 
@@ -630,7 +630,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
 
     # Add env vars..
     for ENV_VAR in ENV_VARs:  
-        # TODO: all vars are inderstood as strings. Why?  
+        # TODO: all vars are understood as strings. Why?  
         if isinstance(ENV_VAR, bool) or isinstance(ENV_VAR, float) or isinstance(ENV_VAR, int):
             run_cmd += ' -e {}={}'.format(ENV_VAR, ENV_VARs[ENV_VAR])
         else:
@@ -672,7 +672,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
 @task
 def clean(container=None, instance=None, force =False):
     '''Clean a given container. If container name is set to "all" then clean all the containers according 
-    to the run.conf file. If container name is set to "reallyall" then all containers on th host are cleaned'''
+    to the run.conf file. If container name is set to "reallyall" then all containers on the host are cleaned'''
     
     # TODO: project-> clean containers in run.conf in reverse order, then 
     #        all -> clean all containers of this project
@@ -704,7 +704,7 @@ def clean(container=None, instance=None, force =False):
             if is_container_running(container=container_conf['container'], instance=container_conf['instance']) \
               or container_exits_but_not_running(container=container_conf['container'], instance=container_conf['instance']):
                 if not one_in_conf:
-                    print ('\nThis action will clean the following containers intances according to run.conf:')
+                    print ('\nThis action will clean the following containers instances according to run.conf:')
                     one_in_conf =True  
                 print ' - container "{}" ("{}/{}"), instance "{}"'.format(container_conf['container'], PROJECT_NAME, container_conf['container'], container_conf['instance'])
                 containers_run_conf.append({'container':container_conf['container'], 'instance':container_conf['instance']})
@@ -737,7 +737,7 @@ def clean(container=None, instance=None, force =False):
         containers_to_clean_conf = containers_run_conf + more_runnign_containers_conf
         
         if not containers_to_clean_conf:
-            print '\nNothign to clean, exiting..'
+            print '\nNothing to clean, exiting..'
             return
         print ''
         if force or confirm('Proceed?'):
@@ -753,7 +753,7 @@ def clean(container=None, instance=None, force =False):
         if not instance:
             print 'I did not find any running instance to clean, exiting..'
         else:
-            print 'Cleaning conatiner "{}", instance "{}"..'.format(container,instance)          
+            print 'Cleaning container "{}", instance "{}"..'.format(container,instance)          
             shell("docker stop "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
             shell("docker rm "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
                             
@@ -770,7 +770,7 @@ def ssh(container=None, instance=None):
     try:
         IP = get_container_ip(container, instance)
     except Exception, e:
-        abort('Got error when obtaaining IP address for container "{}", instance "{}": "{}"'.format(container,instance, e))
+        abort('Got error when obtaining IP address for container "{}", instance "{}": "{}"'.format(container,instance, e))
     if not IP:
         abort('Got no IP address for container "{}", instance "{}"'.format(container,instance))
 
@@ -787,7 +787,7 @@ def help():
 
 @task
 def ip(container=None, instance=None):
-    '''Get a contaimer IP'''
+    '''Get a container IP'''
 
     # Sanitize...
     (container, instance) = sanity_checks(container,instance)
@@ -807,7 +807,7 @@ def info(container=None, instance=None, capture=False):
 
 @task
 def ps(container=None, instance=None, capture=False, onlyrunning=False, info=False):
-    '''Info on runnign containers. Give a container name to obtain informations only about that specific container.
+    '''Info on running containers. Give a container name to obtain informations only about that specific container.
     Use the magic words 'all' to list also the not running ones, and 'reallyall' to list also the containers not managed by
     DockerOps (both running and not running)'''
 
@@ -820,7 +820,7 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
         container = 'project'
 
     if not info and container not in ['all', 'platform', 'project', 'reallyall']:
-        abort('Sorry, I do not understant the command "{}"'.format(container))
+        abort('Sorry, I do not understand the command "{}"'.format(container))
 
     if container == 'platform':
         known_containers_fullnames = [conf['container']+'-'+conf['instancef'] for conf in get_containers_run_conf()]
@@ -914,8 +914,8 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
                     if not image_name:
                         abort('Sorry, internal error (image name not defined)')
 
-                    # Filtering agains defined dockers
-                    # If a containe name was given, filter against it:
+                    # Filtering against defined dockers
+                    # If a container name was given, filter against it:
                     if container and not container in ['all', 'platform', 'project', 'reallyall']:
                         
                         # Here we are filtering

@@ -17,7 +17,7 @@ function install_as_user {
                            ln -s $HOME/.DockerOps/dockerops $HOME/bin/dockerops
                            cd ..
                            cp -a DockerOps $HOME/.DockerOps
-                           echo 'Done. On the majority of Linux distributions you have to open a new shell to hane $HOME/bin loaded'
+                           echo 'Done. On the majority of Linux distributions you have to open a new shell to have $HOME/bin loaded'
                          }
 
                
