@@ -25,7 +25,7 @@ done
 #-------------------
 #   Persistency
 #-------------------
-echo " Handling peristency..."
+echo " Handling persistency..."
 
 # If persistent data:
 if [ "$PERSISTENT_DATA" = "True" ]; then

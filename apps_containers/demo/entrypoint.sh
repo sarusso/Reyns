@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Your entrypoint commands here, for example sed conf files to insert runtime IP adresses
+# Your entrypoint commands here, for example sed conf files to insert runtime IP addresses
 
 
 # Start. DockerOps by default starts supervisord or bash if container is run in safemode.

@@ -25,7 +25,7 @@ if [ "$1" == "root" ]; then
 fi
 
 echo ""
-read -p "Was instalaltion made for this user only? [y/n] "  -r
+read -p "Was installation made for this user only? [y/n] "  -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]
 then    
