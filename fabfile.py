@@ -79,7 +79,7 @@ def sanity_checks(container, instance=None):
             instance = str(uuid.uuid4())[0:8]
             
         if ssh or (clean and not container in ['all', 'reallyall']) or ip:
-            running_instances = get_running_conatiners_instances_matching(container)         
+            running_instances = get_running_containers_instances_matching(container)         
             if len(running_instances) == 0:
                 if not clean:
                     abort('Could not find any running instance of container matching "{}"'.format(container))                
@@ -110,7 +110,7 @@ def sanity_checks(container, instance=None):
     return (container, instance)
 
 
-def get_running_conatiners_instances_matching(container,instance=None):
+def get_running_containers_instances_matching(container,instance=None):
     '''Return a list of [container_name, instance_name] matching the request.
     Examples args:
       container = postgres_2.4, instanceo=one
@@ -563,12 +563,12 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                 link_container = link['container']
                 link_instance  = link['instance']
 
-                running_instances = get_running_conatiners_instances_matching(container) 
+                running_instances = get_running_containers_instances_matching(container) 
 
                 # Validate: detect if there is a running container for link['container'], link['instance']
 
                 # Obtain any running instance
-                running_instances = get_running_conatiners_instances_matching(link_container)         
+                running_instances = get_running_containers_instances_matching(link_container)         
                 if len(running_instances) == 0:
                     abort('Could not find any running instance of container matching "{}" which is required for linking by container "{}", instance "{}"'.format(link_container, container, instance))             
                 if len(running_instances) > 1:
@@ -636,6 +636,12 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
         else:
             run_cmd += ' -e {}="{}"'.format(ENV_VAR, str(ENV_VARs[ENV_VAR]))
 
+    # Handle hostname
+    if 'hostname' in container_conf:
+        run_cmd += ' -h {}'.format(container_conf['hostname'])
+    else:
+        run_cmd += ' -h {}-{}'.format(container,instance)
+        
     # Handle safemode
     if safemode or instance=='safemode':
         interactive=True
@@ -745,7 +751,7 @@ def clean(container=None, instance=None, force =False):
                 if not container_conf['instance']:
                     print 'WARNING: I Cannot clean {}, instance='.format(container_conf['container'], container_conf['instance'])
                 else:
-                    print 'Cleaning conatiner "{}", instance "{}"..'.format(container_conf['container'], container_conf['instance'])          
+                    print 'Cleaning container "{}", instance "{}"..'.format(container_conf['container'], container_conf['instance'])          
                     shell("docker stop "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
                     shell("docker rm "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
                             
