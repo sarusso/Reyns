@@ -89,8 +89,8 @@ def sanity_checks(container, instance=None):
                 else:         
                     if not confirm('WARNING: I found more than one running instance for container "{}": {}, i will be using the first one ("{}"). Proceed?'.format(container, running_instances, running_instances[0])) :
                         abort('Stopped.')
-                container = running_instances[0][0]
-                instance  = running_instances[0][1]
+            container = running_instances[0][0]
+            instance  = running_instances[0][1]
         
     if instance and build:
         abort('The build command does not make sense with an instance name (got "{}")'.format(instance))
