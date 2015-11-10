@@ -491,11 +491,16 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
         for item in containers_to_run_confs:
             # The configuration for a given container is ALWAYS applied.
             # TODO: Allow to have different confs per different instances? Could be useful for linking a node with a given server. 
-            # i.e. node instance A with server instance A, node instance B with server instance B. 
-            if (container == item['container']):
-                logger.debug('Found conf for container "%s", instance "%s"', container, instance)
-                container_conf = item
-                            
+            # i.e. node instance A with server instance A, node instance B with server instance B.
+            if instance:
+                if (container == item['container'] and instance == item['instance']):
+                    logger.debug('Found conf for container "%s", instance "%s"', container, instance)
+                    container_conf = item
+            else:
+                if (container == item['container']):
+                    logger.debug('Found conf for container "%s", instance "%s"', container, instance)
+                    container_conf = item
+                                    
         # 2) Now, enumerate the vars required by this container:
         if container_conf and 'env_vars' in container_conf:
             requested_ENV_VARs = {var:container_conf['env_vars'][var] for var in container_conf['env_vars']} if 'env_vars' in container_conf else {}
