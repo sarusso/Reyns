@@ -562,13 +562,15 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                 link_name      = link['name']
                 link_container = link['container']
                 link_instance  = link['instance']
-
+                
+                
                 running_instances = get_running_containers_instances_matching(container) 
 
                 # Validate: detect if there is a running container for link['container'], link['instance']
 
-                # Obtain any running instance
-                running_instances = get_running_containers_instances_matching(link_container)         
+                # Obtain any running instances. If link_instance is None, finds all running instances for container and
+                # warns if more than one instance is found.
+                running_instances = get_running_containers_instances_matching(link_container, link_instance)         
                 if len(running_instances) == 0:
                     abort('Could not find any running instance of container matching "{}" which is required for linking by container "{}", instance "{}"'.format(link_container, container, instance))             
                 if len(running_instances) > 1:
