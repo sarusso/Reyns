@@ -7,6 +7,8 @@ MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 
 # apt-get install -y somepackage
 
+ADD entrypoint.sh /entrypoint.sh
+RUN chmod 755 /entrypoint.sh
 
 
 
