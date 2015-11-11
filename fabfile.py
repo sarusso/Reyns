@@ -607,6 +607,12 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
         # the handling of data, opt and log is done in the Dockerfile.
         run_cmd += ' -v {}:/persistent'.format(container_instance_dir)    
 
+    # Handle extra volumes
+    if 'volumes' in container_conf:
+        volumes = container_conf['volumes'].split(',')
+        for volume in volumes:
+            run_cmd += ' -v {}'.format(volume)
+
     # Handle exposed ports
     if expose_ports:
 
