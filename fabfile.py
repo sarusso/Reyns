@@ -608,7 +608,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
         run_cmd += ' -v {}:/persistent'.format(container_instance_dir)    
 
     # Handle extra volumes
-    if 'volumes' in container_conf:
+    if container_conf and 'volumes' in container_conf:
         volumes = container_conf['volumes'].split(',')
         for volume in volumes:
             run_cmd += ' -v {}'.format(volume)
@@ -650,7 +650,7 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
             run_cmd += ' -e {}="{}"'.format(ENV_VAR, str(ENV_VARs[ENV_VAR]))
 
     # Handle hostname
-    if 'hostname' in container_conf:
+    if container_conf and 'hostname' in container_conf:
         run_cmd += ' -h {}'.format(container_conf['hostname'])
     else:
         run_cmd += ' -h {}-{}'.format(container,instance)
