@@ -77,6 +77,10 @@ fi
 #  Entrypoint
 #-------------------
 
+echo "Now executing container's local entrypoint"
+echo ""
+/entrypoint-local.sh
+
 echo "Now executing container's entrypoint"
 echo ""
 

@@ -88,11 +88,12 @@ COPY supervisord_sshd.conf /etc/supervisor/conf.d/
 # Copy
 COPY entrypoint.sh /
 COPY entrypoint-common.sh /
+RUN touch /entrypoint-local.sh
 
 # Give right permissions
 RUN chmod 755 /entrypoint.sh
 RUN chmod 755 /entrypoint-common.sh
-
+run chmod 755 /entrypoint-local.sh
 
 #----------------------
 # Startup
