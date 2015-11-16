@@ -35,7 +35,7 @@ defaults={}
 defaults['master']   = {'linked':False, 'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'expose_ports':True,  'safemode':False}
 defaults['safemode'] = {'linked':False, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'expose_ports':False, 'safemode':True}
 defaults['exposed']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'expose_ports':True,  'safemode':False}
-defaults['standard'] = {'linked':True, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'expose_ports':True,  'safemode':False}
+defaults['standard'] = {'linked':True, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'expose_ports':False,  'safemode':False}
 
 
 #--------------------------
@@ -52,6 +52,14 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 #--------------------------
 # Utility functions
 #--------------------------
+
+# More verbose json error message
+json_original_errmsg= json.decoder.errmsg
+def json_errmsg_plus_verbose(msg, doc, pos, end=None):
+    json.last_error_verbose = doc[pos-15:pos+15].replace('\n','').replace('  ',' ')
+    return json_original_errmsg(msg, doc, pos, end)
+json.decoder.errmsg = json_errmsg_plus_verbose
+
 
 def sanity_checks(container, instance=None):
     
@@ -222,8 +230,11 @@ def booleanize(*args, **kwargs):
 def get_containers_run_conf():
     try:
         with open(APPS_CONTAINERS_DIR+'/run.conf') as f:
-            content = f.read().replace('\n','').replace('  ',' ')
-            registered_containers = json.loads(content)
+            content = f.read()#.replace('\n','').replace('  ',' ')
+            try:
+                registered_containers = json.loads(content)
+            except ValueError as e:
+                raise ValueError( str(e) + '; error in proximity of: ', getattr(json, 'last_error_verbose'))     
     except IOError:
         return []
     return registered_containers
@@ -405,13 +416,11 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
 
         print '\nRunning all containers in {}'.format(APPS_CONTAINERS_DIR)
 
-        # Check for build.conf                
+        # Load run conf             
         try:
-            with open(APPS_CONTAINERS_DIR+'/run.conf') as f:
-                content = f.read().replace('\n','').replace('  ',' ')
-                containers_to_run_confs = json.loads(content)
+            containers_to_run_confs = get_containers_run_conf()
         except Exception, e:
-            abort('Got error in reading run.conf for automated execution: {}'.format(e))
+            abort('Got error in reading run.conf for automated execution: {}. To get more verbose info about the error, install the jsonschema package.'.format(e))
         
         for container_conf in containers_to_run_confs:
 
@@ -482,11 +491,9 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
         
         # 1) Read the conf if any
         try:
-            with open(APPS_CONTAINERS_DIR+'/run.conf') as f:
-                content = f.read().replace('\n','').replace('  ',' ')
-                containers_to_run_confs = json.loads(content)
+            containers_to_run_confs = get_containers_run_conf()
         except Exception, e:
-            abort('Got error in reading run.conf for loading container info: {}'.format(e))        
+            abort('Got error in reading run.conf for loading container info: {}. To get more verbose info about the error, install the jsonschema package.'.format(e))        
     
         for item in containers_to_run_confs:
             # The configuration for a given container is ALWAYS applied.
