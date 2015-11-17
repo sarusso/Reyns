@@ -38,4 +38,5 @@ pip-delete-this-directory.txt
 .project
 .pydevproject
 
-
+# DockerOps
+host.conf

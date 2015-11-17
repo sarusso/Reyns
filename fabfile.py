@@ -560,11 +560,11 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                     if host_conf is None:
                         # Try to load the host conf:
                         try:
-                            with open(APPS_CONTAINERS_DIR+'/host.conf') as f:
+                            with open(PROJECT_DIR+'/host.conf') as f:
                                 content = f.read().replace('\n','').replace('  ',' ')
                                 host_conf = json.loads(content)
                         except ValueError,e:
-                            abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(APPS_CONTAINERS_DIR+'/host.conf'))  
+                            abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(APPS_CONTAINERS_DIR+'/../host.conf'))  
                         except IOError, e:
                             host_conf = {}
                             
@@ -577,7 +577,7 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                         requested_ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
                         
                         # Then, dump the conf #TODO: dump just at the end..
-                        with open(APPS_CONTAINERS_DIR+'/host.conf', 'w') as outfile:
+                        with open(PROJECT_DIR+'/host.conf', 'w') as outfile:
                             json.dump(host_conf, outfile)
 
     else:
