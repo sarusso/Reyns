@@ -328,6 +328,11 @@ def uninstall(how=''):
     '''Uninstall DockerOps (user/root)'''
     shell(os.getcwd()+'/uninstall.sh {}'.format(how), interactive=True)
 
+@task
+def version():
+    '''Get DockerOps version (Git shor hash)'''
+    
+    print '\nDockerOps version: ' + shell('cd ' + os.getcwd() + ' && git log | head -n1 | cut -d\' \' -f2 | cut -c 1-7', capture=True).stdout
 
 
 #--------------------------
