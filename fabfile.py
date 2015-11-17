@@ -271,7 +271,7 @@ def container_exits_but_not_running(container, instance):
 def setswitch(**kwargs): 
     '''Set a switch according to the default of the instance types, or use the value if set'''
          
-    instance = kwargs.pop('instance')    
+    instance_type = kwargs.pop('instance_type')    
     for i, swicth in enumerate(kwargs):
         
         if kwargs[swicth] is not None:
@@ -280,8 +280,9 @@ def setswitch(**kwargs):
         else:
             # Else set the default value
             try:
-                this_defaults = defaults[instance]
+                this_defaults = defaults[instance_type]
             except KeyError:
+                logger.warning('I have to fallback on standar instance type as I could not find the value for this instance type')
                 this_defaults = defaults['standard']
                 
             return this_defaults[swicth]
@@ -409,7 +410,7 @@ def start(container,instance):
 
 @task
 # TODO: clarify difference between False and None.
-def run(container=None, instance=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, expose_ports=None, linked=None, interactive=False, seed_command=None, debug=False):
+def run(container=None, instance=None, instance_type=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, expose_ports=None, linked=None, interactive=False, seed_command=None, debug=False):
     '''Run a given container with a given instance. In no instance name is set,
     a standard instance with a random name is run. If container name is set to "all"
     then all the containers are run, according  to the run.conf file.'''
@@ -421,6 +422,9 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
 
         print '\nRunning all containers in {}'.format(APPS_CONTAINERS_DIR)
 
+        if safemode or interactive:
+            abort('Sorry, you cannot set one of the "safemode", "interactive" or "debug" switches if you are running using a "run:all" command') 
+
         # Load run conf             
         try:
             containers_to_run_confs = get_containers_run_conf()
@@ -428,20 +432,38 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
             abort('Got error in reading run.conf for automated execution: {}. To get more verbose info about the error, install the jsonschema package.'.format(e))
         
         for container_conf in containers_to_run_confs:
-
-            # If instance in the conf is set to null, do not run the container.
-            if container_conf['instance']:
+            
+            # Check for container name
+            if 'container' not in container_conf:
+                abort('Missing container name for conf: {}'.format(container_conf))
+            else:
+                container = container_conf['container']
                 
-                # Recursively call myself with proper args. The args of the call always win over the configuration(s)
-                run(container       = container_conf['container'],
-                    instance        = container_conf['instance'],
-                    persistent_data = persistent_data if persistent_data is not None else (container_conf['persistent_data'] if 'persistent_data' in container_conf else None),
-                    persistent_log  = persistent_log  if persistent_log  is not None else (container_conf['persistent_log']  if 'persistent_log'  in container_conf else None),
-                    persistent_opt  = persistent_opt  if persistent_opt  is not None else (container_conf['persistent_opt']  if 'persistent_opt'  in container_conf else None),
-                    expose_ports    = expose_ports    if expose_ports    is not None else (container_conf['expose_ports']    if 'expose_ports'    in container_conf else None),
-                    linked          = linked          if linked          is not None else (container_conf['linked']          if 'linked'          in container_conf else None),
-                    safemode        = safemode,
-                    debug           = debug)
+            # Check for instance name
+            if 'container' not in container_conf:
+                abort('Missing instance name for conf: {}'.format(container_conf))
+            else:
+                instance = container_conf['instance']
+            
+            # Handle the instance type.
+            if 'instance_type' in container_conf:
+                    instance_type = container_conf['instance_type']
+            else:
+                instance_type = None
+            
+
+            # Recursively call myself with proper args. The args of the call always win over the configuration(s)
+            run(container       = container,
+                instance        = instance,
+                instance_type   = instance_type,
+                persistent_data = persistent_data if persistent_data is not None else (container_conf['persistent_data'] if 'persistent_data' in container_conf else None),
+                persistent_log  = persistent_log  if persistent_log  is not None else (container_conf['persistent_log']  if 'persistent_log'  in container_conf else None),
+                persistent_opt  = persistent_opt  if persistent_opt  is not None else (container_conf['persistent_opt']  if 'persistent_opt'  in container_conf else None),
+                expose_ports    = expose_ports    if expose_ports    is not None else (container_conf['expose_ports']    if 'expose_ports'    in container_conf else None),
+                linked          = linked          if linked          is not None else (container_conf['linked']          if 'linked'          in container_conf else None),
+                interactive     = interactive,
+                safemode        = safemode,
+                debug           = debug)
                 
         # Exit
         return
@@ -452,25 +474,8 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
         logger.setLevel(logging.DEBUG)      
 
     # Run a specific container
-    print '\nRunning container "{}" ("{}/{}"), instance "{}"...'.format(container, PROJECT_NAME, container,instance)
+    print '\nRunning container "{}" ("{}/{}"), instance "{}"...'.format(container, PROJECT_NAME, container, instance)
 
-    # Set switches
-    linked          = setswitch(linked=linked, instance=instance)
-    persistent_data = setswitch(persistent_data=persistent_data, instance=instance)
-    persistent_log  = setswitch(persistent_log=persistent_log, instance=instance)
-    persistent_opt  = setswitch(persistent_opt=persistent_opt, instance=instance)
-    expose_ports    = setswitch(expose_ports=expose_ports, instance=instance)
-    safemode        = setswitch(safemode=safemode, instance=instance)
-
-    # Init container conf
-    container_conf = None
-
-    # Check if this container is already running
-    if is_container_running(container,instance):
-        print 'Container is already running, not starting.'
-        # Exit
-        return        
-    
     # Check if this container is exited
     if container_exits_but_not_running(container,instance):
         if instance=='safemode':
@@ -478,16 +483,16 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
             shell('fab clean:{},instance=safemode'.format(container), silent=True)
         else:
             abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking would be end up broken. Use dockerops clean:{0},instance={1} to clean it and start over clean, or dockerops start:{0},instance={1} if you know what you are doing.'.format(container,instance))
-  
-    # Obtain env vars to set. First, the always present ones
-    ENV_VARs = {
-                'CONTAINER': container,
-                'INSTANCE':  instance,
-                'PERSISTENT_DATA': persistent_data,
-                'PERSISTENT_LOG': persistent_log,
-                'PERSISTENT_OPT': persistent_opt,
-                }
-    
+
+    # Check if this container is already running
+    if is_container_running(container,instance):
+        print 'Container is already running, not starting.'
+        # Exit
+        return    
+
+    # Init container conf
+    container_conf = None
+ 
     # Check if this container is listed in the run.conf:
     if is_container_registered(container):
         
@@ -512,24 +517,39 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                 if (container == item['container']):
                     logger.debug('Found conf for container "%s", instance "%s"', container, instance)
                     container_conf = item
-                                    
-        # 2) Now, enumerate the vars required by this container:
+        
+        # 2) Handle the instance type.
+        if not instance_type:
+            if 'instance_type' in container_conf:
+                if container_conf['instance_type'] in ['standard', 'master', 'exposed']:
+                    instance_type = container_conf['instance_type']
+                else:
+                    abort('Unknown instance type "{}"'.format(instance_type))
+            else:
+                if container_conf['instance'] in ['master','exposed','safemode']:
+                    instance_type = container_conf['instance']
+                else:
+                    instance_type = 'standard'
+                                          
+        # 3) Now, enumerate the vars required by this container:
         if container_conf and 'env_vars' in container_conf:
             requested_ENV_VARs = {var:container_conf['env_vars'][var] for var in container_conf['env_vars']} if 'env_vars' in container_conf else {}
-            if instance == 'master':
-                logger.debug('adding to the required ENV VARs also the linking ones since the instance is a master one')
-                if 'linked' in container_conf:
-                    for linked_container in container_conf['linked']:
-                        # Add this var flagged as unset
-                        requested_ENV_VARs[linked_container['link']+'_ENV_HOST_IP'] = None 
         
-        # 3) Try to set them from the env:
+        # 4) Add also env vars required by linking if instance type is master
+        if instance_type == 'master':
+            if 'links' in container_conf:
+                logger.debug('adding to the required ENV VARs also the linking ones since the instance is a master one and linked')
+                for linked_container in container_conf['links']:
+                    # Add this var flagged as unset
+                    requested_ENV_VARs[linked_container['name']+'_CONTAINER_IP'] = None 
+        
+        # 5) Try to set them from the env:
         for requested_ENV_VAR in requested_ENV_VARs.keys():
             if requested_ENV_VAR is None:
                 requested_ENV_VARs[requested_ENV_VAR] = os.getenv(requested_ENV_VAR, None)
                 
 
-        # Do we still have missing values?
+        # 6) Do we still have missing values?
         if None in requested_ENV_VARs.values():
             logger.debug('After checking the env I still cannot find some required env vars, proceeding with the host conf')
         
@@ -553,17 +573,40 @@ def run(container=None, instance=None, persistent_data=None, persistent_log=None
                         requested_ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
                     else:
                         # Ask the user for the value of this var
-                        host_conf[requested_ENV_VAR] = raw_input('Please enter a value for the required ENV VAR "{}":'.format(requested_ENV_VAR))
+                        host_conf[requested_ENV_VAR] = raw_input('Please enter a value for the required ENV VAR "{}" (or export it before launching):'.format(requested_ENV_VAR))
                         requested_ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
                         
                         # Then, dump the conf #TODO: dump just at the end..
                         with open(APPS_CONTAINERS_DIR+'/host.conf', 'w') as outfile:
                             json.dump(host_conf, outfile)
-                     
-        # Handle master instance not registered.
-        if instance == 'master' and not is_container_registered(container):
-            abort('Sorry, a master instance not registered is not yet supported. \
-                  The idea is to look in the entrypoint to obtain the ports to expose')
+
+    else:
+        # Handle instance type for not regitered containers:
+        if not instance_type:
+            if instance in ['master','exposed','safemode']:
+                instance_type = instance
+            else:
+                instance_type = 'standard'
+
+    print 'Instance type set to "{}"'.format(instance_type)
+
+    # Set switches (command line values have always the precedence)
+    linked          = setswitch(linked=linked, instance_type=instance_type)
+    persistent_data = setswitch(persistent_data=persistent_data, instance_type=instance_type)
+    persistent_log  = setswitch(persistent_log=persistent_log, instance_type=instance_type)
+    persistent_opt  = setswitch(persistent_opt=persistent_opt, instance_type=instance_type)
+    expose_ports    = setswitch(expose_ports=expose_ports, instance_type=instance_type)
+    safemode        = setswitch(safemode=safemode, instance_type=instance_type)
+
+    # Obtain env vars to set. First, the always present ones
+    ENV_VARs = {
+                'CONTAINER': container,
+                'INSTANCE':  instance,
+                'INSTANCE_TYPE': instance_type,
+                'PERSISTENT_DATA': persistent_data,
+                'PERSISTENT_LOG': persistent_log,
+                'PERSISTENT_OPT': persistent_opt,
+                }
             
     # Start building run command
     run_cmd = 'docker run --name {}-{}-{} '.format(PROJECT_NAME, container,instance)
