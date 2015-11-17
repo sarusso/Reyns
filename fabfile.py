@@ -32,10 +32,10 @@ LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
 
 # Defaults   
 defaults={}
-defaults['master']   = {'linked':False, 'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'expose_ports':True,  'safemode':False}
-defaults['safemode'] = {'linked':False, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'expose_ports':False, 'safemode':True}
-defaults['exposed']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'expose_ports':True,  'safemode':False}
-defaults['standard'] = {'linked':True, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'expose_ports':False,  'safemode':False}
+defaults['master']   = {'linked':False, 'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'publish_ports':True,  'safemode':False}
+defaults['safemode'] = {'linked':False, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':True}
+defaults['published']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':True,  'safemode':False}
+defaults['standard'] = {'linked':True, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False,  'safemode':False}
 
 
 #--------------------------
@@ -410,7 +410,7 @@ def start(container,instance):
 
 @task
 # TODO: clarify difference between False and None.
-def run(container=None, instance=None, instance_type=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, expose_ports=None, linked=None, interactive=False, seed_command=None, debug=False):
+def run(container=None, instance=None, instance_type=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, publish_ports=None, linked=None, interactive=False, seed_command=None, debug=False):
     '''Run a given container with a given instance. In no instance name is set,
     a standard instance with a random name is run. If container name is set to "all"
     then all the containers are run, according  to the run.conf file.'''
@@ -459,7 +459,7 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                 persistent_data = persistent_data if persistent_data is not None else (container_conf['persistent_data'] if 'persistent_data' in container_conf else None),
                 persistent_log  = persistent_log  if persistent_log  is not None else (container_conf['persistent_log']  if 'persistent_log'  in container_conf else None),
                 persistent_opt  = persistent_opt  if persistent_opt  is not None else (container_conf['persistent_opt']  if 'persistent_opt'  in container_conf else None),
-                expose_ports    = expose_ports    if expose_ports    is not None else (container_conf['expose_ports']    if 'expose_ports'    in container_conf else None),
+                publish_ports    = publish_ports    if publish_ports    is not None else (container_conf['publish_ports']    if 'publish_ports'    in container_conf else None),
                 linked          = linked          if linked          is not None else (container_conf['linked']          if 'linked'          in container_conf else None),
                 interactive     = interactive,
                 safemode        = safemode,
@@ -490,8 +490,9 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
         # Exit
         return    
 
-    # Init container conf
-    container_conf = None
+    # Init container conf and requested env vars
+    container_conf     = None
+    requested_ENV_VARs = None
  
     # Check if this container is listed in the run.conf:
     if is_container_registered(container):
@@ -515,18 +516,18 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                     container_conf = item
             else:
                 if (container == item['container']):
-                    logger.debug('Found conf for container "%s", instance "%s"', container, instance)
+                    logger.debug('Found conf for container "%s"', container)
                     container_conf = item
         
         # 2) Handle the instance type.
-        if not instance_type:
+        if container_conf and not instance_type:
             if 'instance_type' in container_conf:
-                if container_conf['instance_type'] in ['standard', 'master', 'exposed']:
+                if container_conf['instance_type'] in ['standard', 'master', 'published']:
                     instance_type = container_conf['instance_type']
                 else:
-                    abort('Unknown instance type "{}"'.format(instance_type))
+                    abort('Unknown or unapplicable instance type "{}"'.format(instance_type))
             else:
-                if container_conf['instance'] in ['master','exposed','safemode']:
+                if container_conf['instance'] in ['master','published','safemode']:
                     instance_type = container_conf['instance']
                 else:
                     instance_type = 'standard'
@@ -537,7 +538,7 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
         
         # 4) Add also env vars required by linking if instance type is master
         if instance_type == 'master':
-            if 'links' in container_conf:
+            if container_conf and 'links' in container_conf:
                 logger.debug('adding to the required ENV VARs also the linking ones since the instance is a master one and linked')
                 for linked_container in container_conf['links']:
                     # Add this var flagged as unset
@@ -580,13 +581,13 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                         with open(PROJECT_DIR+'/host.conf', 'w') as outfile:
                             json.dump(host_conf, outfile)
 
-    else:
-        # Handle instance type for not regitered containers:
-        if not instance_type:
-            if instance in ['master','exposed','safemode']:
-                instance_type = instance
-            else:
-                instance_type = 'standard'
+
+    # Handle instance type for not regitered containers of if not set:
+    if not instance_type:
+        if instance in ['master','published','safemode']:
+            instance_type = instance
+        else:
+            instance_type = 'standard'
 
     print 'Instance type set to "{}"'.format(instance_type)
 
@@ -595,7 +596,7 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
     persistent_data = setswitch(persistent_data=persistent_data, instance_type=instance_type)
     persistent_log  = setswitch(persistent_log=persistent_log, instance_type=instance_type)
     persistent_opt  = setswitch(persistent_opt=persistent_opt, instance_type=instance_type)
-    expose_ports    = setswitch(expose_ports=expose_ports, instance_type=instance_type)
+    publish_ports    = setswitch(publish_ports=publish_ports, instance_type=instance_type)
     safemode        = setswitch(safemode=safemode, instance_type=instance_type)
 
     # Obtain env vars to set. DO we have any var requeted by the container conf?
@@ -672,10 +673,10 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
         for volume in volumes:
             run_cmd += ' -v {}'.format(volume)
 
-    # Handle exposed ports
-    if expose_ports:
+    # Handle published ports
+    if publish_ports:
 
-        # Obtain the ports to expose from the Dockerfile
+        # Obtain the ports to publish from the Dockerfile
         try:
             with open(get_container_dir(container)+'/Dockerfile') as f:
                 content = f.readlines()
