@@ -598,15 +598,19 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
     expose_ports    = setswitch(expose_ports=expose_ports, instance_type=instance_type)
     safemode        = setswitch(safemode=safemode, instance_type=instance_type)
 
-    # Obtain env vars to set. First, the always present ones
-    ENV_VARs = {
-                'CONTAINER': container,
-                'INSTANCE':  instance,
-                'INSTANCE_TYPE': instance_type,
-                'PERSISTENT_DATA': persistent_data,
-                'PERSISTENT_LOG': persistent_log,
-                'PERSISTENT_OPT': persistent_opt,
-                }
+    # Obtain env vars to set. DO we have any var requeted by the container conf?
+    if requested_ENV_VARs:
+        ENV_VARs = requested_ENV_VARs
+    else:
+        ENV_VARs = {}
+        
+    # Now add the always present ones
+    ENV_VARs['CONTAINER'] = container
+    ENV_VARs['INSTANCE'] = instance
+    ENV_VARs['INSTANCE_TYPE'] = instance_type
+    ENV_VARs['PERSISTENT_DATA'] = persistent_data
+    ENV_VARs['PERSISTENT_LOG'] = persistent_log
+    ENV_VARs['PERSISTENT_OPT'] = persistent_opt
             
     # Start building run command
     run_cmd = 'docker run --name {}-{}-{} '.format(PROJECT_NAME, container,instance)
@@ -697,6 +701,7 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
 
 
     # Add env vars..
+    print "Adding env vars", ENV_VARs
     for ENV_VAR in ENV_VARs:  
         # TODO: all vars are understood as strings. Why?  
         if isinstance(ENV_VAR, bool) or isinstance(ENV_VAR, float) or isinstance(ENV_VAR, int):
