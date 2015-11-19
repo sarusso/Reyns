@@ -9,13 +9,11 @@ If you are interested in contributing please drop me a line at stefano.russo@gma
 Simple yet powerful Docker operations orchestrator for managing entire platforms. Allows to speed up both Dev (every developer can run its own instance of the platform) and Ops (what is put in production is deterministically tested before). 
 
 ## Prerequisites
----
 
 Docker, Fabric (apt-get install fabric)
 
 
 ## Quick start and demo
----
 
 `git clone https://github.com/sarusso/DockerOps.git`
 
@@ -44,7 +42,7 @@ Exit and re-open terminal
 
 
 ## Documentation
----
+
 
 ### Introduction and basics
 
@@ -58,7 +56,7 @@ The basic usage relise on four very simple commands. Fisrt you build your congai
 
 ### Containers properties
 
-When you run a Docker container using DockerOps, there are a few properties alreay implemented to make the life easier. These are:
+When you run a Docker container using DockerOps, there are a few properties already implemented to make the life easier. These are:
 
 * `linked`: linking enabled or not (according to the project's run.conf, see later)
 * `publish_ports`: if set to true, publish the ports on the host according to the EXPOSE instruction in the Dockerfile
