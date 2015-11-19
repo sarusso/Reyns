@@ -227,20 +227,26 @@ def booleanize(*args, **kwargs):
         else:
             return False
 
-def get_containers_run_conf():
+def get_containers_run_conf(conf_file=None):
+    
+    conf_file = 'run.conf' if not conf_file else conf_file
     try:
-        with open(APPS_CONTAINERS_DIR+'/run.conf') as f:
+        with open(APPS_CONTAINERS_DIR+'/'+conf_file) as f:
             content = f.read()#.replace('\n','').replace('  ',' ')
             try:
                 registered_containers = json.loads(content)
             except ValueError as e:
                 raise ValueError( str(e) + '; error in proximity of: ', getattr(json, 'last_error_verbose'))     
     except IOError:
-        return []
+        # If the conf file was explicitly set, then raise, otherwise just return empty conf
+        if conf_file != 'run.conf':
+            raise
+        else:
+            return []
     return registered_containers
  
-def is_container_registered(container):
-    registered_containers = get_containers_run_conf()   
+def is_container_registered(container, conf=None):
+    registered_containers = get_containers_run_conf(conf)   
     for registered_container in registered_containers:
         if registered_container['container'] == container:
             return True
@@ -262,9 +268,10 @@ def container_exits_but_not_running(container, instance):
     running = info(container=container, instance=instance, capture=True)
     if running:
         # TODO: improve this part, return a dict or something from ps
-        for item in running [0]:
-            if item and not item.startswith('Up'):
-                return True
+        for item in running[0]:
+            if item and item.startswith('Up'):
+                return False
+        return True
     return False
     
 
@@ -333,7 +340,13 @@ def uninstall(how=''):
 def version():
     '''Get DockerOps version (Git shor hash)'''
     
-    print '\nDockerOps version: ' + shell('cd ' + os.getcwd() + ' && git log | head -n1 | cut -d\' \' -f2 | cut -c 1-7', capture=True).stdout
+    last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
+    if not last_commit_info:
+        abort('Error: could not determine the version using git')
+    last_commit_info_lines = last_commit_info.split('\n')
+    commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
+    commit_date      = last_commit_info_lines[-1].replace('  ', '')
+    print '\nDockerOps version: ' + commit_shorthash + ' (' + commit_date + ')'
 
 
 #--------------------------
@@ -410,10 +423,10 @@ def start(container,instance):
 
 @task
 # TODO: clarify difference between False and None.
-def run(container=None, instance=None, instance_type=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, publish_ports=None, linked=None, interactive=False, seed_command=None, debug=False):
+def run(container=None, instance=None, instance_type=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, publish_ports=None, linked=None, interactive=False, seed_command=None, debug=False, conf=None):
     '''Run a given container with a given instance. In no instance name is set,
     a standard instance with a random name is run. If container name is set to "all"
-    then all the containers are run, according  to the run.conf file.'''
+    then all the containers are run, according  to the run conf file.'''
     
     # Sanitize...
     (container, instance) = sanity_checks(container, instance)
@@ -427,9 +440,9 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
 
         # Load run conf             
         try:
-            containers_to_run_confs = get_containers_run_conf()
+            containers_to_run_confs = get_containers_run_conf(conf)
         except Exception, e:
-            abort('Got error in reading run.conf for automated execution: {}. To get more verbose info about the error, install the jsonschema package.'.format(e))
+            abort('Got error in reading run conf for automated execution: {}.'.format(e))
         
         for container_conf in containers_to_run_confs:
             
@@ -478,11 +491,15 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
 
     # Check if this container is exited
     if container_exits_but_not_running(container,instance):
-        if instance=='safemode':
-            # Only for safemode instances we take the right of cleaning
-            shell('fab clean:{},instance=safemode'.format(container), silent=True)
-        else:
-            abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking would be end up broken. Use dockerops clean:{0},instance={1} to clean it and start over clean, or dockerops start:{0},instance={1} if you know what you are doing.'.format(container,instance))
+        # TODO: The following shoul work for interactive, not for safemode. Moreover now with
+        # the instance types concept it does not work anymore.
+        #if instance=='safemode':
+        #    # Only for safemode instances we take the right of cleaning
+        #    shell('fab clean:{},instance=safemode'.format(container), silent=True)
+
+        abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking' \
+              'would be end up broken. Use dockerops clean:{0},instance={1} to clean it and start over clean, ' \
+              'or dockerops start:{0},instance={1} if you know what you are doing.'.format(container,instance))
 
     # Check if this container is already running
     if is_container_running(container,instance):
@@ -494,17 +511,17 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
     container_conf     = None
     requested_ENV_VARs = None
  
-    # Check if this container is listed in the run.conf:
-    if is_container_registered(container):
+    # Check if this container is listed in the run conf:
+    if is_container_registered(container, conf):
         
-        # If the container is registered, the the rules of the run.conf applies, so:
+        # If the container is registered, the the rules of the run conf applies, so:
         requested_ENV_VARs = {}    
         
         # 1) Read the conf if any
         try:
-            containers_to_run_confs = get_containers_run_conf()
+            containers_to_run_confs = get_containers_run_conf(conf)
         except Exception, e:
-            abort('Got error in reading run.conf for loading container info: {}. To get more verbose info about the error, install the jsonschema package.'.format(e))        
+            abort('Got error in reading run conf for loading container info: {}.'.format(e))        
     
         for item in containers_to_run_confs:
             # The configuration for a given container is ALWAYS applied.
@@ -700,9 +717,8 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
             external_port = port
             run_cmd += ' -p {}:{}'.format(internal_port, external_port)
 
-
     # Add env vars..
-    print "Adding env vars", ENV_VARs
+    logger.debug("Adding env vars: %s", ENV_VARs)
     for ENV_VAR in ENV_VARs:  
         # TODO: all vars are understood as strings. Why?  
         if isinstance(ENV_VAR, bool) or isinstance(ENV_VAR, float) or isinstance(ENV_VAR, int):
@@ -750,18 +766,18 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
     
     
 @task
-def clean(container=None, instance=None, force =False):
+def clean(container=None, instance=None, force=False, conf=None):
     '''Clean a given container. If container name is set to "all" then clean all the containers according 
-    to the run.conf file. If container name is set to "reallyall" then all containers on the host are cleaned'''
+    to the run conf file. If container name is set to "reallyall" then all containers on the host are cleaned'''
     
-    # TODO: project-> clean containers in run.conf in reverse order, then 
+    # TODO: project-> clean containers in run conf in reverse order, then 
     #        all -> clean all containers of this project
     #       reallyall -> clean all docker containers on the system
     
     # Sanitize...
     (container, instance) = sanity_checks(container,instance)
     
-    #all: list containers to clean (check run.conf first)
+    #all: list containers to clean (check run conf first)
     #reallyall: warn and clean all
     
     if container == 'reallyall':
@@ -776,15 +792,15 @@ def clean(container=None, instance=None, force =False):
                 
         # Get container list to clean
         one_in_conf = False
-        containers_run_conf = get_containers_run_conf()
+        containers_run_conf = get_containers_run_conf(conf)
         containers_run_conf = []
-        for container_conf in get_containers_run_conf():
+        for container_conf in get_containers_run_conf(conf):
             if not container_conf['instance']:
                 continue
             if is_container_running(container=container_conf['container'], instance=container_conf['instance']) \
               or container_exits_but_not_running(container=container_conf['container'], instance=container_conf['instance']):
                 if not one_in_conf:
-                    print ('\nThis action will clean the following containers instances according to run.conf:')
+                    print ('\nThis action will clean the following containers instances according to run conf:')
                     one_in_conf =True  
                 print ' - container "{}" ("{}/{}"), instance "{}"'.format(container_conf['container'], PROJECT_NAME, container_conf['container'], container_conf['instance'])
                 containers_run_conf.append({'container':container_conf['container'], 'instance':container_conf['instance']})
@@ -886,7 +902,7 @@ def info(container=None, instance=None, capture=False):
     return ps(container=container, instance=instance, capture=capture, info=True)
 
 @task
-def ps(container=None, instance=None, capture=False, onlyrunning=False, info=False):
+def ps(container=None, instance=None, capture=False, onlyrunning=False, info=False, conf=None):
     '''Info on running containers. Give a container name to obtain informations only about that specific container.
     Use the magic words 'all' to list also the not running ones, and 'reallyall' to list also the containers not managed by
     DockerOps (both running and not running)'''
@@ -903,7 +919,7 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
         abort('Sorry, I do not understand the command "{}"'.format(container))
 
     if container == 'platform':
-        known_containers_fullnames = [conf['container']+'-'+conf['instancef'] for conf in get_containers_run_conf()]
+        known_containers_fullnames = [conf['container']+'-'+conf['instancef'] for conf in get_containers_run_conf(conf)]
         
     # Handle magic words all and reallyall
     if onlyrunning: # in ['all', 'reallyall']:

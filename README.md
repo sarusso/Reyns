@@ -96,3 +96,6 @@ Coming soon...
 
 ### Running a project: the run.conf file
 Coming soon...
+
+### Debugging
+To enable the debug mode, just set the "LOG_LEVEL" env var to "DEBUG".
