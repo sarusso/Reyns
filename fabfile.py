@@ -32,10 +32,10 @@ LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
 
 # Defaults   
 defaults={}
-defaults['master']   = {'linked':False, 'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'publish_ports':True,  'safemode':False}
-defaults['safemode'] = {'linked':False, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':True}
-defaults['published']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':True,  'safemode':False}
-defaults['standard'] = {'linked':True, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False,  'safemode':False}
+defaults['master']    = {'linked':True,  'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'publish_ports':True,  'safemode':False}
+defaults['safemode']  = {'linked':False, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':True }
+defaults['published'] = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':True,  'safemode':False}
+defaults['standard']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':False}
 
 
 #--------------------------
@@ -54,7 +54,7 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 #--------------------------
 
 # More verbose json error message
-json_original_errmsg= json.decoder.errmsg
+json_original_errmsg = json.decoder.errmsg
 def json_errmsg_plus_verbose(msg, doc, pos, end=None):
     json.last_error_verbose = doc[pos-15:pos+15].replace('\n','').replace('  ',' ')
     return json_original_errmsg(msg, doc, pos, end)
@@ -87,7 +87,7 @@ def sanity_checks(container, instance=None):
             instance = str(uuid.uuid4())[0:8]
             
         if ssh or (clean and not container in ['all', 'reallyall']) or ip:
-            running_instances = get_running_containers_instances_matching(container)         
+            running_instances = get_running_containers_instances_matching(container)
             if len(running_instances) == 0:
                 if not clean:
                     abort('Could not find any running instance of container matching "{}"'.format(container))                
@@ -97,8 +97,8 @@ def sanity_checks(container, instance=None):
                 else:         
                     if not confirm('WARNING: I found more than one running instance for container "{}": {}, i will be using the first one ("{}"). Proceed?'.format(container, running_instances, running_instances[0])) :
                         abort('Stopped.')
-            container = running_instances[0][0]
-            instance  = running_instances[0][1]
+                container = running_instances[0][0]
+                instance  = running_instances[0][1]
         
     if instance and build:
         abort('The build command does not make sense with an instance name (got "{}")'.format(instance))
@@ -236,7 +236,12 @@ def get_containers_run_conf(conf_file=None):
             try:
                 registered_containers = json.loads(content)
             except ValueError as e:
-                raise ValueError( str(e) + '; error in proximity of: ', getattr(json, 'last_error_verbose'))     
+                try:
+                    # Try to improve the error message
+                    raise ValueError( str(e) + '; error in proximity of: ', getattr(json, 'last_error_verbose')) 
+                except:
+                    # Otherwise, just raise...
+                    raise    
     except IOError:
         # If the conf file was explicitly set, then raise, otherwise just return empty conf
         if conf_file != 'run.conf':
@@ -453,11 +458,11 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                 container = container_conf['container']
                 
             # Check for instance name
-            if 'container' not in container_conf:
+            if 'instance' not in container_conf:
                 abort('Missing instance name for conf: {}'.format(container_conf))
             else:
                 instance = container_conf['instance']
-            
+
             # Handle the instance type.
             if 'instance_type' in container_conf:
                     instance_type = container_conf['instance_type']
@@ -476,7 +481,8 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                 linked          = linked          if linked          is not None else (container_conf['linked']          if 'linked'          in container_conf else None),
                 interactive     = interactive,
                 safemode        = safemode,
-                debug           = debug)
+                debug           = debug,
+                conf            = conf)
                 
         # Exit
         return
@@ -508,15 +514,14 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
         return    
 
     # Init container conf and requested env vars
-    container_conf     = None
-    requested_ENV_VARs = None
+    container_conf = None
+    ENV_VARs       = {}
  
     # Check if this container is listed in the run conf:
     if is_container_registered(container, conf):
         
         # If the container is registered, the the rules of the run conf applies, so:
-        requested_ENV_VARs = {}    
-        
+
         # 1) Read the conf if any
         try:
             containers_to_run_confs = get_containers_run_conf(conf)
@@ -535,6 +540,10 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                 if (container == item['container']):
                     logger.debug('Found conf for container "%s"', container)
                     container_conf = item
+        if not container_conf:
+            conf_file = conf if conf else 'default (run.conf)'
+            if not confirm('WARNING: Could not find conf for container {}, instance {} in the {} conf file. Should I proceed?'.format(container, instance, conf_file)):
+                return
         
         # 2) Handle the instance type.
         if container_conf and not instance_type:
@@ -551,57 +560,16 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                                           
         # 3) Now, enumerate the vars required by this container:
         if container_conf and 'env_vars' in container_conf:
-            requested_ENV_VARs = {var:container_conf['env_vars'][var] for var in container_conf['env_vars']} if 'env_vars' in container_conf else {}
+            ENV_VARs = {var:container_conf['env_vars'][var] for var in container_conf['env_vars']} if 'env_vars' in container_conf else {}
         
-        # 4) Add also env vars required by linking if instance type is master
-        if instance_type == 'master':
-            if container_conf and 'links' in container_conf:
-                logger.debug('adding to the required ENV VARs also the linking ones since the instance is a master one and linked')
-                for linked_container in container_conf['links']:
-                    # Add this var flagged as unset
-                    requested_ENV_VARs[linked_container['name']+'_CONTAINER_IP'] = None 
-        
-        # 5) Try to set them from the env:
-        for requested_ENV_VAR in requested_ENV_VARs.keys():
+        # 4) Try to set them from the env:
+        for requested_ENV_VAR in ENV_VARs.keys():
             if requested_ENV_VAR is None:
-                requested_ENV_VARs[requested_ENV_VAR] = os.getenv(requested_ENV_VAR, None)
+                ENV_VARs[requested_ENV_VAR] = os.getenv(requested_ENV_VAR, None)
                 
-
-        # 6) Do we still have missing values?
-        if None in requested_ENV_VARs.values():
-            logger.debug('After checking the env I still cannot find some required env vars, proceeding with the host conf')
-        
-            host_conf = None  
-            for requested_ENV_VAR in requested_ENV_VARs:
-
-                if requested_ENV_VARs[requested_ENV_VAR] is None:
-                    if host_conf is None:
-                        # Try to load the host conf:
-                        try:
-                            with open(PROJECT_DIR+'/host.conf') as f:
-                                content = f.read().replace('\n','').replace('  ',' ')
-                                host_conf = json.loads(content)
-                        except ValueError,e:
-                            abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(APPS_CONTAINERS_DIR+'/../host.conf'))  
-                        except IOError, e:
-                            host_conf = {}
-                            
-                    # Try to see if we can set this var according to the conf
-                    if requested_ENV_VAR in host_conf:
-                        requested_ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
-                    else:
-                        # Ask the user for the value of this var
-                        host_conf[requested_ENV_VAR] = raw_input('Please enter a value for the required ENV VAR "{}" (or export it before launching):'.format(requested_ENV_VAR))
-                        requested_ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
-                        
-                        # Then, dump the conf #TODO: dump just at the end..
-                        with open(PROJECT_DIR+'/host.conf', 'w') as outfile:
-                            json.dump(host_conf, outfile)
-
-
     # Handle instance type for not regitered containers of if not set:
     if not instance_type:
-        if instance in ['master','published','safemode']:
+        if instance in ['master','published','safemode','interactive']:
             instance_type = instance
         else:
             instance_type = 'standard'
@@ -616,13 +584,7 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
     publish_ports    = setswitch(publish_ports=publish_ports, instance_type=instance_type)
     safemode        = setswitch(safemode=safemode, instance_type=instance_type)
 
-    # Obtain env vars to set. DO we have any var requeted by the container conf?
-    if requested_ENV_VARs:
-        ENV_VARs = requested_ENV_VARs
-    else:
-        ENV_VARs = {}
-        
-    # Now add the always present ones
+    # Now add the always present env vars
     ENV_VARs['CONTAINER'] = container
     ENV_VARs['INSTANCE'] = instance
     ENV_VARs['INSTANCE_TYPE'] = instance_type
@@ -636,7 +598,6 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
     # Handle linking...
     if linked:
         if container_conf and 'links' in container_conf:
-
             for link in container_conf['links']:
                 if not link:
                     continue
@@ -645,7 +606,6 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                 link_container = link['container']
                 link_instance  = link['instance']
                 
-                
                 running_instances = get_running_containers_instances_matching(container) 
 
                 # Validate: detect if there is a running container for link['container'], link['instance']
@@ -653,18 +613,55 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                 # Obtain any running instances. If link_instance is None, finds all running instances for container and
                 # warns if more than one instance is found.
                 running_instances = get_running_containers_instances_matching(link_container, link_instance)         
-                if len(running_instances) == 0:
-                    abort('Could not find any running instance of container matching "{}" which is required for linking by container "{}", instance "{}"'.format(link_container, container, instance))             
-                if len(running_instances) > 1:
-                    logger.info('Found more than one running instance for container "{}" which is required for linking: {}. I will use the first one ({})..'.format(link_container, running_instances, running_instances[0]))   
-                link_container = running_instances[0][0]
-                link_instance  = running_instances[0][1]
-
-                # Now add linking flag for this link
-                run_cmd += ' --link {}:{}'.format(PROJECT_NAME+'-'+link_container+'-'+link_instance, link_name)
                 
-                # Also, add an env var with the linked container IP
-                ENV_VARs[link_name+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
+                if len(running_instances) == 0:
+                    logger.info('Could not find any running instance of container matching "{}" which is required for linking by container "{}", instance "{}"'.format(link_container, container, instance))             
+                    ENV_VARs[link_name+'_CONTAINER_IP'] = None
+                    
+                else:
+                    if len(running_instances) > 1:
+                        logger.info('Found more than one running instance for container "{}" which is required for linking: {}. I will use the first one ({})..'.format(link_container, running_instances, running_instances[0]))
+                      
+                    link_container = running_instances[0][0]
+                    link_instance  = running_instances[0][1]
+    
+                    # Now add linking flag for this link
+                    run_cmd += ' --link {}:{}'.format(PROJECT_NAME+'-'+link_container+'-'+link_instance, link_name)
+                    
+                    # Also, add an env var with the linked container IP
+                    ENV_VARs[link_name+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
+
+    # Check that we have all the required env vars. Do NOT move this section around, it has to stay here.
+    if None in ENV_VARs.values():
+        logger.debug('After checking the env I still cannot find some required env vars, proceeding with the host conf')
+    
+        host_conf = None  
+        for requested_ENV_VAR in ENV_VARs:
+
+            if ENV_VARs[requested_ENV_VAR] is None:
+                if host_conf is None:
+                    # Try to load the host conf:
+                    try:
+                        with open(PROJECT_DIR+'/host.conf') as f:
+                            content = f.read().replace('\n','').replace('  ',' ')
+                            host_conf = json.loads(content)
+                    except ValueError,e:
+                        abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(APPS_CONTAINERS_DIR+'/../host.conf'))  
+                    except IOError, e:
+                        host_conf = {}
+                        
+                # Try to see if we can set this var according to the conf
+                if requested_ENV_VAR in host_conf:
+                    ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
+                else:
+                    # Ask the user for the value of this var
+                    host_conf[requested_ENV_VAR] = raw_input('Please enter a value for the required ENV VAR "{}" (or export it before launching):'.format(requested_ENV_VAR))
+                    ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
+                    
+                    # Then, dump the conf #TODO: dump just at the end..
+                    with open(PROJECT_DIR+'/host.conf', 'w') as outfile:
+                        json.dump(host_conf, outfile)
+
 
     # Handle persistency
     if persistent_data or persistent_log or persistent_opt:
@@ -792,7 +789,6 @@ def clean(container=None, instance=None, force=False, conf=None):
                 
         # Get container list to clean
         one_in_conf = False
-        containers_run_conf = get_containers_run_conf(conf)
         containers_run_conf = []
         for container_conf in get_containers_run_conf(conf):
             if not container_conf['instance']:
@@ -847,7 +843,7 @@ def clean(container=None, instance=None, force=False, conf=None):
                             
     else:
         if not instance:
-            print 'I did not find any running instance to clean, exiting..'
+            print 'I did not find any running instance to clean, exiting. Pleasenote that if the instance is not running, you have to specify the instance name to let it be clened'
         else:
             print 'Cleaning container "{}", instance "{}"..'.format(container,instance)          
             shell("docker stop "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
