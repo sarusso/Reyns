@@ -733,6 +733,7 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
             abort('No Dockerfile found (?!) I was looking in {}'.format(get_container_dir(container)+'/Dockerfile'))
         
         ports =[]
+        udp_ports = []
         for line in content:
             if line.startswith('EXPOSE'):
                 # Clean up the line
@@ -745,10 +746,26 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
                         except ValueError:
                             abort('Got unknown port from container\'s dockerfile: "{}"'.format(port))
 
+            if line.startswith('#UDP_EXPOSE'):
+                # Clean up the line
+                line_clean =  line.replace('\n','').replace(' ',',').replace('#UDP_EXPOSE','')
+                for port in line_clean.split(','):
+                    if port:
+                        try:
+                            # Append while validating
+                            udp_ports.append(int(port))
+                        except ValueError:
+                            abort('Got unknown port from container\'s dockerfile: "{}"'.format(port))
+
         for port in ports:
             internal_port = port
             external_port = port
             run_cmd += ' -p {}:{}'.format(internal_port, external_port)
+
+        for port in udp_ports:
+            internal_port = port
+            external_port = port
+            run_cmd += ' -p {}:{}/udp'.format(internal_port, external_port)
 
     # Add env vars..
     logger.debug("Adding env vars: %s", ENV_VARs)
