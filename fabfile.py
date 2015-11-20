@@ -238,10 +238,11 @@ def get_containers_run_conf(conf_file=None):
             except ValueError as e:
                 try:
                     # Try to improve the error message
-                    raise ValueError( str(e) + '; error in proximity of: ', getattr(json, 'last_error_verbose')) 
+                    json_error_msg_verbose = getattr(json, 'last_error_verbose')
+                    raise ValueError( str(e) + '; error in proximity of: ', json_error_msg_verbose) 
                 except:
                     # Otherwise, just raise...
-                    raise    
+                    raise e
     except IOError:
         # If the conf file was explicitly set, then raise, otherwise just return empty conf
         if conf_file != 'run.conf':
@@ -428,17 +429,21 @@ def start(container,instance):
 
 @task
 # TODO: clarify difference between False and None.
-def run(container=None, instance=None, instance_type=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, publish_ports=None, linked=None, interactive=False, seed_command=None, debug=False, conf=None):
+def run(container=None, instance=None, instance_type=None, group=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, publish_ports=None, linked=None, interactive=False, seed_command=None, debug=False, conf=None):
     '''Run a given container with a given instance. In no instance name is set,
     a standard instance with a random name is run. If container name is set to "all"
     then all the containers are run, according  to the run conf file.'''
-    
-    # Sanitize...
-    (container, instance) = sanity_checks(container, instance)
-        
-    if container == 'all':
 
-        print '\nRunning all containers in {}'.format(APPS_CONTAINERS_DIR)
+    #---------------------------
+    # Run a group of containers
+    #---------------------------
+    if container == 'all' or group:
+        
+        if container == 'all':
+            print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
+            group = 'all'
+        
+        print '\nRunning containers in {} for group {}'.format(APPS_CONTAINERS_DIR,group)
 
         if safemode or interactive:
             abort('Sorry, you cannot set one of the "safemode", "interactive" or "debug" switches if you are running using a "run:all" command') 
@@ -451,6 +456,17 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
         
         for container_conf in containers_to_run_confs:
             
+            # Check for container group.
+            # We will run the container if:
+            # a) the group is set to 'all'
+            # b) the group is set to 'x' and the container group is 'x'            
+            if group != 'all':
+                if 'group' in container_conf:
+                    if container_conf['group'] != group:
+                        continue
+                else:
+                    continue
+                
             # Check for container name
             if 'container' not in container_conf:
                 abort('Missing container name for conf: {}'.format(container_conf))
@@ -468,6 +484,7 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
                     instance_type = container_conf['instance_type']
             else:
                 instance_type = None
+            
             
 
             # Recursively call myself with proper args. The args of the call always win over the configuration(s)
@@ -487,6 +504,13 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
         # Exit
         return
 
+    #-----------------------
+    # Run a given container
+    #-----------------------
+
+    # Sanitize...
+    (container, instance) = sanity_checks(container, instance)
+      
     # Handle debug switch:
     if booleanize(debug=debug):
         logger.info('Setting loglevel to DEBUG from now on..')
@@ -763,19 +787,12 @@ def run(container=None, instance=None, instance_type=None, persistent_data=None,
     
     
 @task
-def clean(container=None, instance=None, force=False, conf=None):
+def clean(container=None, instance=None, group=None, force=False, conf=None):
     '''Clean a given container. If container name is set to "all" then clean all the containers according 
     to the run conf file. If container name is set to "reallyall" then all containers on the host are cleaned'''
-    
-    # TODO: project-> clean containers in run conf in reverse order, then 
-    #        all -> clean all containers of this project
-    #       reallyall -> clean all docker containers on the system
-    
-    # Sanitize...
-    (container, instance) = sanity_checks(container,instance)
-    
-    #all: list containers to clean (check run conf first)
-    #reallyall: warn and clean all
+
+    # all: list containers to clean (check run conf first)
+    # reallyall: warn and clean all
     
     if container == 'reallyall':
         
@@ -785,14 +802,26 @@ def clean(container=None, instance=None, force=False, conf=None):
             shell('docker stop $(docker ps -a -q) &> /dev/null', silent=True)
             shell('docker rm $(docker ps -a -q) &> /dev/null', silent=True)
 
-    elif container == 'all':
-                
+    elif container == 'all' or group:
+        if container == 'all':
+            print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
+            group = 'all'        
+        
+        
         # Get container list to clean
         one_in_conf = False
         containers_run_conf = []
         for container_conf in get_containers_run_conf(conf):
+            
+            # Do not clean instances not explicity set in run.conf (TODO: do we want this?)
             if not container_conf['instance']:
                 continue
+            
+            # Do not clean instances not belonging to the group we want to clean
+            if group != 'all' and 'group' in container_conf and container_conf['group'] != group:
+                continue
+            
+            # Understand if the container to clean is running
             if is_container_running(container=container_conf['container'], instance=container_conf['instance']) \
               or container_exits_but_not_running(container=container_conf['container'], instance=container_conf['instance']):
                 if not one_in_conf:
@@ -841,9 +870,12 @@ def clean(container=None, instance=None, force=False, conf=None):
                     shell("docker stop "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
                     shell("docker rm "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
                             
-    else:
+    else:   
+        # Sanitize (and dynamically obtain instance)...
+        (container, instance) = sanity_checks(container,instance)
+        
         if not instance:
-            print 'I did not find any running instance to clean, exiting. Pleasenote that if the instance is not running, you have to specify the instance name to let it be clened'
+            print 'I did not find any running instance to clean, exiting. Please note that if the instance is not running, you have to specify the instance name to let it be clened'
         else:
             print 'Cleaning container "{}", instance "{}"..'.format(container,instance)          
             shell("docker stop "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
