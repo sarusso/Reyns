@@ -233,8 +233,16 @@ def get_containers_run_conf(conf_file=None):
     try:
         with open(APPS_CONTAINERS_DIR+'/'+conf_file) as f:
             content = f.read()#.replace('\n','').replace('  ',' ')
+            json_content = []
+            # Handle comments
+            for line in content.split('\n'):
+                if '#' in line:
+                    line = line.split('#')[0]
+                json_content.append(line)     
+            json_content = '\n'.join(json_content)
+            print json_content
             try:
-                registered_containers = json.loads(content)
+                registered_containers = json.loads(json_content)
             except ValueError as e:
                 try:
                     # Try to improve the error message
