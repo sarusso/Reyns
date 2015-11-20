@@ -593,7 +593,11 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
         if container_conf and 'env_vars' in container_conf:
             ENV_VARs = {var:container_conf['env_vars'][var] for var in container_conf['env_vars']} if 'env_vars' in container_conf else {}
         
-        # 4) Try to set them from the env:
+        # 4) If instance is master, add also the HOST_IP env var as required:
+        if instance_type == 'master':
+            ENV_VARs = {'HOST_IP': None}
+        
+        # 5) Try to set them from the env:
         for requested_ENV_VAR in ENV_VARs.keys():
             if requested_ENV_VAR is None:
                 ENV_VARs[requested_ENV_VAR] = os.getenv(requested_ENV_VAR, None)
@@ -732,13 +736,14 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
         for line in content:
             if line.startswith('EXPOSE'):
                 # Clean up the line
-                line_clean =  line.replace('\n','').replace(' ','').replace('EXPOSE','')
+                line_clean =  line.replace('\n','').replace(' ',',').replace('EXPOSE','')
                 for port in line_clean.split(','):
-                    try:
-                        # Append while validating
-                        ports.append(int(port))
-                    except ValueError:
-                        abort('Got unknown port from container\'s dockerfile: "{}"'.format(port))
+                    if port:
+                        try:
+                            # Append while validating
+                            ports.append(int(port))
+                        except ValueError:
+                            abort('Got unknown port from container\'s dockerfile: "{}"'.format(port))
 
         for port in ports:
             internal_port = port
