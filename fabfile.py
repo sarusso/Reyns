@@ -240,7 +240,6 @@ def get_containers_run_conf(conf_file=None):
                     line = line.split('#')[0]
                 json_content.append(line)     
             json_content = '\n'.join(json_content)
-            print json_content
             try:
                 registered_containers = json.loads(json_content)
             except ValueError as e:
