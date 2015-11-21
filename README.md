@@ -67,7 +67,11 @@ Now, place yourself at the level of the apps_containers directory, and issue the
 As for the building, place yourself at the level of the apps_containers directory, and issue the following command.
 
 
-    dockerops run:your_container_name[,instance=your_instance_name, instance_type=standard/published/master, group=your_container_group_name, persistent_data=True/False, persistent_log=True/False, persistent_opt=True/False, publish_ports=True/False, linked=True/False, seed_command=cusom_seed_command, safemode=True/False,  interactive=True/False, debug=True/False, conf=conf_file(default:run.conf)]
+    dockerops run:your_container_name[,instance=your_instance_name, instance_type=standard
+                  published/master, group=your_container_group_name, persistent_data=True/False,
+                  persistent_log=True/False, persistent_opt=True/False, publish_ports=True/False,
+                  linked=True/False, seed_command=cusom_seed_command, safemode=True/False,
+                  interactive=True/False, debug=True/False, conf=conf_file(default:run.conf)]
 
 All the above arguments are explained in detail in the following sections.
 
