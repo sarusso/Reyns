@@ -33,7 +33,6 @@ LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
 # Defaults   
 defaults={}
 defaults['master']    = {'linked':True,  'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'publish_ports':True,  'safemode':False}
-defaults['safemode']  = {'linked':False, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':True }
 defaults['published'] = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':True,  'safemode':False}
 defaults['standard']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':False}
 
@@ -82,23 +81,21 @@ def sanity_checks(container, instance=None):
     
     # Check instance name     
     if not instance:
-        
         if run:
             instance = str(uuid.uuid4())[0:8]
             
         if ssh or (clean and not container in ['all', 'reallyall']) or ip:
             running_instances = get_running_containers_instances_matching(container)
             if len(running_instances) == 0:
-                if not clean:
-                    abort('Could not find any running instance of container matching "{}"'.format(container))                
+                abort('Could not find any running instance of container matching "{}"'.format(container))                
             if len(running_instances) > 1:
                 if clean:
                     abort('Found more than one running instance for container "{}": {}, please specity wich one.'.format(container, running_instances))            
                 else:         
                     if not confirm('WARNING: I found more than one running instance for container "{}": {}, i will be using the first one ("{}"). Proceed?'.format(container, running_instances, running_instances[0])) :
                         abort('Stopped.')
-                container = running_instances[0][0]
-                instance  = running_instances[0][1]
+            container = running_instances[0][0]
+            instance  = running_instances[0][1]
         
     if instance and build:
         abort('The build command does not make sense with an instance name (got "{}")'.format(instance))
@@ -295,8 +292,8 @@ def setswitch(**kwargs):
     for i, swicth in enumerate(kwargs):
         
         if kwargs[swicth] is not None:
-            # If the arg is already set just return it
-            return kwargs[swicth]
+            # If the arg is already set just return it (booleanizing)
+            return booleanize(kwargs[swicth])
         else:
             # Else set the default value
             try:
@@ -436,7 +433,10 @@ def start(container,instance):
 
 @task
 # TODO: clarify difference between False and None.
-def run(container=None, instance=None, instance_type=None, group=None, persistent_data=None, persistent_log=None, persistent_opt=None, safemode=False, publish_ports=None, linked=None, interactive=False, seed_command=None, debug=False, conf=None):
+def run(container=None, instance=None, group=None, instance_type=None,
+        persistent_data=None, persistent_log=None, persistent_opt=None,
+        publish_ports=None, linked=None, seed_command=None, 
+        safemode=False,  interactive=False, debug=False, conf=None):
     '''Run a given container with a given instance. In no instance name is set,
     a standard instance with a random name is run. If container name is set to "all"
     then all the containers are run, according  to the run conf file.'''
@@ -453,7 +453,7 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
         print '\nRunning containers in {} for group {}'.format(APPS_CONTAINERS_DIR,group)
 
         if safemode or interactive:
-            abort('Sorry, you cannot set one of the "safemode", "interactive" or "debug" switches if you are running using a "run:all" command') 
+            abort('Sorry, you cannot set one of the "safemode" or "interactive" switches if you are running more than one container') 
 
         # Load run conf             
         try:
@@ -491,8 +491,6 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
                     instance_type = container_conf['instance_type']
             else:
                 instance_type = None
-            
-            
 
             # Recursively call myself with proper args. The args of the call always win over the configuration(s)
             run(container       = container,
@@ -501,7 +499,7 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
                 persistent_data = persistent_data if persistent_data is not None else (container_conf['persistent_data'] if 'persistent_data' in container_conf else None),
                 persistent_log  = persistent_log  if persistent_log  is not None else (container_conf['persistent_log']  if 'persistent_log'  in container_conf else None),
                 persistent_opt  = persistent_opt  if persistent_opt  is not None else (container_conf['persistent_opt']  if 'persistent_opt'  in container_conf else None),
-                publish_ports    = publish_ports    if publish_ports    is not None else (container_conf['publish_ports']    if 'publish_ports'    in container_conf else None),
+                publish_ports   = publish_ports   if publish_ports   is not None else (container_conf['publish_ports']   if 'publish_ports'   in container_conf else None),
                 linked          = linked          if linked          is not None else (container_conf['linked']          if 'linked'          in container_conf else None),
                 interactive     = interactive,
                 safemode        = safemode,
@@ -514,7 +512,7 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
     #-----------------------
     # Run a given container
     #-----------------------
-
+    
     # Sanitize...
     (container, instance) = sanity_checks(container, instance)
       
@@ -528,11 +526,10 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
 
     # Check if this container is exited
     if container_exits_but_not_running(container,instance):
-        # TODO: The following shoul work for interactive, not for safemode. Moreover now with
-        # the instance types concept it does not work anymore.
-        #if instance=='safemode':
-        #    # Only for safemode instances we take the right of cleaning
-        #    shell('fab clean:{},instance=safemode'.format(container), silent=True)
+
+        if interactive:
+            # Only for instances run in interactive mode we take the right of cleaning
+            shell('fab clean:{},instance=safemode'.format(container), silent=True)
 
         abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking' \
               'would be end up broken. Use dockerops clean:{0},instance={1} to clean it and start over clean, ' \
@@ -604,7 +601,7 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
                 
     # Handle instance type for not regitered containers of if not set:
     if not instance_type:
-        if instance in ['master','published','safemode','interactive']:
+        if instance in ['master','published']:
             instance_type = instance
         else:
             instance_type = 'standard'
@@ -617,15 +614,15 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
     persistent_log  = setswitch(persistent_log=persistent_log, instance_type=instance_type)
     persistent_opt  = setswitch(persistent_opt=persistent_opt, instance_type=instance_type)
     publish_ports    = setswitch(publish_ports=publish_ports, instance_type=instance_type)
-    safemode        = setswitch(safemode=safemode, instance_type=instance_type)
 
     # Now add the always present env vars
-    ENV_VARs['CONTAINER'] = container
-    ENV_VARs['INSTANCE'] = instance
-    ENV_VARs['INSTANCE_TYPE'] = instance_type
+    ENV_VARs['CONTAINER']       = container
+    ENV_VARs['INSTANCE']        = instance
+    ENV_VARs['INSTANCE_TYPE']   = instance_type
     ENV_VARs['PERSISTENT_DATA'] = persistent_data
-    ENV_VARs['PERSISTENT_LOG'] = persistent_log
-    ENV_VARs['PERSISTENT_OPT'] = persistent_opt
+    ENV_VARs['PERSISTENT_LOG']  = persistent_log
+    ENV_VARs['PERSISTENT_OPT']  = persistent_opt
+    ENV_VARs['SAFEMODE']        = safemode
             
     # Start building run command
     run_cmd = 'docker run --name {}-{}-{} '.format(PROJECT_NAME, container,instance)
@@ -781,10 +778,6 @@ def run(container=None, instance=None, instance_type=None, group=None, persisten
         run_cmd += ' -h {}'.format(container_conf['hostname'])
     else:
         run_cmd += ' -h {}-{}'.format(container,instance)
-        
-    # Handle safemode
-    if safemode or instance=='safemode':
-        interactive=True
 
     # Set seed command
     if not seed_command:

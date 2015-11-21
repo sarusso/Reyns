@@ -1,12 +1,13 @@
 #!/bin/bash
 set -e
 
-echo "Excecuting common entrypoint"
+echo ""
+echo "Excecuting common entrypoint..."
 
 #-------------------
 #   Save env
 #-------------------
-echo " Dumping env..."
+echo " Dumping env"
 
 # Save env vars for in-container usage (e.g. ssh)
 
@@ -25,10 +26,10 @@ done
 #-------------------
 #   Persistency
 #-------------------
-echo " Handling persistency..."
+echo " Handling persistency"
 
 # If persistent data:
-if [ "$PERSISTENT_DATA" = "True" ]; then
+if [ "x$PERSISTENT_DATA" == "xTrue" ]; then
     echo " Persistent data set"
     if [ ! -f /persistent/data/.persistent_initialized ]; then
         mv /data /persistent/data
@@ -42,7 +43,7 @@ if [ "$PERSISTENT_DATA" = "True" ]; then
 fi
 
 # If persistent log:
-if [ "$PERSISTENT_LOG" = "True" ]; then
+if [ "x$PERSISTENT_LOG" == "xTrue" ]; then
     echo " Persistent log set"
     if [ ! -f /persistent/log/.persistent_initialized ]; then
         mv /var/log /persistent/log
@@ -56,7 +57,7 @@ if [ "$PERSISTENT_LOG" = "True" ]; then
 fi
 
 # If persistent opt:
-if [ "$PERSISTENT_OPT" = "True" ]; then
+if [ "x$PERSISTENT_OPT" == "xTrue" ]; then
     echo " Persistent opt set"
     if [ ! -f /persistent/opt/.persistent_initialized ]; then
         mv /opt /persistent/opt
@@ -70,20 +71,23 @@ if [ "$PERSISTENT_OPT" = "True" ]; then
 fi
 
 
-
-
-
 #-------------------
 #  Entrypoint
 #-------------------
-
-echo "Now executing container's local entrypoint"
 echo ""
-/entrypoint-local.sh
+if [ "x$SAFEMODE" == "xFalse" ]; then
+    echo "Now executing container's local entrypoint..."
+    echo ""
+    /entrypoint-local.sh
+else
+    echo "Not executing container's local entrypoint as we are in safemode"
+    echo ""
+fi
 
-echo "Now executing container's entrypoint"
+echo "Now executing container's entrypoint..."
 echo ""
-
+echo "All done!"
+echo ""
 exec /entrypoint.sh "$@"
 
 
