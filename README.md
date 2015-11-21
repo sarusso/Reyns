@@ -160,7 +160,7 @@ To enable the debug mode, just set the "LOG_LEVEL" env var to "DEBUG". for examp
 
 Licensing
 =========
-Docker is licensed under the Apache License, Version 2.0. See
+DockerOps is licensed under the Apache License, Version 2.0. See
 [LICENSE](https://raw.githubusercontent.com/sarusso/DockerOps/master/LICENSE) for the full
 license text.
 
