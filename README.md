@@ -3,17 +3,18 @@
 If you are interested in contributing please drop me a line at stefano.russo@gmail.com.
 
 
-#DockerOps
+DockerOps
+=========
 
 
 Simple yet powerful Docker operations orchestrator for managing entire platforms. Allows to speed up both Dev (every developer can run its own instance of the platform) and Ops (what is put in production is deterministically tested before). 
 
-## Prerequisites
+# Prerequisites
 
 Docker, Fabric (apt-get install fabric)
 
 
-## Quick start and demo
+# Quick start and demo
 
 `git clone https://github.com/sarusso/DockerOps.git`
 
@@ -41,10 +42,10 @@ Exit and re-open terminal
 
 
 
-## Documentation
+# Documentation
 
 
-### Introduction and basics
+## Introduction and basics
 
 DockerOps allows you to define how to build, run and interconnect a set (or from now on, a *project*) of Docker containers. It comes with a base container on which you should build all your Dockers, where Supervisor and SSH are installed and configured by default. The base container has a default user named "dockerops" which has the SSH keys for accessing every Docker container you create on top of the base container. Please not that in production you may want to change or remove the SSH keys.
 
@@ -54,7 +55,7 @@ A project is organized in folders: each Docker container must have its own folde
 
 The basic usage relise on four very simple commands. Fisrt you have to build your container using `dockerops build:your_container_name`, then you can run it by simply typing `dockerops run:your_container_name`. Once the container is started, you can ssh into is using `dockerops ssh:your_container_name`, and turn it off using dockerops `clean:your_container_name`.
 
-### Building a container
+## Building a container
 
 Place yourself in a  directoy and create a subdir named apps_containers. Then create a subdir of apps_containers named your_container_name. here, create a file named Dockerfile where to put your Docker build commands. Remember to always extend the dockerops-base container (`FROM your_project_name/dockerops-base`) in the Dockerfile
 
@@ -62,7 +63,7 @@ Now, place yourself at the level of the apps_containers directory, and issue the
 
     dockerops build:your_container_name[,verbose]
 
-### Runnign a container
+## Runnign a container
 
 As for the building, place yourself at the level of the apps_containers directory, and issue the following command.
 
@@ -76,7 +77,7 @@ As for the building, place yourself at the level of the apps_containers director
 All the above arguments are explained in detail in the following sections.
 
 
-### Containers properties
+## Containers properties
 
 When you run a Docker container using DockerOps, there are a few properties already implemented to make the life easier. These are:
 
@@ -87,7 +88,7 @@ When you run a Docker container using DockerOps, there are a few properties alre
 * `persistent_log`: if enabled, all the data in /var/log inside the container is made persistent on the host filesystem (if data is already present, it is preserved) 
 
 
-### Instances
+## Instances
 DockerOps introduces the concept of *instances* of the same Docker conatiner: this is just a naming convention and does not modify in any way how Docker works, but it is an extremely useful feature. For examle you can have a container running in two instances (i.e. nodeA and nodeB)
 
 A DockerOps instance can be of four *instance types*: **standard**, **published**, **master**, **interactive** and **safemode**. The safemode and interactive instances types will be covered more in detail in thei section. The following table summarize the defaults properies for the instances types, but no one prevents you from specifying custom settings (command line arguments have the highest possible precedence in DockerOps)
@@ -128,22 +129,40 @@ Example:
 
     dockerops run:postgres,instance=one,safemode=True,interactive=True,linked=False
 
-### Customizing container startup: the entrypoint-local.sh script
+
+## Customizing container startup
+### The entrypoint-local.sh script
+Coming soon...
+### The entrypoint.sh script
 Coming soon...
 
-### Building a project: the build.conf file
+
+## Building a project
+### Concepts
+Coming soon...
+### The build.conf file
 Coming soon...
 
-### Running a project: the run.conf file
+
+## Running a project
+### Concepts
+Coming soon...
+### The run.conf file
 Coming soon...
 
-### Debugging
+
+## Logging and debugging
 
 To enable the debug mode, just set the "LOG_LEVEL" env var to "DEBUG". for example:
 
     LOG_LEVEL=DEBUG dockerops run:postgres,instance=master
 
 
+Licensing
+=========
+Docker is licensed under the Apache License, Version 2.0. See
+[LICENSE](https://raw.githubusercontent.com/sarusso/DockerOps/master/LICENSE) for the full
+license text.
 
 
 
