@@ -593,11 +593,6 @@ def run(container=None, instance=None, group=None, instance_type=None,
         # 4) If instance is master, add also the HOST_IP env var as required:
         if instance_type == 'master':
             ENV_VARs = {'HOST_IP': None}
-        
-        # 5) Try to set them from the env:
-        for requested_ENV_VAR in ENV_VARs.keys():
-            if requested_ENV_VAR is None:
-                ENV_VARs[requested_ENV_VAR] = os.getenv(requested_ENV_VAR, None)
                 
     # Handle instance type for not regitered containers of if not set:
     if not instance_type:
@@ -647,7 +642,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
                 running_instances = get_running_containers_instances_matching(link_container, link_instance)         
                 
                 if len(running_instances) == 0:
-                    logger.info('Could not find any running instance of container matching "{}" which is required for linking by container "{}", instance "{}"'.format(link_container, container, instance))             
+                    logger.info('Could not find any running instance of container matching "{}" which is required for linking by container "{}", instance "{}". I will expect an env var for proper linking setup'.format(link_container, container, instance))             
                     ENV_VARs[link_name+'_CONTAINER_IP'] = None
                     
                 else:
@@ -662,6 +657,20 @@ def run(container=None, instance=None, group=None, instance_type=None,
                     
                     # Also, add an env var with the linked container IP
                     ENV_VARs[link_name+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
+
+
+    # Try to set the env vars from the env (they have always the precedence):
+    for requested_ENV_VAR in ENV_VARs.keys():
+        requested_ENV_VAR_env_value = os.getenv(requested_ENV_VAR, None)
+        if requested_ENV_VAR_env_value:
+            logger.debug('Found env var %s with value "%s"', requested_ENV_VAR, requested_ENV_VAR_env_value)
+            
+            if ENV_VARs[requested_ENV_VAR] is not None:
+                print ('WARNING: I am overriding atomaticaly set env var {} (value="{}")\
+                        and I will use value "{}" as I found it in the env'.format(requested_ENV_VAR, ENV_VARs[requested_ENV_VAR], requested_ENV_VAR_env_value))
+
+            ENV_VARs[requested_ENV_VAR] = requested_ENV_VAR_env_value
+
 
     # Check that we have all the required env vars. Do NOT move this section around, it has to stay here.
     if None in ENV_VARs.values():

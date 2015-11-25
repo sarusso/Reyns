@@ -156,6 +156,24 @@ Coming soon...
 To enable the debug mode, just set the "LOG_LEVEL" env var to "DEBUG". for example:
 
     LOG_LEVEL=DEBUG dockerops run:postgres,instance=master
+    
+If you insance does not run as expect when starting, and since it does not start you cannot ssh in it, you can try few things:
+
+First of all, you can try to run in in an interactive way:
+    
+    dockerops run:postgres,,instance=master,interactive=True,safemode=True
+
+This will execue DokcerOps's entrypoint, the entrypoint-local.sh and give you a shell. You can then type supervidord to start the container as normal.
+
+If you have errors in the execution of the entrypoint, you can use the safemode, which does not run the entrypoint-local.sh script. 
+
+    dockerops run:postgres,,instance=master,safemode=True
+
+..or you can cobine the two.
+
+    dockerops run:postgres,,instance=master,interactive=True,safemode=True
+
+If you still have errors, and in partiucular you are running with persistent data enabled, then you can try to rename the data dir temporary (to understande the mv: inter-device move failed error, in particular).
 
 
 Licensing
