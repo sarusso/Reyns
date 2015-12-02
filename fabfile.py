@@ -84,7 +84,7 @@ def sanity_checks(container, instance=None):
         if run:
             instance = str(uuid.uuid4())[0:8]
             
-        if ssh or (clean and not container in ['all', 'reallyall']) or ip:
+        if ssh or (clean and not container in ['all', 'reallyall']):
             running_instances = get_running_containers_instances_matching(container)
             if len(running_instances) == 0:
                 abort('Could not find any running instance of container matching "{}"'.format(container))                
@@ -947,8 +947,11 @@ def ip(container=None, instance=None):
     # Sanitize...
     (container, instance) = sanity_checks(container,instance)
     
-    # TODO: add the IP columns in ps?
-    print 'IP address for container: ', get_container_ip(container, instance)
+    # Get running instances
+    running_instances = get_running_containers_instances_matching(container)
+    # For each instance found print the ip address
+    for i in running_instances:
+        print 'IP address for {} {}: {}'.format(i[0], i[1], get_container_ip(i[0], i[1]))
 
 
 
