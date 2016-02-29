@@ -95,6 +95,22 @@ RUN chmod 755 /entrypoint.sh
 RUN chmod 755 /entrypoint-common.sh
 RUN chmod 755 /entrypoint-local.sh
 
+#----------------------------
+# Setup the DNS update
+#----------------------------
+COPY update_dns.sh /
+RUN apt-get -y install dnsutils && \
+    chmod 755 /update_dns.sh && \
+    echo '/update_dns.sh' >> /entrypoint-local.sh && \
+    chmod 755 /entrypoint-local.sh
+
+#----------------------------
+# Generate DNS key
+#----------------------------
+RUN apt-get -y install bind9utils && \
+    rndc-confgen | head -n 5 > /etc/rndc.key && \
+    chmod 600 /etc/rndc.key
+
 #----------------------
 # Startup
 #----------------------
