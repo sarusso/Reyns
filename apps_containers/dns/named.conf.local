@@ -1,0 +1,15 @@
+include "/etc/bind/rndc.key";
+
+zone "local.zone" {
+     type master;
+     notify no;
+     file "/var/cache/bind/db.local.zone";
+     allow-update { key rndc-key; };
+};
+
+zone "QQQ" {
+     type master;
+     notify no;
+     file "/var/cache/bind/db.rev.local.zone";
+     allow-update { key rndc-key; };
+};
