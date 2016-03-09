@@ -95,11 +95,11 @@ A DockerOps instance can be of four *instance types*: **standard**, **published*
 
 | Instance type | linked | publish ports | persistent data | persisten opt | persistent log | 
 |---------------|:------:|:-------------:|:---------------:|:-------------:|---------------:|
-| standard      | YES    | NO            | NO              | NO            | YES            |  
+| standard      | YES    | NO            | NO              | NO            | NO             |  
 | published     | YES    | YES           | NO              | NO            | NO             |
-| master        | YES*   | YES           | YES             | NO            | NO             |
+| master        | YES*   | YES           | YES             | NO            | YES            |
 
-*the linking in an instance of type **master** require a proper setting of the env vars, as explained in the dedicated section.
+*the linking in an instance of type **master** require a proper setting of the env vars (as explained in the dedicated section) or using the DNS service (dockerops-dns)
 
 There is also a rapid shortcut when running the containers: if you do not specify the instance type but you name an instance **master** or **published**, the instance type will be set accordingly. Whatevere other name you use for the instance (without excplicity specifying the instance type) will run an instance of type 'standard'.
 

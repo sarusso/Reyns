@@ -147,7 +147,7 @@ def get_container_dir(container=None):
     if not container:
         raise Exception('get_container_dir: container is required, got "{}"'.format(container))
     #logger.debug('Requested container dir for container %s', container )
-    if container == 'dockerops-base':
+    if container in ['dockerops-common', 'dockerops-base', 'dockerops-dns']:
         return BASE_CONTAINERS_DIR + '/' + container
     else:
         return APPS_CONTAINERS_DIR + '/' + container
@@ -363,6 +363,17 @@ def version():
 # Containers management
 #--------------------------
 
+@task
+def init(verbose=False, progress=False):
+    
+    # Switches
+    progress = booleanize(progress=progress)
+    verbose  = booleanize(verbose=verbose)
+
+    # Build dockerops containers
+    build(container='dockerops-common', progress=progress)
+    build(container='dockerops-base', progress=progress)
+    build(container='dockerops-dns', progress=progress)
 
 @task
 def build(container=None, verbose=False, progress=False, debug=False):
@@ -385,8 +396,8 @@ def build(container=None, verbose=False, progress=False, debug=False):
         logger.setLevel(logging.DEBUG)  
     
     if container.upper()=='ALL':
-        # Build everything then obtain which containers we have to build
-        
+
+        # Build everything then obtain which containers we have to build        
         print '\nBuilding all containers in {}'.format(APPS_CONTAINERS_DIR)
         
         try:
@@ -666,8 +677,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
             logger.debug('Found env var %s with value "%s"', requested_ENV_VAR, requested_ENV_VAR_env_value)
             
             if ENV_VARs[requested_ENV_VAR] is not None:
-                print ('WARNING: I am overriding atomaticaly set env var {} (value="{}")\
-                        and I will use value "{}" as I found it in the env'.format(requested_ENV_VAR, ENV_VARs[requested_ENV_VAR], requested_ENV_VAR_env_value))
+                print ('WARNING: I am overriding atomaticaly set env var {} (value="{}") and I will use value "{}" as I found it in the env'.format(requested_ENV_VAR, ENV_VARs[requested_ENV_VAR], requested_ENV_VAR_env_value))
 
             ENV_VARs[requested_ENV_VAR] = requested_ENV_VAR_env_value
 
@@ -695,6 +705,11 @@ def run(container=None, instance=None, group=None, instance_type=None,
                 if requested_ENV_VAR in host_conf:
                     ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
                 else:
+                    
+                    # Specail case for HOST_IP
+                    #if 
+                    #FWDIP=$(ip addr show eth0 | grep -F inet | grep -vF inet6 | awk '{print $2}' | rev | cut -c 4- | rev | tr -d \\n)
+
                     # Ask the user for the value of this var
                     host_conf[requested_ENV_VAR] = raw_input('Please enter a value for the required ENV VAR "{}" (or export it before launching):'.format(requested_ENV_VAR))
                     ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]

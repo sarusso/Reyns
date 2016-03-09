@@ -1,5 +1,8 @@
-FROM dockerops/dockerops-base
+FROM dockerops/dockerops-common
 MAINTAINER Gianfranco Gallizia <gianfranco.gallizia@exact-lab.it>
+
+# Update
+RUN apt-get update #20160403 last update, change date to invalidate cache
 
 #---------------------
 # Install bind package
@@ -35,6 +38,7 @@ COPY named.conf.local /etc/bind/
 COPY supervisord_bind.conf /etc/supervisor/conf.d/
 COPY runbind.sh /
 RUN chmod 755 /runbind.sh
+
 
 #-------------------
 # Entrypoint
