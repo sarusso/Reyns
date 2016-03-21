@@ -45,8 +45,8 @@ into these lines:
 
      {
       "container": "dns",
-      "instance": "master",
-      "sleep": 0,
+      "instance": "published",
+      "sleep": 10,
       "links": []
       },
 
@@ -66,5 +66,13 @@ into these lines:
      ]
 
 Start the containers and you should be able to contact the DNS container
-and ask it your local zone members (e.g. via `nslookup`).
+and ask it your local zone members (e.g. via `host dns.local.zone.`).
+Please note the 10 seconds sleep time to allow bind to set up in the dns
+container.
 
+Be sure that nothing is listening on port 53 both TCP **AND** UDP (E.G.
+dnsmasq or bind) on **your** host because DNS queries are sent through
+UDP but DNS updates are sent through TCP so both need to be available.
+
+Also the dns container instance must be a published (or master) instance
+to be able to resolve names for the other containers.
