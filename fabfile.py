@@ -8,6 +8,8 @@ import uuid
 import logging
 import json
 import socket
+import fcntl
+import struct
 
 from fabric.utils import abort
 from fabric.operations import local
@@ -51,6 +53,16 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 #--------------------------
 # Utility functions
 #--------------------------
+      
+# Get IP address of an interface              
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15])
+    )[20:24])
+
 
 # More verbose json error message
 json_original_errmsg = json.decoder.errmsg
@@ -146,7 +158,6 @@ def get_running_containers_instances_matching(container,instance=None):
 def get_container_dir(container=None):
     if not container:
         raise Exception('get_container_dir: container is required, got "{}"'.format(container))
-    #logger.debug('Requested container dir for container %s', container )
     if container in ['dockerops-common', 'dockerops-base', 'dockerops-dns']:
         return BASE_CONTAINERS_DIR + '/' + container
     else:
@@ -358,6 +369,35 @@ def version():
     commit_date      = last_commit_info_lines[-1].replace('  ', '')
     print '\nDockerOps version: ' + commit_shorthash + ' (' + commit_date + ')'
 
+@task
+def install_demo():
+    '''install the DockerOps demo in a directory named 'dockerops-demo' in the current path'''
+    
+    INSTALL_DIR = PROJECT_DIR + '/dockerops-demo'
+    
+    print '\nInstalling DockerOps demo in current directory ({})...'.format(INSTALL_DIR)
+    import shutil
+
+    try:
+        os.makedirs(INSTALL_DIR)
+    except OSError,e:
+        abort('Could not create directory {}: {}'.format(INSTALL_DIR, e))
+    
+    try:
+        shutil.copytree(os.getcwd()+'/apps_containers', INSTALL_DIR + '/apps_containers')
+    except OSError,e:
+        abort('Could not copy demo data into {}: {}'.format(INSTALL_DIR + '/apps_containers', e))
+        
+    print '\nDemo installed.'
+    print '\nQuickstart: enter into "{}", then:'.format(INSTALL_DIR)
+    print '  - to build it, type "dockerops build:all";'
+    print '  - to run it, type "dockerops run:all";'
+    print '  - to see running containers, type "dockerops ps";'
+    print '  - to ssh into the "dockerops-base", instance "two" container, type "dockerops ssh:dockerops-base,instance=one";'
+    print '    - to ping container "dockerops-base", instance "two", type: "ping dockerops-base-two";'
+    print '    - to exit ssh type "exit";'
+    print '  - to stop the demo, type "dockerops clean:all".'
+
 
 #--------------------------
 # Containers management
@@ -472,6 +512,9 @@ def run(container=None, instance=None, group=None, instance_type=None,
         except Exception, e:
             abort('Got error in reading run conf for automated execution: {}.'.format(e))
         
+        if not containers_to_run_confs:
+            abort('No or empty run.conf found, are you in the project\'s root?')
+        
         for container_conf in containers_to_run_confs:
             
             # Check for container group.
@@ -542,7 +585,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
             # Only for instances run in interactive mode we take the right of cleaning
             shell('fab clean:{},instance=safemode'.format(container), silent=True)
 
-        abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking' \
+        abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking ' \
               'would be end up broken. Use dockerops clean:{0},instance={1} to clean it and start over clean, ' \
               'or dockerops start:{0},instance={1} if you know what you are doing.'.format(container,instance))
 
@@ -601,8 +644,8 @@ def run(container=None, instance=None, group=None, instance_type=None,
         if container_conf and 'env_vars' in container_conf:
             ENV_VARs = {var:container_conf['env_vars'][var] for var in container_conf['env_vars']} if 'env_vars' in container_conf else {}
         
-        # 4) If instance is master, add also the HOST_IP env var as required:
-        if instance_type == 'master':
+        # 4) If instance is master, add also the HOST_IP env var as required if not already set:
+        if instance_type == 'master' and not 'HOST_IP' in ENV_VARs:
             ENV_VARs = {'HOST_IP': None}
                 
     # Handle instance type for not regitered containers of if not set:
@@ -637,15 +680,41 @@ def run(container=None, instance=None, group=None, instance_type=None,
     if linked:
         if container_conf and 'links' in container_conf:
             for link in container_conf['links']:
+
                 if not link:
                     continue
-                # Shortcuts
-                link_name      = link['name']
-                link_container = link['container']
-                link_instance  = link['instance']
+              
+                # Handle link shortcut
+                if isinstance(link, str) or isinstance(link, unicode):
+                    
+                    if (not '-' in link) or (not ':' in link):
+                        abort('Wrong link shortcut string format, cannot find dash or column. See doc.')
+                    
+                    link_pieces = link.split(':')[0].split('-')
+                    
+                    # Shortcuts
+                    link_name      = link.split(':')[1]
+                    link_container = '-'.join(link_pieces[:-1])
+                    link_instance  = link_pieces[-1]         
                 
-                running_instances = get_running_containers_instances_matching(container) 
+                elif isinstance(link, dict):
+                    if 'name' not in link:
+                        abort('Sorry, you need to give me a link name (ore use the string shortcut for defining it)')
+                    if 'container' not in link:
+                        abort('Sorry, you need to give me a link container (ore use the string shortcut for defining it)')
+                    if 'instance' not in link:
+                        abort('Sorry, you need to give me a link instance (ore use the string shortcut for defining it)')
+                    
+                    # Shortcuts
+                    link_name      = link['name']
+                    link_container = link['container']
+                    link_instance  = link['instance']
+                else:
+                    abort('Sorry, link must be defining using a dict or a string shortcut (see doc), got {}'.format(link.__class__.__name__))
 
+                
+                running_instances = get_running_containers_instances_matching(container)
+                
                 # Validate: detect if there is a running container for link['container'], link['instance']
 
                 # Obtain any running instances. If link_instance is None, finds all running instances for container and
@@ -654,11 +723,11 @@ def run(container=None, instance=None, group=None, instance_type=None,
                 
                 if len(running_instances) == 0:
                     logger.info('Could not find any running instance of container matching "{}" which is required for linking by container "{}", instance "{}". I will expect an env var for proper linking setup'.format(link_container, container, instance))             
-                    ENV_VARs[link_name+'_CONTAINER_IP'] = None
+                    ENV_VARs[link_name.upper()+'_CONTAINER_IP'] = None
                     
                 else:
                     if len(running_instances) > 1:
-                        logger.info('Found more than one running instance for container "{}" which is required for linking: {}. I will use the first one ({})..'.format(link_container, running_instances, running_instances[0]))
+                        logger.warning('Found more than one running instance for container "{}" which is required for linking: {}. I will use the first one ({}). You can set explicity on which instance to link on in run.conf'.format(link_container, running_instances, running_instances[0]))
                       
                     link_container = running_instances[0][0]
                     link_instance  = running_instances[0][1]
@@ -667,7 +736,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
                     run_cmd += ' --link {}:{}'.format(PROJECT_NAME+'-'+link_container+'-'+link_instance, link_name)
                     
                     # Also, add an env var with the linked container IP
-                    ENV_VARs[link_name+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
+                    ENV_VARs[link_name.upper()+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
 
 
     # Try to set the env vars from the env (they have always the precedence):
@@ -688,8 +757,11 @@ def run(container=None, instance=None, group=None, instance_type=None,
     
         host_conf = None  
         for requested_ENV_VAR in ENV_VARs:
-
+            
             if ENV_VARs[requested_ENV_VAR] is None:
+                
+                logger.debug('Evaluating required ENV_VAR %s', requested_ENV_VAR)
+                
                 if host_conf is None:
                     # Try to load the host conf:
                     try:
@@ -703,21 +775,52 @@ def run(container=None, instance=None, group=None, instance_type=None,
                         
                 # Try to see if we can set this var according to the conf
                 if requested_ENV_VAR in host_conf:
+                    logger.debug('Loading ENV_VAR %s from host.conf', requested_ENV_VAR)
                     ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
                 else:
                     
-                    # Specail case for HOST_IP
-                    #if 
-                    #FWDIP=$(ip addr show eth0 | grep -F inet | grep -vF inet6 | awk '{print $2}' | rev | cut -c 4- | rev | tr -d \\n)
-
+                    logger.debug('ENV_VAR %s not found even in host.conf, now asking the user', requested_ENV_VAR)
+                    
                     # Ask the user for the value of this var
-                    host_conf[requested_ENV_VAR] = raw_input('Please enter a value for the required ENV VAR "{}" (or export it before launching):'.format(requested_ENV_VAR))
+                    host_conf[requested_ENV_VAR] = raw_input('Please enter a value for the required ENV VAR "{}" (or export it before launching): '.format(requested_ENV_VAR))
                     ENV_VARs[requested_ENV_VAR] = host_conf[requested_ENV_VAR]
                     
-                    # Then, dump the conf #TODO: dump just at the end..
-                    with open(PROJECT_DIR+'/host.conf', 'w') as outfile:
-                        json.dump(host_conf, outfile)
+                    # Do we have to save the value for using it the next time? 
+                    answer = ''
+                    while answer.lower() not in ['y','n']:
+                        answer = raw_input('Should I save this value in host.conf for beign automatically used the next time? (y/n): ')
+                    
+                    if answer == 'y':
+                        # Then, dump the conf #TODO: dump just at the end..
+                        with open(PROJECT_DIR+'/host.conf', 'w') as outfile:
+                            json.dump(host_conf, outfile)
 
+    logger.debug('Done setting ENV vars. Summary: %s', ENV_VARs)
+
+    # Handle the special case for *_IP var names
+    found_function = False
+    for ENV_VAR in ENV_VARs:
+        if ENV_VAR.endswith('_IP'):
+            logger.debug('%s ENV_VAR ends with _IP, I am now going to ckeck if I have to apply a function to it...', ENV_VAR)
+            
+            if ENV_VARs[ENV_VAR].startswith('from_'):
+                found_function = True
+                
+                # Obtain interface
+                interface = ENV_VARs[ENV_VAR].split('_')[-1]
+                logger.debug('Found function for %s: from(\'%s\').', ENV_VAR, interface)
+                 
+                try:
+                    IP = get_ip_address(str(interface)) # Note: cast unicode to string..
+                except IOError:
+                    abort('Error: network interface {} set in {} does not exist on the host'.format(interface, ENV_VAR))
+                    
+                logger.debug('Updating value for %s with IP address %s', ENV_VAR, IP)
+                ENV_VARs[ENV_VAR] = IP
+
+    # Prind updated environment:
+    if found_function:
+        logger.debug('Done apllying functions to ENV vars. New summary: %s', ENV_VARs)
 
     # Handle persistency
     if persistent_data or persistent_log or persistent_opt:
@@ -778,15 +881,24 @@ def run(container=None, instance=None, group=None, instance_type=None,
                         except ValueError:
                             abort('Got unknown port from container\'s dockerfile: "{}"'.format(port))
 
+        # Handle forcing of an IP where to publish the port
+        pubish_on_ip = ''
+        
+        if instance == 'master':
+            pubish_on_ip = ENV_VARs['HOST_IP']+':'
+
+        # TCP ports publishing
         for port in ports:
+            
             internal_port = port
             external_port = port
-            run_cmd += ' -p {}:{}'.format(internal_port, external_port)
+            run_cmd += ' -p {}{}:{}'.format(pubish_on_ip, internal_port, external_port)
 
+        # UDP ports publishing
         for port in udp_ports:
             internal_port = port
             external_port = port
-            run_cmd += ' -p {}:{}/udp'.format(internal_port, external_port)
+            run_cmd += ' -p {}{}:{}/udp'.format(pubish_on_ip, internal_port, external_port)
 
     # Add env vars..
     logger.debug("Adding env vars: %s", ENV_VARs)
@@ -810,15 +922,20 @@ def run(container=None, instance=None, group=None, instance_type=None,
         else:
             seed_command = 'supervisord'
 
-    # Run!
-    logger.debug('Command: %s', run_cmd) 
+    # Default tag prefix to PROJECT_NAME    
+    tag_prefix = PROJECT_NAME
+
+    # But if we are running a DockerOps container, use DockerOps image
+    if container in ['dockerops-base', 'dockerops-dns', 'dockerops-common']:
+        tag_prefix = 'dockerops'
+
     if interactive:
-        run_cmd += ' -i -t {}/{}:latest {}'.format(PROJECT_NAME, container, seed_command)
+        run_cmd += ' -i -t {}/{}:latest {}'.format(tag_prefix, container, seed_command)
         local(run_cmd)
         shell('fab clean:container={},instance={}'.format(container,instance), silent=True)
         
     else:
-        run_cmd += ' -d -t {}/{}:latest {}'.format(PROJECT_NAME, container, seed_command)   
+        run_cmd += ' -d -t {}/{}:latest {}'.format(tag_prefix, container, seed_command)   
         if not shell(run_cmd, silent=True):
             abort('Something failed')
         print "Done."
@@ -1035,7 +1152,7 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
                         container_name_position = count
                         
                     if item == 'IMAGE':
-                        container_image_name_position = count    
+                        image_name_position = count    
                         
                         
                     count += 1
@@ -1077,15 +1194,13 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
             # Convert container names
             for i, item in enumerate(line_content):
                 
-                if i == container_image_name_position:
+                if i == image_name_position:
                     image_name = item
                     
-                
                 if i == container_name_position:
 
-                    # If only project containers:
-                    if not image_name:
-                        abort('Sorry, internal error (image name not defined)')
+                    # Set container name
+                    container_name = item
 
                     # Filtering against defined dockers
                     # If a container name was given, filter against it:
@@ -1093,61 +1208,61 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
                         
                         # Here we are filtering
                         if container[-1] == '*':
-                            if item.startswith(PROJECT_NAME+'-'+container[0:-1]):
-                                if instance and not item.endswith('-'+instance):
+                            if container_name.startswith(PROJECT_NAME+'-'+container[0:-1]):
+                                if instance and not container_name.endswith('-'+instance):
                                     continue
                             else:
                                 continue
                         else:
-                            if item.startswith(PROJECT_NAME+'-'+container+'-'):
-                                if instance and not item.endswith('-'+instance):
+                            if container_name.startswith(PROJECT_NAME+'-'+container+'-'):
+                                if instance and not container_name.endswith('-'+instance):
                                     continue
                             else:
                                 continue
                         
                     if instance:
-                        if item.endswith('-'+instance):
+                        if container_name.endswith('-'+instance):
                             pass
                         else: 
                             continue
  
                     # Handle Dockerops containers container
-                    if ('-' in item) and (not container == 'reallyall') and (image_name.startswith(PROJECT_NAME+'/')):
+                    if ('-' in container_name) and (not container == 'reallyall') and (container_name.startswith(PROJECT_NAME+'-')):
                         if known_containers_fullnames is not None:
                             # Filter against known_containers_fullnames
-                            if item not in known_containers_fullnames:
-                                logger.info('Skipping container "{}" as it is not recognized by DockerOps. Use the "all" magic word to list them'.format(item))
+                            if container_name not in known_containers_fullnames:
+                                logger.info('Skipping container "{}" as it is not recognized by DockerOps. Use the "all" magic word to list them'.format(container_name))
                                 continue
                             else:
                                 
                                 # Remove project name:
-                                if not item.startswith(PROJECT_NAME):
-                                    raise Exception('Error: this container ("{}") is not part of this project ("{}")?!'.format(item, PROJECT_NAME))
-                                item = item[len(PROJECT_NAME)+1:]    
+                                if not container_name.startswith(PROJECT_NAME):
+                                    raise Exception('Error: this container ("{}") is not part of this project ("{}")?!'.format(container_name, PROJECT_NAME))
+                                container_name = container_name[len(PROJECT_NAME)+1:]    
                                 
                                 # Add it 
-                                container_instance = item.split('-')[-1]
-                                item = '-'.join(item.split('-')[0:-1]) + ',instance='+str(container_instance)
-                                line_content[container_name_position] = item
+                                container_instance = container_name.split('-')[-1]
+                                container_name = '-'.join(container_name.split('-')[0:-1]) + ',instance='+str(container_instance)
+                                line_content[container_name_position] = container_name
                                 content.append(line_content)    
                                 
                         else:
                             
                             # Remove project name:
-                            if not item.startswith(PROJECT_NAME):
-                                raise Exception('Error: this container ("{}") is not part of this project ("{}")?!'.format(item, PROJECT_NAME))
-                            item = item[len(PROJECT_NAME)+1:]
+                            if not container_name.startswith(PROJECT_NAME):
+                                raise Exception('Error: this container ("{}") is not part of this project ("{}")?!'.format(container_name, PROJECT_NAME))
+                            container_name = container_name[len(PROJECT_NAME)+1:]
                             
                             # Add it
-                            container_instance = item.split('-')[-1]
-                            item = '-'.join(item.split('-')[0:-1]) + ',instance='+str(container_instance)
-                            line_content[container_name_position] = item
+                            container_instance = container_name.split('-')[-1]
+                            container_name = '-'.join(container_name.split('-')[0:-1]) + ',instance='+str(container_instance)
+                            line_content[container_name_position] = container_name
                             content.append(line_content)
                             
                     # Handle non-Dockerops containers 
                     else:
                         if container=='reallyall': 
-                            line_content[container_name_position] = item
+                            line_content[container_name_position] = container_name
                             content.append(line_content)
                         else:
                             continue

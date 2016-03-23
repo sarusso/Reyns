@@ -3,9 +3,11 @@
 function install_as_root {
                            echo ''
                            echo 'Installing as root...'
-                           cd ..
-                           sudo cp -a DockerOps /usr/share/ && sudo ln -s /usr/share/DockerOps/dockerops /usr/local/bin/dockerops
-                         } 
+                           sudo cp -a ../DockerOps /usr/share/ && sudo ln -s /usr/share/DockerOps/dockerops /usr/local/bin/dockerops
+                           echo 'Building base containers...'
+                           fab build:all
+                           echo 'Done.'
+                         }
 
 
 function install_as_user {
@@ -15,12 +17,13 @@ function install_as_user {
                            rm -f $HOME/bin/dockerops
                            rm -rf $HOME/.DockerOps
                            ln -s $HOME/.DockerOps/dockerops $HOME/bin/dockerops
-                           cd ..
-                           cp -a DockerOps $HOME/.DockerOps
-                           echo 'Done. On the majority of Linux distributions you have to open a new shell to have $HOME/bin loaded'
+                           cp -a ../DockerOps $HOME/.DockerOps
+                           echo 'Building base containers...'
+                           fab build:all
+                           echo 'Done. On most of the Linux distributions you have to open a new shell to have $HOME/bin loaded'
                          }
 
-               
+
 if [ "$1" == "user" ]; then
     install_as_user
     exit 0
@@ -36,9 +39,9 @@ echo ""
 read -p "Install for this user only? [y/n] "  -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]
-then   
+then
     install_as_user
-elif [[ $REPLY =~ ^[Nn]$ ]]   
+elif [[ $REPLY =~ ^[Nn]$ ]]
 then
     install_as_root
 else

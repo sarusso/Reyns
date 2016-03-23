@@ -151,6 +151,71 @@ Coming soon...
 Coming soon...
 
 
+## Dockerops Dynamic DNS 
+
+
+Dynamic domain name server
+==========================
+
+DockerOps provides a dynamic DNS container. If enabled, Other containers running in the same project
+updates their records so that you can interconnect containers just by using the hostname. This method
+is much more powerful that base Docker linking, as it allows to move a container on another host seamlessly.
+
+To use it in your project, just add it to the `run.conf` file following this example:
+
+    [
+     {
+      "container": "dockerops-dns",
+      "instance": "master",
+      "sleep": 0,
+      "links": [],
+      "env_vars": {"HOST_FQDN": null, "HOST_IP":"from_eth0" }
+      },
+     {
+      "container": "dockerops-base",
+      "instance": "one",
+      "sleep": 0,
+      "links": ["dockerops-dns-master:dns"],
+      "env_vars": {"HOST_FQDN": null}
+      },
+     {
+      "container": "dockerops-base",
+      "instance": "two",
+      "sleep": 0,
+      "links": [],
+      "env_vars": {"HOST_FQDN": null, "DNS_CONTAINER_IP": "from_eth0" }
+       },
+      {
+      "container": "demo",
+      "instance": "one",
+      "sleep": 0,
+      "links": [
+                 {
+                   "name": "BASE",
+                   "container": "dockerops-base",
+                   "instance": null
+                  }
+                ]
+      }
+     ]
+
+You can see this example in action by just typing 'dockerops install_demo' and following the quickstart.
+
+After this, you should be able to contact the DNS container
+and ask it your local zone members (e.g. via `host dns.local.zone.`).
+
+Notes:
+
+Be sure that nothing is listening on port 53 both TCP **AND** UDP (E.G.
+dnsmasq or bind) on **your** host because DNS queries are sent through
+UDP but DNS updates are sent through TCP so both need to be available.
+
+Also please note that you might want to increase the sleep timer to allow
+bind to set up in the DNS container.
+
+Thanks to Gianfranco Gallizia and eXat Lab (http://www.exact-lab.it/) for this contribution.
+
+
 ## Logging and debugging
 
 To enable the debug mode, just set the "LOG_LEVEL" env var to "DEBUG". for example:

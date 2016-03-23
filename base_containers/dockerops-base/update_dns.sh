@@ -6,8 +6,8 @@ if [[ "x$CONTAINER" == "xdns" ]] ; then
 fi
 
 if [[ "x$DNS_CONTAINER_IP" == "x" ]] ; then
-    echo "CRITICAL: Empty DNS_CONTAINER_IP env var, check conf"
-    exit 1
+    echo "WARNING: Empty DNS_CONTAINER_IP env var: disabling DockerOps dynamic DNS"
+    exit 0
 fi
 
 if [[ "x$INSTANCE_TYPE" == "xmaster" ]] || [[ "x$INSTANCE_TYPE" == "xpublished" ]]; then
