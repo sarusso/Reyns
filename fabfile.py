@@ -127,6 +127,10 @@ def sanity_checks(container, instance=None):
     return (container, instance)
 
 
+def is_base_container(container):
+    return (container.startswith('dockerops-common-') or container.startswith('dockerops-base-') or container.startswith('dockerops-dns-'))
+
+
 def get_running_containers_instances_matching(container,instance=None):
     '''Return a list of [container_name, instance_name] matching the request.
     Examples args:
@@ -161,7 +165,7 @@ def get_container_dir(container=None):
     
     # Handle the case for base containers
     
-    if container.startswith('dockerops-common-') or container.startswith('dockerops-base-') or container.startswith('dockerops-dns-'):
+    if is_base_container(container):
         return BASE_CONTAINERS_DIR + '/' + container
     else:
         return APPS_CONTAINERS_DIR + '/' + container
@@ -455,13 +459,22 @@ def build(container=None, verbose=False):
     
     else:
         # Build a given container
-        print '\nBuilding container "{}" as "{}/{}"'.format(container, PROJECT_NAME, container)
                 
         # TODO: Check for required files. Use a local Cache? use a checksum? Where to put the conf? a files.json in container's source dir?
         # print 'Getting remote files...'
+
+        # Default tag prefix to PROJECT_NAME    
+        tag_prefix = PROJECT_NAME
+        
+        # But if we are running a DockerOps container, use DockerOps image
+        if is_base_container(container):
+            tag_prefix = 'dockerops'
+
+        # Ok, print the info about the container being built
+        print '\nBuilding container "{}" as "{}/{}"'.format(container, tag_prefix, container)
         
         # Build command 
-        build_command = 'cd ' + get_container_dir(container) + '/.. &&' + 'docker build -t ' + PROJECT_NAME +'/' + container + ' ' + container
+        build_command = 'cd ' + get_container_dir(container) + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + container + ' ' + container
         
         # Build
         print 'Building...'
@@ -928,7 +941,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
     tag_prefix = PROJECT_NAME
 
     # But if we are running a DockerOps container, use DockerOps image
-    if container in ['dockerops-base', 'dockerops-dns', 'dockerops-common']:
+    if is_base_container(container):
         tag_prefix = 'dockerops'
 
     if interactive:
