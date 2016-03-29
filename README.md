@@ -16,30 +16,24 @@ Docker, Fabric (apt-get install fabric)
 
 # Quick start and demo
 
-`git clone https://github.com/sarusso/DockerOps.git`
+To install, run the following commands:
+    # git clone https://github.com/sarusso/DockerOps.git
+    # cd DockerOps
+    # ./install.sh (Several minutes needs to fetch Ubuntu base image )
 
-`cd DockerOps`
-
-`./install.sh`
-
-Exit and re-open terminal
-
-`dockerops build:all` (Several minutes, use `dockerops build:all,progress=True` for verbose output)
-
-`dockerops run:all`
-
-`dockerops ps`
-
-`dockerops ssh:demo`
-
-`ssh $BASE_CONTAINER_IP` (in the Docker, you are now connecting to the base Docker)
-
-`exit` (in the base Docker)
-
-`exit` (in the demo Docker)
-
-`dockerops clean:all`
-
+To install and run the demo, run the following commands:
+    # mkdir $HOME/Demo-DockerOps
+    # cd $HOME/Demo-DockerOps
+    # dockerops install_demo
+    Demo installed.
+    Quickstart: enter into $HOME/Demo-DockerOps, then:
+     - to build it, type "dockerops build:all"
+     - to run it, type "dockerops run:all"
+     - to see running containers, type "dockerops ps"
+     - to ssh into the "dockerops-base", instance "two" container, type "dockerops ssh:dockerops-base,instance=one"
+         - to ping container "dockerops-base", instance "two", type: "ping dockerops-base-two"
+         - to exit ssh type "exit"
+     - to stop the demo, type "dockerops clean:all"
 
 
 # Documentation
