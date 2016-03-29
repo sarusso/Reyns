@@ -17,11 +17,13 @@ Docker, Fabric (apt-get install fabric)
 # Quick start and demo
 
 To install, run the following commands:
+
 	# git clone https://github.com/sarusso/DockerOps.git
 	# cd DockerOps
 	# ./install.sh (Several minutes needs to fetch Ubuntu base image )
 
 To install and run the demo, run the following commands:
+
 	# mkdir $HOME/Demo-DockerOps
 	# cd $HOME/Demo-DockerOps
 	# dockerops install_demo
