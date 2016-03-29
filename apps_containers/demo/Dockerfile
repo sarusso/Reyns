@@ -7,7 +7,10 @@ MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 
 #RUN apt-get install -y somepackage
 
-RUN echo "touch /started.log" >> /entrypoint-local.sh
+# Copy, give right permissions & unique name to container entrypoint
+COPY entrypoint-demo.sh /entrypoints/
+RUN chmod 755 /entrypoints/entrypoint-demo.sh
+RUN mv /entrypoints/entrypoint-demo.sh /entrypoints/entrypoint-demo-$(date +%s).sh
 
 
 

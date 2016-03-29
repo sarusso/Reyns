@@ -25,6 +25,3 @@ sed -i.bak -e "s/REVIP/$REVIP/" -- /etc/bind/db.rev.local.zone
 
 #Fix /etc/bind/named.conf.local
 sed -i.bak -e "s/QQQ/$REVZONEDEF/" -- /etc/bind/named.conf.local
-
-# Start!
-exec "$@"

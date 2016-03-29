@@ -165,15 +165,15 @@ def get_container_dir(container=None):
 
 
 
-def shell(command, capture=False, progress=False, interactive=False, silent=False):
+def shell(command, capture=False, verbose=False, interactive=False, silent=False):
     '''Execute a command in the shell. By default prints everything. If the capture switch is set,
     then it returns a namedtuple with stdout, stderr, and exit code.'''
     
-    if capture and progress:
-        raise Exception('You cannot ask at the same time for capture and progress, sorry')
+    if capture and verbose:
+        raise Exception('You cannot ask at the same time for capture and verbose, sorry')
     
-    # If progress or interactive requested, just use fab's local
-    if progress or interactive:
+    # If verbose or interactive requested, just use fab's local
+    if verbose or interactive:
         return local(command)
     
     # Log command
@@ -404,32 +404,31 @@ def install_demo():
 #--------------------------
 
 @task
-def init(verbose=False, progress=False):
+def init(verbose=False):
     
     # Switches
-    progress = booleanize(progress=progress)
+    verbose = booleanize(verbose=verbose)
     verbose  = booleanize(verbose=verbose)
 
     # Build dockerops containers
-    build(container='dockerops-common', progress=progress)
-    build(container='dockerops-base', progress=progress)
-    build(container='dockerops-dns', progress=progress)
+    build(container='dockerops-common', verbose=verbose)
+    build(container='dockerops-base', verbose=verbose)
+    build(container='dockerops-dns', verbose=verbose)
 
 @task
-def build(container=None, verbose=False, progress=False, debug=False):
+def build(container=None, verbose=False, debug=False):
     '''Build a given container. If container name is set to "all" then builds all the containers'''
 
     # Sanitize...
     (container, instance) = sanity_checks(container)
 
     # Switches
-    progress = booleanize(progress=progress)
     verbose  = booleanize(verbose=verbose)
-    debug    = booleanize(progress=progress)
+    debug    = booleanize(verbose=verbose)
     
-    # Backcomp #TODO: remove 'progress'
+    # Backcomp #TODO: remove 'verbose'
     if verbose:
-        progress = True
+        verbose = True
     
     # Handle debug swicth:
     if debug:
@@ -449,7 +448,7 @@ def build(container=None, verbose=False, progress=False, debug=False):
         
         # Recursevely call myself
         for container in containers_to_build:
-            build(container=container, progress=progress)
+            build(container=container, verbose=verbose)
     
     else:
         # Build a given container
@@ -463,10 +462,10 @@ def build(container=None, verbose=False, progress=False, debug=False):
         
         # Build
         print 'Building...'
-        if progress:
-            shell(build_command, progress=True)
+        if verbose:
+            shell(build_command, verbose=True)
         else:
-            if shell(build_command, progress=False, capture=False, silent=True):
+            if shell(build_command, verbose=False, capture=False, silent=True):
                 print 'Build OK'
             else:
                 abort('Something happened')

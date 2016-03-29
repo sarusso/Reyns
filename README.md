@@ -218,15 +218,15 @@ To enable the debug mode, just set the "LOG_LEVEL" env var to "DEBUG". for examp
 
     LOG_LEVEL=DEBUG dockerops run:postgres,instance=master
     
-If you insance does not run as expect when starting, and since it does not start you cannot ssh in it, you can try few things:
+If you insance does not run as expect when starting (and since it does not start you cannot ssh in it) you can try few things:
 
 First of all, you can try to run in in an interactive way:
     
     dockerops run:postgres,,instance=master,interactive=True,safemode=True
 
-This will execue DokcerOps's entrypoint, the entrypoint-local.sh and give you a shell. You can then type supervidord to start the container as normal.
+This will run DokcerOps's entrypoint, the containers aentrypoints and give you a shell. You can then type 'supervisord' to start the container as normal (but still interactivey).
 
-If you have errors in the execution of the entrypoint, you can use the safemode, which does not run the entrypoint-local.sh script. 
+If you have errors in the execution of the entrypoint of some containers, you can use the safemode, which just run  DokcerOps's entrypoint (that should never fail) and not the container entrypoints (the scripts in the directory '/entrypoints'). 
 
     dockerops run:postgres,,instance=master,safemode=True
 

@@ -4,18 +4,18 @@ MAINTAINER Gianfranco Gallizia <gianfranco.gallizia@exact-lab.it>
 # Update
 RUN apt-get update #20160403 last update, change date to invalidate cache
 
-#---------------------
+#-----------------------
 # Install bind package
-#---------------------
+#-----------------------
 RUN apt-get -y install bind9 && \
     mkdir -p /var/cache/bind && \
     chown root:bind /var/cache/bind && \
     mkdir -p /var/run/named && \
     chmod 777 /var/run/named
 
-#-------------------------------
-# Install rndc.key file in place
-#-------------------------------
+#-----------------------
+# Install rndc.key file 
+#-----------------------
 RUN install -m 640 -o root -g bind /etc/rndc.key /etc/bind/rndc.key
 
 #-----------------------
@@ -32,19 +32,23 @@ RUN chown root:bind /etc/bind/db.local.zone /etc/bind/db.rev.local.zone && \
 #-----------------------
 COPY named.conf.local /etc/bind/
 
-#-------------------------------
-# Set up supervisord to run bind
-#-------------------------------
+#-----------------------
+# supervisord - bind
+#-----------------------
 COPY supervisord_bind.conf /etc/supervisor/conf.d/
 COPY runbind.sh /
 RUN chmod 755 /runbind.sh
 
-
-#-------------------
+#-----------------------
 # Entrypoint
-#-------------------
-COPY entrypoint.sh /
-RUN chmod 755 /entrypoint.sh
+#-----------------------
+# Copy, give right permissions & unique name to container entrypoint
+COPY entrypoint-dns.sh /entrypoints/
+RUN chmod 755 /entrypoints/entrypoint-dns.sh
+RUN mv /entrypoints/entrypoint-dns.sh /entrypoints/entrypoint-dns-$(date +%s).sh
 
+#-----------------------
+# Expose ports
+#-----------------------
 EXPOSE 53
 #UDP_EXPOSE 53

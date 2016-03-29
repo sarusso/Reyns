@@ -6,7 +6,7 @@ MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 #----------------------
 
 # Update
-RUN apt-get update #20160403 last update, change date to invalidate cache
+RUN apt-get update #20160429 last update, change date to invalidate cache
 
 # Utilities
 RUN apt-get install -y nano
@@ -46,7 +46,7 @@ RUN chown -R dockerops:dockerops /home/dockerops/.ssh
 # No pass sudo (for everyone, actually)
 COPY sudoers /etc/sudoers
 
-# bash_profile for loading correct end (/env.sh created by docker-entrypoint-common.sh)
+# bash_profile for loading correct env (/env.sh created by entrypoint.sh)
 RUN echo "source /env.sh" > /home/dockerops/.bash_profile
 
 #------------------------
@@ -85,15 +85,15 @@ COPY supervisord_sshd.conf /etc/supervisor/conf.d/
 # Entrypoint files
 #----------------------
 
-# Copy
+# Create directory for containers entrypoints
+RUN mkdir /entrypoints
+
+# Copy seed entrypoint (and custom one)
 COPY entrypoint.sh /
-COPY entrypoint-common.sh /
-COPY entrypoint-local.sh /
 
 # Give right permissions
 RUN chmod 755 /entrypoint.sh
-RUN chmod 755 /entrypoint-common.sh
-RUN chmod 755 /entrypoint-local.sh
+
 
 #----------------------------
 # Generate DNS key
@@ -106,7 +106,7 @@ RUN apt-get -y install bind9utils && \
 # Startup
 #----------------------
 
-ENTRYPOINT ["/entrypoint-common.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
 
 
 
