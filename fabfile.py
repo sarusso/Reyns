@@ -423,9 +423,17 @@ def init(os_to_init='ubuntu_14.04', verbose=False):
     verbose     = booleanize(verbose=verbose)
 
     # Build dockerops containers
+    
     build(container='dockerops-common-{}'.format(os_to_init), verbose=verbose)
     build(container='dockerops-base-{}'.format(os_to_init), verbose=verbose)
     build(container='dockerops-dns-{}'.format(os_to_init), verbose=verbose)
+    
+    # Create default tags for this OS:
+    #print '\nCreating tag dockerops/dockerops-dns to dockerops/dockerops-dns-{}'.format(os_to_init),
+    #shell('docker tag -f dockerops/dockerops-dns dockerops/dockerops-dns-{}'.format(os_to_init))
+    #shell('docker tag -f dockerops/dockerops-base dockerops/dockerops-base-{}'.format(os_to_init))
+    #shell('docker tag -f dockerops/dockerops-common dockerops/dockerops-common-{}'.format(os_to_init))
+    
 
 @task
 def build(container=None, verbose=False):
@@ -753,6 +761,11 @@ def run(container=None, instance=None, group=None, instance_type=None,
                     # Also, add an env var with the linked container IP
                     ENV_VARs[link_name.upper()+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
 
+    # If the DNS_CONTAINER_IP is set, then  also the HOST_IP in the ENV_VARs:
+    if 'DNS_CONTAINER_IP' in ENV_VARs:
+        if instance in ['master', 'published']: 
+            if not 'HOST_IP' in ENV_VARs:
+                ENV_VARs['HOST_IP'] = None
 
     # Try to set the env vars from the env (they have always the precedence):
     for requested_ENV_VAR in ENV_VARs.keys():
@@ -835,7 +848,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
 
     # Prind updated environment:
     if found_function:
-        logger.debug('Done apllying functions to ENV vars. New summary: %s', ENV_VARs)
+        logger.debug('Done applying functions to ENV vars. New summary: %s', ENV_VARs)
 
     # Handle persistency
     if persistent_data or persistent_log or persistent_opt:

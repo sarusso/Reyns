@@ -12,7 +12,7 @@ fi
 
 if [[ "x$INSTANCE_TYPE" == "xmaster" ]] || [[ "x$INSTANCE_TYPE" == "xpublished" ]]; then
     if [[ "x$HOST_IP" == "x" ]] ; then
-        echo "CRITICAL: Empty HOST_IP env var, check conf"
+        echo "CRITICAL: Empty HOST_IP env var, required when instance is in master or published mode and the DNS_CONTAINER_IP var is set."
         exit 1
     fi
     IP=$HOST_IP
