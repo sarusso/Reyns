@@ -30,7 +30,7 @@ DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/data_' + PROJECT_NAM
 APPS_CONTAINERS_DIR = os.getenv('APPS_CONTAINERS_DIR', os.getcwd() + '/apps_containers')
 BASE_CONTAINERS_DIR = os.getenv('BASE_CONTAINERS_DIR', os.getcwd() + '/base_containers')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
-
+SUPPORTED_OSES      = ['ubuntu_14.04']
 
 # Defaults   
 defaults={}
@@ -158,7 +158,10 @@ def get_running_containers_instances_matching(container,instance=None):
 def get_container_dir(container=None):
     if not container:
         raise Exception('get_container_dir: container is required, got "{}"'.format(container))
-    if container in ['dockerops-common', 'dockerops-base', 'dockerops-dns']:
+    
+    # Handle the case for base containers
+    
+    if container.startswith('dockerops-common-') or container.startswith('dockerops-base-') or container.startswith('dockerops-dns-'):
         return BASE_CONTAINERS_DIR + '/' + container
     else:
         return APPS_CONTAINERS_DIR + '/' + container
@@ -359,7 +362,7 @@ def uninstall(how=''):
 
 @task
 def version():
-    '''Get DockerOps version (Git shor hash)'''
+    '''Get DockerOps version (Git short hash)'''
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
@@ -404,19 +407,24 @@ def install_demo():
 #--------------------------
 
 @task
-def init(verbose=False):
+def init(os_to_init='ubuntu_14.04', verbose=False):
+    '''Initialize the base containers'''
+    
+    # Sanity checks:
+    if os_to_init not in SUPPORTED_OSES:
+        abort('Sorry, unsupported OS. Got "{}" while supported OSes are: {}'.format(os_to_init, SUPPORTED_OSES))
     
     # Switches
-    verbose = booleanize(verbose=verbose)
-    verbose  = booleanize(verbose=verbose)
+    os_to_init  = os_to_init
+    verbose     = booleanize(verbose=verbose)
 
     # Build dockerops containers
-    build(container='dockerops-common', verbose=verbose)
-    build(container='dockerops-base', verbose=verbose)
-    build(container='dockerops-dns', verbose=verbose)
+    build(container='dockerops-common-{}'.format(os_to_init), verbose=verbose)
+    build(container='dockerops-base-{}'.format(os_to_init), verbose=verbose)
+    build(container='dockerops-dns-{}'.format(os_to_init), verbose=verbose)
 
 @task
-def build(container=None, verbose=False, debug=False):
+def build(container=None, verbose=False):
     '''Build a given container. If container name is set to "all" then builds all the containers'''
 
     # Sanitize...
@@ -430,23 +438,18 @@ def build(container=None, verbose=False, debug=False):
     if verbose:
         verbose = True
     
-    # Handle debug swicth:
-    if debug:
-        logger.setLevel(logging.DEBUG)  
+    # Handle debug switch:
+    #if debug:
+    #    logger.setLevel(logging.DEBUG)  
     
     if container.upper()=='ALL':
 
         # Build everything then obtain which containers we have to build        
         print '\nBuilding all containers in {}'.format(APPS_CONTAINERS_DIR)
-        
-        try:
-            with open(APPS_CONTAINERS_DIR+'/build.conf') as f:
-                content = f.read().replace('\n','').replace('  ',' ')
-                containers_to_build = json.loads(content)
-        except Exception, e:
-            abort('Got error in reading build.conf for automated building: {}'.format(e))
-        
-        # Recursevely call myself
+
+        containers_to_build = [ name for name in os.listdir(APPS_CONTAINERS_DIR) if os.path.isdir(os.path.join(APPS_CONTAINERS_DIR, name)) ]
+
+        # Recursively call myself
         for container in containers_to_build:
             build(container=container, verbose=verbose)
     
@@ -497,7 +500,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
     if container == 'all' or group:
         
         if container == 'all':
-            print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
+            #print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
             group = 'all'
         
         print '\nRunning containers in {} for group {}'.format(APPS_CONTAINERS_DIR,group)
