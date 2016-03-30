@@ -47,8 +47,3 @@ COPY entrypoint-dns.sh /entrypoints/
 RUN chmod 755 /entrypoints/entrypoint-dns.sh
 RUN mv /entrypoints/entrypoint-dns.sh /entrypoints/entrypoint-dns-$(date +%s).sh
 
-#-----------------------
-# Expose ports
-#-----------------------
-EXPOSE 53
-#UDP_EXPOSE 53
