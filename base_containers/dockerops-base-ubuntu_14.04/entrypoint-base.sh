@@ -1,5 +1,4 @@
 #!/bin/bash
-source /env.sh
 
 if [[ "x$CONTAINER" == "xdns" ]] ; then
     exit 0

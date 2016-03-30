@@ -5,25 +5,6 @@ echo ""
 echo "Executing DockerOps common entrypoint script..."
 
 #---------------------
-#   Save env
-#---------------------
-echo " Dumping env"
-
-# Save env vars for in-container usage (e.g. ssh)
-
-env | \
-while read env_var; do
-  if [[ $env_var == HOME\=* ]]; then
-      : # Skip HOME var
-  elif [[ $env_var == PWD\=* ]]; then
-      : # Skip PWD var
-  else
-      echo "export $env_var" >> /env.sh
-  fi
-done
-
-
-#---------------------
 #   Persistency
 #---------------------
 echo " Handling persistency"
@@ -76,16 +57,38 @@ fi
 #---------------------
 echo ""
 if [ "x$SAFEMODE" == "xFalse" ]; then
-    echo "Executing containers entrypoints (current + parents)..."
+    echo " Executing containers entrypoints (current + parents)..."
     echo ""
     
     # Exec everything in /entrypoints
-    ls -tr /entrypoints/*.sh | xargs bash
+    ls -tr /entrypoints/*.sh | xargs cat > /allentrypoints.sh
+    chmod 755 /allentrypoints.sh
+    /allentrypoints.sh
+    
 
 else
-    echo "Not executing container's local entrypoint as we are in safemode"
+    echo " Not executing container's local entrypoint as we are in safemode"
     echo ""
 fi
+
+
+#---------------------
+#   Save env
+#---------------------
+echo " Dumping env"
+
+# Save env vars for in-container usage (e.g. ssh)
+
+env | \
+while read env_var; do
+  if [[ $env_var == HOME\=* ]]; then
+      : # Skip HOME var
+  elif [[ $env_var == PWD\=* ]]; then
+      : # Skip PWD var
+  else
+      echo "export $env_var" >> /env.sh
+  fi
+done
 
 #---------------------
 #  Entrypoint command

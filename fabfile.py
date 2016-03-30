@@ -243,9 +243,9 @@ def booleanize(*args, **kwargs):
             return False
 
 def get_containers_run_conf(conf_file=None):
-    
     conf_file = 'run.conf' if not conf_file else conf_file
     try:
+        logger.debug ('Loading conf from %s/%s', APPS_CONTAINERS_DIR, conf_file)
         with open(APPS_CONTAINERS_DIR+'/'+conf_file) as f:
             content = f.read()#.replace('\n','').replace('  ',' ')
             json_content = []
@@ -534,9 +534,9 @@ def run(container=None, instance=None, group=None, instance_type=None,
             containers_to_run_confs = get_containers_run_conf(conf)
         except Exception, e:
             abort('Got error in reading run conf for automated execution: {}.'.format(e))
-        
+
         if not containers_to_run_confs:
-            abort('No or empty run.conf found, are you in the project\'s root?')
+            abort('No or empty run.conf found in {}, are you in the project\'s root?'.format(APPS_CONTAINERS_DIR))
         
         for container_conf in containers_to_run_confs:
             
