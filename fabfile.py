@@ -128,7 +128,7 @@ def sanity_checks(container, instance=None):
 
 
 def is_base_container(container):
-    return (container.startswith('dockerops-common-') or container.startswith('dockerops-base-') or container.startswith('dockerops-dns-'))
+    return (container.startswith('dockerops-common-') or container.startswith('dockerops-base-') or container.startswith('dockerops-dns'))
 
 
 def get_running_containers_instances_matching(container,instance=None):
@@ -427,7 +427,8 @@ def init(os_to_init='ubuntu_14.04', verbose=False):
     build(container='dockerops-common-{}'.format(os_to_init), verbose=verbose)
     build(container='dockerops-base-{}'.format(os_to_init), verbose=verbose)
     build(container='dockerops-dns-{}'.format(os_to_init), verbose=verbose)
-    
+    build(container='dockerops-dns', verbose=verbose)    
+
     # Create default tags for this OS:
     #print '\nCreating tag dockerops/dockerops-dns to dockerops/dockerops-dns-{}'.format(os_to_init),
     #shell('docker tag -f dockerops/dockerops-dns dockerops/dockerops-dns-{}'.format(os_to_init))
