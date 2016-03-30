@@ -111,7 +111,7 @@ Examples for running a published instance:
 
 Examples for runnign a master instance:
 
-	dockerops run:postgres,instance=master
+    dockerops run:postgres,instance=master
     dockerops run:postgres,instance=one,instance_type=master
     
 
@@ -127,11 +127,8 @@ Example:
 
 
 ## Customizing container startup
-### The entrypoint-local.sh script
+### The entrypoints
 Coming soon...
-### The entrypoint.sh script
-Coming soon...
-
 
 ## Building a project
 ### Concepts
@@ -143,15 +140,48 @@ Coming soon...
 ## Running a project
 ### Concepts
 Coming soon...
+
+### The Linking
+DockerOps provides an extended system for linging containers. There are three main ways:
+
+1) Explicit links (with wildcards supports)
+This class set up a link with the linked container providing an env var named MYAPP_CONTAINER_IP in the container linking the MYAPP container. Explit links are definred in the run.conf file, and can be extended or simple. An extended lik works as follows:
+
+      "links": [
+                 {
+                   "name": "MYAPP",
+                   "container": "myapp_container",
+                   "instance": null
+                  }
+                ]
+
+The fields should be self-explanatory. The 'null' value in the instance means "Find any running instance of the container 'myapp_containe'" and link against it. If more than one instances are found, the link against the first one and issue a warning. You can of course set a name in the instance filed, as 'master', 'one', or 'myinstance1'.
+
+You can also set up quick and simple links by using the following syntax:
+
+    "links": ["dockerops-dns-master:dns"],
+
+which correspond to the following syntax:
+
+      "links": [
+                 {
+                   "name": "dns",
+                   "container": "dockerops-dns",
+                   "instance": "master"
+                  }
+                ]
+
+
+2) DNS links
+
+Another way of reating links is by using the DockerOps Dynamic DNS. See the relevant sections for more informations about how to use the service. The pro of this approach is that you you can shut down and up any container independently and avoid to end up with a broken linking. The cons is that you must fix instances names (as the name of the container 'myapp', instance 'one' is myapp-one) so you should pay more attention in assigning names to the instances. Please note that to set a instance in 'master' or 'published' mode, instead of changing the name, you can just set the 'master' or 'published' flag in the run.conf.  
+
+
 ### The run.conf file
 Coming soon...
 
 
-## Dockerops Dynamic DNS 
-
-
-Dynamic domain name server
-==========================
+## DockerOps Dynamic DNS 
 
 DockerOps provides a dynamic DNS container. If enabled, Other containers running in the same project
 updates their records so that you can interconnect containers just by using the hostname. This method
