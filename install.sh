@@ -6,7 +6,7 @@ function install_as_root {
                            echo ''
                            sudo cp -a ../DockerOps /usr/share/ && sudo ln -s /usr/share/DockerOps/dockerops /usr/local/bin/dockerops
                            echo 'Building base containers on top of Ubuntu 14.04... (in the next versions you will be able to choose the OS)'
-                           fab init
+                           sudo fab init
                            echo 'Done.'
                          }
 
@@ -24,6 +24,24 @@ function install_as_user {
                            fab init
                            echo 'Done. On most of the Linux distributions you have to open a new shell to have $HOME/bin loaded'
                          }
+
+echo ""
+
+# Check that docker is installed
+if hash docker 2>/dev/null; then
+    echo "[OK] Found Docker"
+else
+    echo "[ERROR] Missing Docker" 
+    exit 1
+fi
+
+# Check that fab is installed
+if hash fab 2>/dev/null; then
+    echo "[OK] Found fabric package (fab command)"
+else
+    echo "[ERROR] Missing fabric package (fab command)"
+    exit 1
+fi
 
 
 if [ "$1" == "user" ]; then
