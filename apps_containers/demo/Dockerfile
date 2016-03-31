@@ -1,4 +1,4 @@
-FROM dockerops/dockerops-base
+FROM dockerops/dockerops-base-ubuntu_14.04
 MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 
 #----------------------

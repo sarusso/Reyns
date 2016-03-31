@@ -62,8 +62,9 @@ if [ "x$SAFEMODE" == "xFalse" ]; then
     
     # Exec everything in /entrypoints
     ls -tr /entrypoints/*.sh | xargs cat > /allentrypoints.sh
-    chmod 755 /allentrypoints.sh
-    /allentrypoints.sh
+    chmod 755 /allentrypoints.sh 
+    date >> /var/log/allentrypoints.log
+    /allentrypoints.sh &>> /var/log/allentrypoints.log
     
 
 else

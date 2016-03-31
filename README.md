@@ -32,8 +32,8 @@ To install and run the demo, run the following commands:
 	- to build it, type "dockerops build:all"
 	- to run it, type "dockerops run:all"
 	- to see running containers, type "dockerops ps"
-	- to ssh into the "dockerops-base", instance "two" container, type "dockerops ssh:dockerops-base,instance=one"
-	 - to ping container "dockerops-base", instance "two", type: "ping dockerops-base-two"
+	- to ssh into the "demo", instance "two" container, type "dockerops ssh:demo,instance=two"
+	 - to ping container "demo", instance "one", type: "ping demo-one"
 	 - to exit ssh type "exit"
 	- to stop the demo, type "dockerops clean:all"
 

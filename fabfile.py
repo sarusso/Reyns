@@ -400,8 +400,8 @@ def install_demo():
     print '  - to build it, type "dockerops build:all";'
     print '  - to run it, type "dockerops run:all";'
     print '  - to see running containers, type "dockerops ps";'
-    print '  - to ssh into the "dockerops-base", instance "two" container, type "dockerops ssh:dockerops-base,instance=one";'
-    print '    - to ping container "dockerops-base", instance "two", type: "ping dockerops-base-two";'
+    print '  - to ssh into the "demo", instance "two" container, type "dockerops ssh:demo,instance=two";'
+    print '    - to ping container "demo", instance "one", type: "ping demo-one";'
     print '    - to exit ssh type "exit";'
     print '  - to stop the demo, type "dockerops clean:all".'
 
