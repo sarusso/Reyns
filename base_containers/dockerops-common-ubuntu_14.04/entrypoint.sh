@@ -2,16 +2,16 @@
 set -e
 
 echo ""
-echo "Executing DockerOps common entrypoint script..."
+echo "[INFO] Executing DockerOps  entrypoint script..."
 
 #---------------------
 #   Persistency
 #---------------------
-echo " Handling persistency"
+echo "[INFO] Handling persistency"
 
 # If persistent data:
 if [ "x$PERSISTENT_DATA" == "xTrue" ]; then
-    echo " Persistent data set"
+    echo "[INFO] Persistent data set"
     if [ ! -f /persistent/data/.persistent_initialized ]; then
         mv /data /persistent/data
         ln -s /persistent/data /data
@@ -25,7 +25,7 @@ fi
 
 # If persistent log:
 if [ "x$PERSISTENT_LOG" == "xTrue" ]; then
-    echo " Persistent log set"
+    echo "[INFO] Persistent log set"
     if [ ! -f /persistent/log/.persistent_initialized ]; then
         mv /var/log /persistent/log
         ln -s /persistent/log /var/log
@@ -39,7 +39,7 @@ fi
 
 # If persistent opt:
 if [ "x$PERSISTENT_OPT" == "xTrue" ]; then
-    echo " Persistent opt set"
+    echo "[INFO] Persistent opt set"
     if [ ! -f /persistent/opt/.persistent_initialized ]; then
         mv /opt /persistent/opt
         ln -s /persistent/opt /opt
@@ -55,30 +55,35 @@ fi
 #---------------------
 #  Entrypoints
 #---------------------
-echo ""
+
+# Create script from all the entrypoints
+
+ls -tr /entrypoints/*.sh | xargs cat > /allentrypoints.sh
+chmod 755 /allentrypoints.sh
+
+
 if [ "x$SAFEMODE" == "xFalse" ]; then
-    echo " Executing containers entrypoints (current + parents)..."
-    echo ""
+    echo "[INFO] Executing containers entrypoints (current + parents)..."
     
     # Exec everything in /entrypoints
-    ls -t /entrypoints/*.sh | xargs cat > /allentrypoints.sh
-    chmod 755 /allentrypoints.sh
-    echo "\n-----------------------------------" >> /var/log/allentrypoints.log
+
+    echo "" >> /var/log/allentrypoints.log
+    echo "-----------------------------------" >> /var/log/allentrypoints.log
     date >> /var/log/allentrypoints.log
-    echo "-----------------------------------\n" >> /var/log/allentrypoints.log
-    /allentrypoints.sh &>> /var/log/allentrypoints.log
+    echo "-----------------------------------" >> /var/log/allentrypoints.log
+    echo ""  >> /var/log/allentrypoints.log
+    /allentrypoints.sh 2>&1 | tee /var/log/allentrypoints.log
     
 
 else
-    echo " Not executing container's local entrypoint as we are in safemode"
-    echo ""
+    echo "[INFO] Not executing container's local entrypoint as we are in safemode"
 fi
 
 
 #---------------------
 #   Save env
 #---------------------
-echo " Dumping env"
+echo "[INFO] Dumping env"
 
 # Save env vars for in-container usage (e.g. ssh)
 
@@ -97,10 +102,6 @@ done
 #  Entrypoint command
 #---------------------
 # Start!
-echo -n "Executing Docker entrypoint command: "
+echo -n "[INFO] Executing Docker entrypoint command: "
 echo $@
 exec "$@"
-
-
-
-

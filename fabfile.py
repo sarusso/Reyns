@@ -10,6 +10,7 @@ import json
 import socket
 import fcntl
 import struct
+import re
 
 from fabric.utils import abort
 from fabric.operations import local
@@ -468,7 +469,8 @@ def build(container=None, verbose=False):
     
     else:
         # Build a given container
-                
+        container_dir = get_container_dir(container)
+        
         # TODO: Check for required files. Use a local Cache? use a checksum? Where to put the conf? a files.json in container's source dir?
         # print 'Getting remote files...'
 
@@ -481,9 +483,18 @@ def build(container=None, verbose=False):
 
         # Ok, print the info about the container being built
         print '\nBuilding container "{}" as "{}/{}"'.format(container, tag_prefix, container)
-        
+
+        # Check that only an entrypoint is found:
+        entrypoint_files = [f for f in os.listdir(container_dir) if re.match(r'entrypoint-+.*\.sh', f)]
+        if len(entrypoint_files) > 1:
+            abort("Sorry, found more than one entrypoint for this container (got {})".format(entrypoint_files))
+
+        # Update Entrypoint date to allow ordered execution
+        if entrypoint_files:
+            shell('touch {}/{}'.format(container_dir, entrypoint_files[0]))
+ 
         # Build command 
-        build_command = 'cd ' + get_container_dir(container) + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + container + ' ' + container
+        build_command = 'cd ' + container_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + container + ' ' + container
         
         # Build
         print 'Building...'
