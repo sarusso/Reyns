@@ -72,7 +72,7 @@ if [ "x$SAFEMODE" == "xFalse" ]; then
     date >> /var/log/allentrypoints.log
     echo "-----------------------------------" >> /var/log/allentrypoints.log
     echo ""  >> /var/log/allentrypoints.log
-    /allentrypoints.sh 2>&1 | tee /var/log/allentrypoints.log
+    /allentrypoints.sh 2>&1 | tee -a /var/log/allentrypoints.log
     
 
 else
