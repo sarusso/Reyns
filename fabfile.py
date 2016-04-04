@@ -329,9 +329,9 @@ def setswitch(**kwargs):
 def format_shell_error(stdout, stderr, exit_code):
     string  = '\nExit code: {}'.format(exit_code)
     string += '\n-------- STDOUT ----------\n'
-    string += stdout
+    string += str(stdout)
     string += '\n-------- STDERR ----------\n'
-    string +=stderr +'\n'
+    string += str(stderr) +'\n'
     return string
 
 
@@ -376,6 +376,13 @@ def version():
     commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
     commit_date      = last_commit_info_lines[-1].replace('  ', '')
     print '\nDockerOps version: ' + commit_shorthash + ' (' + commit_date + ')'
+
+    python_version = shell('python -V', capture=True)
+    
+    if python_version.stdout:
+        print '\nPython version: ' + python_version.stdout
+    if python_version.stderr:
+        print '\nPython version: ' + python_version.stderr
 
 @task
 def install_demo():
