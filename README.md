@@ -11,7 +11,7 @@ Simple yet powerful Docker operations orchestrator for managing entire platforms
 
 # Prerequisites
 
-Docker, Fabric (apt-get install fabric)
+Docker, Fabric (apt-get install fabric). Please note that Fabric requires Python version 2.5 - 2.7.
 
 
 # Quick start and demo
