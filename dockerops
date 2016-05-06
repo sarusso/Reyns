@@ -4,8 +4,27 @@
 
 # Credits: http://www.cyberciti.biz/faq/unix-linux-appleosx-bsd-bash-script-find-what-directory-itsstoredin/
 
+
 # Who am i?
-_script="$(readlink -f ${BASH_SOURCE[0]})"
+# _script="$(readlink -f ${BASH_SOURCE[0]})" does not work on OSX
+
+TARGET_FILE=${BASH_SOURCE[0]}
+
+cd `dirname $TARGET_FILE`
+TARGET_FILE=`basename $TARGET_FILE`
+
+# Iterate down a (possible) chain of symlinks
+while [ -L "$TARGET_FILE" ]
+do
+    TARGET_FILE=`readlink $TARGET_FILE`
+    cd `dirname $TARGET_FILE`
+    TARGET_FILE=`basename $TARGET_FILE`
+done
+
+# Compute the canonicalized name by finding the physical path 
+# for the directory we're in and appending the target file.
+PHYS_DIR=`pwd -P`
+_script=$PHYS_DIR/$TARGET_FILE
 
 # Delete last component from $_script
 _base="$(dirname $_script)"
