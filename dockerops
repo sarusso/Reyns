@@ -5,6 +5,23 @@
 # Credits: http://www.cyberciti.biz/faq/unix-linux-appleosx-bsd-bash-script-find-what-directory-itsstoredin/
 
 
+# Set some default env vars
+if [ -z "$APPS_CONTAINERS_DIR" ]; then
+    # DEBUG echo "Defaulting apps_containers dir"
+    export APPS_CONTAINERS_DIR="$(pwd)/apps_containers"
+fi
+
+if [ -z "$PROJECT_DIR" ]; then
+    # DEBUG echo "Defaulting project_dir dir"
+    export PROJECT_DIR="$(pwd)"
+fi
+
+if [ -z "$PROJECT_NAME" ]; then
+    # DEBUG echo "Defaulting project name"
+    PWD=$(pwd)
+    export PROJECT_NAME="${PWD##*/}"
+fi
+
 # Who am i?
 # _script="$(readlink -f ${BASH_SOURCE[0]})" does not work on OSX
 
@@ -29,27 +46,10 @@ _script=$PHYS_DIR/$TARGET_FILE
 # Delete last component from $_script
 _base="$(dirname $_script)"
 
-# Set some default env vars
-if [ -z "$APPS_CONTAINERS_DIR" ]; then
-    # DEBUG echo "Defaulting apps_containers dir"
-    export APPS_CONTAINERS_DIR="$(pwd)/apps_containers"
-fi
-
-# Set some default env vars
-if [ -z "$PROJECT_DIR" ]; then
-    # DEBUG echo "Defaulting project_dir dir"
-    export PROJECT_DIR="$(pwd)"
-fi
-
-if [ -z "$PROJECT_NAME" ]; then
-    # DEBUG echo "Defaulting project name"
-    PWD=$(pwd)
-    export PROJECT_NAME="${PWD##*/}"
-fi
-
-
+# Enter "home" directory
 cd $_base
 
+# Execute
 if [[ $# -eq 0 ]] ; then
     fab help
 else
