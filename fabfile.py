@@ -245,9 +245,24 @@ def booleanize(*args, **kwargs):
 
 def get_containers_run_conf(conf_file=None):
     conf_file = 'run.conf' if not conf_file else conf_file
+    
+    if os.path.isfile(PROJECT_DIR+'/'+conf_file):
+        conf_file_path = PROJECT_DIR+'/'+conf_file
+    
+    elif os.path.isfile(APPS_CONTAINERS_DIR+'/'+conf_file): 
+        conf_file_path = APPS_CONTAINERS_DIR+'/'+conf_file   
+         
+    else:
+        # If the conf file was explicitly set, then raise, otherwise just return empty conf
+        if conf_file != 'run.conf':
+            raise IOError('No conf file {} found'.format(conf_file))
+        else:
+            return []
+        
+    # Now load it
     try:
         logger.debug ('Loading conf from %s/%s', APPS_CONTAINERS_DIR, conf_file)
-        with open(APPS_CONTAINERS_DIR+'/'+conf_file) as f:
+        with open(conf_file_path) as f:
             content = f.read()#.replace('\n','').replace('  ',' ')
             json_content = []
             # Handle comments
@@ -267,11 +282,7 @@ def get_containers_run_conf(conf_file=None):
                     # Otherwise, just raise...
                     raise e
     except IOError:
-        # If the conf file was explicitly set, then raise, otherwise just return empty conf
-        if conf_file != 'run.conf':
-            raise
-        else:
-            return []
+        raise IOError('Error when reading conf file {}'.format(conf_file_path))
     return registered_containers
  
 def is_container_registered(container, conf=None):
@@ -468,12 +479,46 @@ def build(container=None, verbose=False):
         # Build everything then obtain which containers we have to build        
         print '\nBuilding all containers in {}'.format(APPS_CONTAINERS_DIR)
 
-        containers_to_build = [ name for name in os.listdir(APPS_CONTAINERS_DIR) if os.path.isdir(os.path.join(APPS_CONTAINERS_DIR, name)) ]
 
-        # Recursively call myself
-        for container in containers_to_build:
-            build(container=container, verbose=verbose)
-    
+        # Find dependencies recursive function
+        def find_dependencies(container_dir):
+            with open(APPS_CONTAINERS_DIR+'/'+container_dir+'/Dockerfile') as f:
+                content = f.read()
+                for line in content.split('\n'):
+                    if line.startswith('FROM '):
+                        from_container = line.split(' ')[1]
+                        if '/' in from_container:   
+                            from_container_project = from_container.split('/')[0]
+                            from_container_app = from_container.split('/')[1]
+                            if from_container_project.lower() == PROJECT_NAME:                  
+                                return [from_container_app] + find_dependencies(from_container_app)                            
+                            else:
+                                return []
+
+        # Find build hierarchy
+        built = []
+        for container_dir in os.listdir(APPS_CONTAINERS_DIR):
+            if not os.path.isdir(APPS_CONTAINERS_DIR+'/'+container_dir):
+                continue
+            if container_dir in built:
+                logger.debug('%s already built',container_dir)
+                continue
+            logger.debug('Processing %s',container_dir)
+            try:
+                dependencies = find_dependencies(container_dir)
+                logger.debug('Container %s depends on: %s',container_dir, dependencies)
+                for container in dependencies:
+                    if container not in built:
+                        # Build by recursively call myself
+                        print 'Building ', container
+                        build(container=container, verbose=verbose)
+                        built.append(container)
+                print 'Building ', container_dir
+                build(container=container_dir, verbose=verbose)
+                    
+            except IOError:
+                pass
+
     else:
         # Build a given container
         container_dir = get_container_dir(container)
