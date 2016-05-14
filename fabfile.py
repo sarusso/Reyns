@@ -85,6 +85,10 @@ def sanity_checks(container, instance=None):
     if not clean and not build and not run and not ssh and not ip:
         raise Exception('Unknown caller (got "{}")'.format(caller))
 
+    # Check not valid chars in container name TODO: Use a regex suitable for a hostname
+    if '_' in container:
+        abort('Character "_" is not allowed in a container name (got "{}")'.format(container)) 
+
     # Check container name 
     if not container:
         if clean:
@@ -731,9 +735,9 @@ def run(container=None, instance=None, group=None, instance_type=None,
         if container_conf and 'env_vars' in container_conf:
             ENV_VARs = {var:container_conf['env_vars'][var] for var in container_conf['env_vars']} if 'env_vars' in container_conf else {}
         
-        # 4) If instance is master, add also the HOST_IP env var as required if not already set:
-        if instance_type == 'master' and not 'HOST_IP' in ENV_VARs:
-            ENV_VARs = {'HOST_IP': None}
+        # 4) If instance is master, add also the PUBLISH_ON_IP env var as required if not already set:
+        #if instance_type == 'master' and not 'PUBLISH_ON_IP' in ENV_VARs:
+        #    ENV_VARs = {'PUBLISH_ON_IP': None}
                 
     # Handle instance type for not regitered containers of if not set:
     if not instance_type:
@@ -826,10 +830,15 @@ def run(container=None, instance=None, group=None, instance_type=None,
                     ENV_VARs[link_name.upper()+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
 
     # If the DNS_CONTAINER_IP is set, then  also the HOST_IP in the ENV_VARs:
-    if 'DNS_CONTAINER_IP' in ENV_VARs:
-        if instance in ['master', 'published']: 
-            if not 'HOST_IP' in ENV_VARs:
-                ENV_VARs['HOST_IP'] = None
+    #if 'DNS_CONTAINER_IP' in ENV_VARs:
+    #    if instance in ['master', 'published']: 
+    #       if not 'HOST_IP' in ENV_VARs:
+    #            ENV_VARs['HOST_IP'] = None
+
+    # Is instance is master check that DNSLINK_ON_IP is set (an d if not warn)
+    if instance == 'master': 
+        if not 'DNSLINK_ON_IP' in ENV_VARs:
+            logger.warning('You are running a master master instance with the dynamic DNS but you have not setted the DNSLINK_ON_IP env var. This means that the services will not be accessible outside the Docker network.')
 
     # Try to set the env vars from the env (they have always the precedence):
     for requested_ENV_VAR in ENV_VARs.keys():
@@ -973,11 +982,13 @@ def run(container=None, instance=None, group=None, instance_type=None,
                         except ValueError:
                             abort('Got unknown port from container\'s dockerfile: "{}"'.format(port))
 
-        # Handle forcing of an IP where to publish the port
-        pubish_on_ip = ''
-        
-        if instance == 'master':
-            pubish_on_ip = ENV_VARs['HOST_IP']+':'
+        # Handle forcing of an IP where to publish the ports
+        if 'PUBLISH_ON_IP' in ENV_VARs:
+            pubish_on_ip = ENV_VARs['PUBLISH_ON_IP']+':'
+        elif 'DNSLINK_ON_IP' in ENV_VARs:
+            pubish_on_ip = ENV_VARs['DNSLINK_ON_IP']+':'
+        else:
+            pubish_on_ip = ''
 
         # TCP ports publishing
         for port in ports:
@@ -1059,10 +1070,9 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
 
     elif container == 'all' or group:
         if container == 'all':
-            print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
+            #print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
             group = 'all'        
-        
-        
+
         # Get container list to clean
         one_in_conf = False
         containers_run_conf = []
