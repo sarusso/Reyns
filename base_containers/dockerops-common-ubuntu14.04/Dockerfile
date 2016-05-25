@@ -6,7 +6,7 @@ MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 #----------------------
 
 # Update
-RUN apt-get update #20160429 last update, change date to invalidate cache
+RUN apt-get update #20160525 last update, change date to invalidate cache
 
 # Utilities
 RUN apt-get install -y nano
