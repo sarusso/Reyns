@@ -1,4 +1,4 @@
-FROM dockerops/dockerops-common-ubuntu_14.04
+FROM dockerops/dockerops-common-ubuntu14.04
 MAINTAINER Gianfranco Gallizia <gianfranco.gallizia@exact-lab.it>
 
 # Update

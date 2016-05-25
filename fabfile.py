@@ -31,7 +31,7 @@ DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/data_' + PROJECT_NAM
 APPS_CONTAINERS_DIR = os.getenv('APPS_CONTAINERS_DIR', os.getcwd() + '/apps_containers')
 BASE_CONTAINERS_DIR = os.getenv('BASE_CONTAINERS_DIR', os.getcwd() + '/base_containers')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
-SUPPORTED_OSES      = ['ubuntu_14.04']
+SUPPORTED_OSES      = ['ubuntu14.04']
 
 # Defaults   
 defaults={}
@@ -434,7 +434,7 @@ def install_demo():
 #--------------------------
 
 @task
-def init(os_to_init='ubuntu_14.04', verbose=False):
+def init(os_to_init='ubuntu14.04', verbose=False):
     '''Initialize the base containers'''
     
     # Sanity checks:
@@ -835,10 +835,12 @@ def run(container=None, instance=None, group=None, instance_type=None,
     #       if not 'HOST_IP' in ENV_VARs:
     #            ENV_VARs['HOST_IP'] = None
 
-    # Is instance is master check that DNSLINK_ON_IP is set (an d if not warn)
-    if instance == 'master': 
+    # If instance is master check that DNSLINK_ON_IP is set (and if not, warn)
+    if instance == 'master': # TODO: and dns_is_enabled
         if not 'DNSLINK_ON_IP' in ENV_VARs:
-            logger.warning('You are running a master master instance with the dynamic DNS but you have not setted the DNSLINK_ON_IP env var. This means that the services will not be accessible outside the Docker network.')
+            logger.warning('You are running a master instance but you have not set the DNSLINK_ON_IP (witht the host\'s IP) env var, \
+                            this means that DockerOps will register the container on the DNS with its IP address on the Docker network \
+                            and the services will not be accessible outside it.')
 
     # Try to set the env vars from the env (they have always the precedence):
     for requested_ENV_VAR in ENV_VARs.keys():

@@ -1,4 +1,4 @@
-FROM dockerops/dockerops-common-ubuntu_14.04
+FROM dockerops/dockerops-common-ubuntu14.04
 MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 
 #----------------------------
