@@ -634,6 +634,8 @@ def run(container=None, instance=None, group=None, instance_type=None,
         if conf:
             save_last_conf(conf)
 
+    print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
+
     #---------------------------
     # Run a group of containers
     #---------------------------
@@ -643,7 +645,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
             #print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
             group = 'all'
         
-        print '\nRunning containers in {} for group {}'.format(APPS_CONTAINERS_DIR,group)
+        print 'Running containers in {} for group {}'.format(APPS_CONTAINERS_DIR,group)
 
         if safemode or interactive:
             abort('Sorry, you cannot set one of the "safemode" or "interactive" switches if you are running more than one container') 
@@ -720,7 +722,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
         logger.setLevel(logging.DEBUG)      
 
     # Run a specific container
-    print '\nRunning container "{}" ("{}/{}"), instance "{}"...'.format(container, PROJECT_NAME, container, instance)
+    print 'Running container "{}" ("{}/{}"), instance "{}"...'.format(container, PROJECT_NAME, container, instance)
 
     # Check if this container is exited
     if container_exits_but_not_running(container,instance):
@@ -1135,6 +1137,8 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
             else:
                 conf = last_conf
 
+        print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
+
         if container == 'all':
             #print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
             group = 'all'        
@@ -1212,6 +1216,8 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
                         abort('Exiting...')
             else:
                 conf = last_conf
+                
+        print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
           
         # Sanitize (and dynamically obtain instance)...
         (container, instance) = sanity_checks(container,instance)
