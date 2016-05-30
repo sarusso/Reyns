@@ -40,3 +40,4 @@ pip-delete-this-directory.txt
 
 # DockerOps
 host.conf
+run_confs/

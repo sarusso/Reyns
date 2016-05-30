@@ -54,6 +54,28 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 #--------------------------
 # Utility functions
 #--------------------------
+
+# Load last conf
+def load_last_conf():
+    last_conf_info_file = '{}/run_confs/{}'.format(os.getcwd(), PROJECT_NAME)
+    last_conf = None
+    if os.path.isfile(last_conf_info_file):
+        try:
+            with open(last_conf_info_file) as data_file: 
+                last_conf = json.load(data_file)['conf']
+                logger.debug('Loaded last conf (%s)', last_conf)
+                return last_conf
+        except Exception:
+            logger.critical('Integrity error: could not read conf in %s, fix (or just remove) the file manually', last_conf_info_file)
+
+# Save last conf           
+def save_last_conf(conf):
+    last_conf_info_file = '{}/run_confs/{}'.format(os.getcwd(), PROJECT_NAME)
+    logger.debug('Saving last conf (%s)', conf)
+    if not os.path.exists('{}/run_confs'.format(os.getcwd())):
+        os.makedirs('{}/run_confs'.format(os.getcwd()))
+    with open(last_conf_info_file, 'w') as data_file:
+        json.dump({'conf':conf}, data_file)   
       
 # Get IP address of an interface              
 def get_ip_address(ifname):
@@ -284,6 +306,7 @@ def get_containers_run_conf(conf_file=None):
                     raise ValueError( str(e) + '; error in proximity of: ', json_error_msg_verbose) 
                 except:
                     # Otherwise, just raise...
+                    print json_content
                     raise e
     except IOError:
         raise IOError('Error when reading conf file {}'.format(conf_file_path))
@@ -514,10 +537,8 @@ def build(container=None, verbose=False):
                 for container in dependencies:
                     if container not in built:
                         # Build by recursively call myself
-                        print 'Building ', container
                         build(container=container, verbose=verbose)
                         built.append(container)
-                print 'Building ', container_dir
                 build(container=container_dir, verbose=verbose)
                     
             except IOError:
@@ -547,7 +568,7 @@ def build(container=None, verbose=False):
 
         # Update Entrypoint date to allow ordered execution
         if entrypoint_files:
-            shell('touch {}/{}'.format(container_dir, entrypoint_files[0]))
+            shell('touch {}/{}'.format(container_dir, entrypoint_files[0]),silent=True)
  
         # Build command 
         build_command = 'cd ' + container_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + container + ' ' + container
@@ -572,6 +593,21 @@ def start(container,instance):
     else:
         abort('Cannot start a container not in exited state. use "run" instead')
 
+@task
+def rerun(container, instance=None):
+    '''Re-run a given container (instance is not mandatory if only one is running)'''
+    running_instances = get_running_containers_instances_matching(container)
+    if len(running_instances) == 0:
+        abort('Could not find any running instance of container matching "{}"'.format(container))                
+    if len(running_instances) > 1:
+        abort('Found more than one running instance for container "{}": {}, please specity wich one.'.format(container, running_instances))            
+    container = running_instances[0][0]
+    instance  = running_instances[0][1]
+
+    # Clean    
+    clean(container,instance)
+    run(container,instance)
+
 
 @task
 # TODO: clarify difference between False and None.
@@ -582,6 +618,21 @@ def run(container=None, instance=None, group=None, instance_type=None,
     '''Run a given container with a given instance. In no instance name is set,
     a standard instance with a random name is run. If container name is set to "all"
     then all the containers are run, according  to the run conf file.'''
+
+    #------------------------
+    # Check conf
+    #------------------------
+
+    last_conf = load_last_conf()
+    if last_conf:
+        if conf == last_conf:
+            pass
+        else:
+            conf = last_conf
+            save_last_conf(last_conf)
+    else:
+        if conf:
+            save_last_conf(conf)
 
     #---------------------------
     # Run a group of containers
@@ -596,6 +647,8 @@ def run(container=None, instance=None, group=None, instance_type=None,
 
         if safemode or interactive:
             abort('Sorry, you cannot set one of the "safemode" or "interactive" switches if you are running more than one container') 
+
+
 
         # Load run conf             
         try:
@@ -624,7 +677,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
                 abort('Missing container name for conf: {}'.format(container_conf))
             else:
                 container = container_conf['container']
-                
+              
             # Check for instance name
             if 'instance' not in container_conf:
                 abort('Missing instance name for conf: {}'.format(container_conf))
@@ -836,11 +889,11 @@ def run(container=None, instance=None, group=None, instance_type=None,
     #            ENV_VARs['HOST_IP'] = None
 
     # If instance is master check that DNSLINK_ON_IP is set (and if not, warn)
-    if instance == 'master': # TODO: and dns_is_enabled
+    if (instance == 'master') and (container != 'dockerops-dns'): # TODO: and dns_is_enabled
         if not 'DNSLINK_ON_IP' in ENV_VARs:
             logger.warning('You are running a master instance but you have not set the DNSLINK_ON_IP (witht the host\'s IP) env var, \
-                            this means that DockerOps will register the container on the DNS with its IP address on the Docker network \
-                            and the services will not be accessible outside it.')
+this means that DockerOps will register the container on the DNS with its IP address on the Docker network \
+and the services will not be accessible outside it.')
 
     # Try to set the env vars from the env (they have always the precedence):
     for requested_ENV_VAR in ENV_VARs.keys():
@@ -1071,6 +1124,17 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
             shell('docker rm $(docker ps -a -q) &> /dev/null', silent=True)
 
     elif container == 'all' or group:
+        
+        # Check conf
+        last_conf = load_last_conf()
+        if last_conf:
+            if conf:
+                if conf != last_conf:
+                    if not confirm('You specificed the conf file "{}" while the last conf used is "{}". Are you sure to proceed?'.format(conf, last_conf)):
+                        abort('Exiting...')
+            else:
+                conf = last_conf
+
         if container == 'all':
             #print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
             group = 'all'        
@@ -1137,7 +1201,18 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
                     shell("docker stop "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
                     shell("docker rm "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
                             
-    else:   
+    else:
+        
+        # Check conf
+        last_conf = load_last_conf()
+        if last_conf:
+            if conf:
+                if conf != last_conf:
+                    if not confirm('You specificed the conf file "{}" while the last conf used is "{}". Are you sure to proceed?'.format(conf, last_conf)):
+                        abort('Exiting...')
+            else:
+                conf = last_conf
+          
         # Sanitize (and dynamically obtain instance)...
         (container, instance) = sanity_checks(container,instance)
         
