@@ -47,13 +47,13 @@ DockerOps allows you to define how to build, run and interconnect a set (or from
 
 A project is organized in folders: each Docker container must have its own folder and by default they have to be contained in a folder named "apps_containers". Inside the folder of a container, you have to place a Dockerfile wich starts with the line: 
 
-	FROM your_project_name/dockerops-base
+	FROM dockerops/dockerops-base-ubuntu14.04
 
 The basic usage relise on four very simple commands. Fisrt you have to build your container using `dockerops build:your_container_name`, then you can run it by simply typing `dockerops run:your_container_name`. Once the container is started, you can ssh into is using `dockerops ssh:your_container_name`, and turn it off using dockerops `clean:your_container_name`.
 
 ## Building a container
 
-Place yourself in a  directoy and create a subdir named apps_containers. Then create a subdir of apps_containers named your_container_name. here, create a file named Dockerfile where to put your Docker build commands. Remember to always extend the dockerops-base container (`FROM your_project_name/dockerops-base`) in the Dockerfile
+Place yourself in a  directoy and create a subdir named apps_containers. Then create a subdir of apps_containers named your_container_name. here, create a file named Dockerfile where to put your Docker build commands. Remember to always extend the dockerops-base container(`FROM dockerops/dockerops-base-ubuntu14.04`) in the Dockerfile
 
 Now, place yourself at the level of the apps_containers directory, and issue the following command.
 
@@ -70,8 +70,19 @@ As for the building, place yourself at the level of the apps_containers director
                   linked=True/False, seed_command=cusom_seed_command, safemode=True/False,
                   interactive=True/False, debug=True/False, conf=conf_file(default:run.conf)]
 
-All the above arguments are explained in detail in the following sections.
+All the above arguments are explained in detail in the following sections. There are also some env variables
 
+### Env vars
+The resolution of the environment variables follow the priority order reported below:
+
+1) Env vars set at runtime
+2) host.conf file
+3) the tun conf file being used (i.e. run.cof, or run_published.conf, or...)
+
+**SERVICE_IP**: where the service(s) is expected to respond. In particulare, the IP used to register the service on the Dynamic DNS, and the IP on which the DNS itself will respond. If not set, docker network IP addresses are used. Mandatory if the instance type is 'master'.
+
+
+There is also a special value for IP-related vard: if a variable starts with "from_" the DockerOps will obtain the IP from the network interface coming after. In example, "from_eth0" will take the value fron teh IP address of the host's 
 
 ## Containers properties
 
@@ -133,8 +144,7 @@ Coming soon...
 ## Building a project
 ### Concepts
 Coming soon...
-### The build.conf file
-Coming soon...
+
 
 
 ## Running a project
