@@ -20,7 +20,6 @@ from subprocess import Popen, PIPE
 from collections import namedtuple
 from time import sleep
 
-
 #--------------------------
 # Conf
 #--------------------------
@@ -52,31 +51,28 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 
 
 #--------------------------
-# Utility functions
+# Utility functions & vars
 #--------------------------
 
-# Load last conf
-def load_last_conf():
-    last_conf_info_file = '{}/run_confs/{}'.format(os.getcwd(), PROJECT_NAME)
-    last_conf = None
-    if os.path.isfile(last_conf_info_file):
-        try:
-            with open(last_conf_info_file) as data_file: 
-                last_conf = json.load(data_file)['conf']
-                logger.debug('Loaded last conf (%s)', last_conf)
-                return last_conf
-        except Exception:
-            logger.critical('Integrity error: could not read conf in %s, fix (or just remove) the file manually', last_conf_info_file)
+# Load host conf
+def load_host_conf():
+    host_conf = {}
+    try:
+        with open(PROJECT_DIR+'/host.conf') as f:
+            content = f.read().replace('\n','').replace('  ',' ')
+            host_conf = json.loads(content)
+    except ValueError:
+        abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(APPS_CONTAINERS_DIR+'/../host.conf'))  
+    except IOError:
+        pass
+    return host_conf
 
-# Save last conf           
-def save_last_conf(conf):
-    last_conf_info_file = '{}/run_confs/{}'.format(os.getcwd(), PROJECT_NAME)
-    logger.debug('Saving last conf (%s)', conf)
-    if not os.path.exists('{}/run_confs'.format(os.getcwd())):
-        os.makedirs('{}/run_confs'.format(os.getcwd()))
-    with open(last_conf_info_file, 'w') as data_file:
-        json.dump({'conf':conf}, data_file)   
-      
+# Save host conf           
+def save_host_conf(host_conf):
+    logger.debug('Saving host conf (%s)', host_conf)
+    with open(PROJECT_DIR+'/host.conf', 'w') as outfile:
+        json.dump(host_conf, outfile)
+
 # Get IP address of an interface              
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -608,34 +604,41 @@ def rerun(container, instance=None):
     clean(container,instance)
     run(container,instance)
 
-
 @task
 # TODO: clarify difference between False and None.
 def run(container=None, instance=None, group=None, instance_type=None,
         persistent_data=None, persistent_log=None, persistent_opt=None,
-        publish_ports=None, linked=None, seed_command=None, 
-        safemode=False,  interactive=False, debug=False, conf=None):
+        publish_ports=None, linked=None, seed_command=None, conf=None,
+        safemode=False,  interactive=False, debug=False, recursive=False):
     '''Run a given container with a given instance. In no instance name is set,
     a standard instance with a random name is run. If container name is set to "all"
     then all the containers are run, according  to the run conf file.'''
 
     #------------------------
-    # Check conf
+    # Handle conf(s)
     #------------------------
 
-    last_conf = load_last_conf()
-    if last_conf:
-        if conf == last_conf:
-            pass
-        else:
+    # Load host conf 
+    host_conf = load_host_conf()
+    
+    # Handle last run conf
+    try:
+        last_conf = host_conf['last_conf']
+        if not conf:
             conf = last_conf
-            save_last_conf(last_conf)
-    else:
+    except KeyError:
         if conf:
-            save_last_conf(conf)
+            host_conf['last_conf'] = conf
+            save_host_conf(host_conf)
+    else:
+        if last_conf != conf:
+            host_conf['last_conf'] = conf
+            save_host_conf(host_conf)
 
-    print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
-
+    print ''
+    if not recursive:
+        print 'Conf file being used: "{}"'.format('run.conf' if not conf else conf)
+    
     #---------------------------
     # Run a group of containers
     #---------------------------
@@ -704,7 +707,8 @@ def run(container=None, instance=None, group=None, instance_type=None,
                 interactive     = interactive,
                 safemode        = safemode,
                 debug           = debug,
-                conf            = conf)
+                conf            = conf,
+                recursive       = True)
                 
         # Exit
         return
@@ -884,18 +888,16 @@ def run(container=None, instance=None, group=None, instance_type=None,
                     # Also, add an env var with the linked container IP
                     ENV_VARs[link_name.upper()+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
 
-    # If the DNS_CONTAINER_IP is set, then  also the HOST_IP in the ENV_VARs:
-    #if 'DNS_CONTAINER_IP' in ENV_VARs:
-    #    if instance in ['master', 'published']: 
-    #       if not 'HOST_IP' in ENV_VARs:
-    #            ENV_VARs['HOST_IP'] = None
 
-    # If instance is master check that DNSLINK_ON_IP is set (and if not, warn)
-    if (instance == 'master') and (container != 'dockerops-dns'): # TODO: and dns_is_enabled
-        if not 'DNSLINK_ON_IP' in ENV_VARs:
-            logger.warning('You are running a master instance but you have not set the DNSLINK_ON_IP (witht the host\'s IP) env var, \
-this means that DockerOps will register the container on the DNS with its IP address on the Docker network \
-and the services will not be accessible outside it.')
+    # If instance has publish_ports enabld (also for master and published) then check
+    # that SERVICE_IP is set (and if not, warn)
+    if publish_ports and not 'SERVICE_IP' in ENV_VARs:
+        if instance_type == 'master':
+            abort('SERVICE_IP env var is required when running in master mode')
+        elif container == 'dockerops-dns':
+            abort('SERVICE_IP env var is required when publishing the dockerops-dns service')            
+        else:
+            logger.warning('You are publishing the service but you have not set the SERVICE_IP env var. This mean that the service(s) might not be completely accessible outside the Docker network.')
 
     # Try to set the env vars from the env (they have always the precedence):
     for requested_ENV_VAR in ENV_VARs.keys():
@@ -912,25 +914,13 @@ and the services will not be accessible outside it.')
     # Check that we have all the required env vars. Do NOT move this section around, it has to stay here.
     if None in ENV_VARs.values():
         logger.debug('After checking the env I still cannot find some required env vars, proceeding with the host conf')
-    
-        host_conf = None  
+
         for requested_ENV_VAR in ENV_VARs:
             
             if ENV_VARs[requested_ENV_VAR] is None:
                 
                 logger.debug('Evaluating required ENV_VAR %s', requested_ENV_VAR)
                 
-                if host_conf is None:
-                    # Try to load the host conf:
-                    try:
-                        with open(PROJECT_DIR+'/host.conf') as f:
-                            content = f.read().replace('\n','').replace('  ',' ')
-                            host_conf = json.loads(content)
-                    except ValueError,e:
-                        abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(APPS_CONTAINERS_DIR+'/../host.conf'))  
-                    except IOError, e:
-                        host_conf = {}
-                        
                 # Try to see if we can set this var according to the conf
                 if requested_ENV_VAR in host_conf:
                     logger.debug('Loading ENV_VAR %s from host.conf', requested_ENV_VAR)
@@ -950,8 +940,7 @@ and the services will not be accessible outside it.')
                     
                     if answer == 'y':
                         # Then, dump the conf #TODO: dump just at the end..
-                        with open(PROJECT_DIR+'/host.conf', 'w') as outfile:
-                            json.dump(host_conf, outfile)
+                        save_host_conf(host_conf)
 
     logger.debug('Done setting ENV vars. Summary: %s', ENV_VARs)
 
@@ -1042,8 +1031,8 @@ and the services will not be accessible outside it.')
         # Handle forcing of an IP where to publish the ports
         if 'PUBLISH_ON_IP' in ENV_VARs:
             pubish_on_ip = ENV_VARs['PUBLISH_ON_IP']+':'
-        elif 'DNSLINK_ON_IP' in ENV_VARs:
-            pubish_on_ip = ENV_VARs['DNSLINK_ON_IP']+':'
+        elif 'SERVICE_IP' in ENV_VARs:
+            pubish_on_ip = ENV_VARs['SERVICE_IP']+':'
         else:
             pubish_on_ip = ''
 
@@ -1128,7 +1117,11 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
     elif container == 'all' or group:
         
         # Check conf
-        last_conf = load_last_conf()
+        try:
+            last_conf = load_host_conf()['last_conf']
+        except KeyError:
+            last_conf= None
+        
         if last_conf:
             if conf:
                 if conf != last_conf:
@@ -1136,7 +1129,7 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
                         abort('Exiting...')
             else:
                 conf = last_conf
-
+                
         print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
 
         if container == 'all':
@@ -1208,7 +1201,11 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
     else:
         
         # Check conf
-        last_conf = load_last_conf()
+        try:
+            last_conf = load_host_conf()['last_conf']
+        except KeyError:
+            last_conf= None
+        
         if last_conf:
             if conf:
                 if conf != last_conf:
@@ -1218,7 +1215,7 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
                 conf = last_conf
                 
         print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
-          
+
         # Sanitize (and dynamically obtain instance)...
         (container, instance) = sanity_checks(container,instance)
         

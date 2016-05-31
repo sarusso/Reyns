@@ -3,11 +3,11 @@ set -e
 
 # Get forward IP
 if [[ "x$INSTANCE_TYPE" == "xmaster" ]] ; then
-    if [[ "x$HOST_IP" == "x" ]] ; then
-        echo "CRITICAL: Empty HOST_IP env var, check conf"
+    if [[ "x$SERVICE_IP" == "x" ]] ; then
+        echo "CRITICAL: Empty SERVICE_IP env var, check conf"
         exit 1
     fi
-    FWDIP=$HOST_IP
+    FWDIP=$SERVICE_IP
 else
     FWDIP=$(ip addr show eth0 | grep -F inet | grep -vF inet6 | awk '{print $2}' | rev | cut -c 4- | rev | tr -d \\n)
 fi
