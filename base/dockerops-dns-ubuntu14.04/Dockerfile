@@ -42,7 +42,7 @@ RUN chmod 755 /runbind.sh
 #-----------------------
 # Entrypoint
 #-----------------------
-# Copy, give right permissions & unique name to container entrypoint
+# Copy, give right permissions & unique name to entrypoint
 COPY entrypoint-dns.sh /entrypoints/
 RUN chmod 755 /entrypoints/entrypoint-dns.sh
 RUN mv /entrypoints/entrypoint-dns.sh /entrypoints/entrypoint-dns-$(date +%s).sh

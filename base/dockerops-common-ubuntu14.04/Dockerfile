@@ -85,7 +85,7 @@ COPY supervisord_sshd.conf /etc/supervisor/conf.d/
 # Entrypoint files
 #----------------------
 
-# Create directory for containers entrypoints
+# Create directory for entrypoints
 RUN mkdir /entrypoints
 
 # Copy seed entrypoint (and custom one)

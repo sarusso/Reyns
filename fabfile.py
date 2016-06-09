@@ -27,8 +27,8 @@ from time import sleep
 PROJECT_NAME        = os.getenv('PROJECT_NAME', 'dockerops').lower()
 PROJECT_DIR         = os.getenv('PROJECT_DIR', os.getcwd())
 DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/data_' + PROJECT_NAME)
-APPS_CONTAINERS_DIR = os.getenv('APPS_CONTAINERS_DIR', os.getcwd() + '/apps_containers')
-BASE_CONTAINERS_DIR = os.getenv('BASE_CONTAINERS_DIR', os.getcwd() + '/base_containers')
+SERVICES_IMAGES_DIR = os.getenv('SERVICES_IMAGES_DIR', os.getcwd() + '/services')
+BASE_IMAGES_DIR     = os.getenv('BASE_IMAGES_DIR', os.getcwd() + '/base')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
 SUPPORTED_OSES      = ['ubuntu14.04']
 
@@ -62,7 +62,7 @@ def load_host_conf():
             content = f.read().replace('\n','').replace('  ',' ')
             host_conf = json.loads(content)
     except ValueError:
-        abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(APPS_CONTAINERS_DIR+'/../host.conf'))  
+        abort('Cannot read conf in {}. Fix parsing or just remove the file and start over.'.format(SERVICES_IMAGES_DIR+'/../host.conf'))  
     except IOError:
         pass
     return host_conf
@@ -91,7 +91,7 @@ def json_errmsg_plus_verbose(msg, doc, pos, end=None):
 json.decoder.errmsg = json_errmsg_plus_verbose
 
 
-def sanity_checks(container, instance=None):
+def sanity_checks(service, instance=None):
     
     caller = inspect.stack()[1][3]
     clean = True if 'clean' in caller else False
@@ -103,33 +103,33 @@ def sanity_checks(container, instance=None):
     if not clean and not build and not run and not ssh and not ip:
         raise Exception('Unknown caller (got "{}")'.format(caller))
 
-    # Check not valid chars in container name TODO: Use a regex suitable for a hostname
-    if '_' in container:
-        abort('Character "_" is not allowed in a container name (got "{}")'.format(container)) 
+    # Check not valid chars in service name TODO: Use a regex suitable for a hostname
+    if '_' in service:
+        abort('Character "_" is not allowed in a service name (got "{}")'.format(service)) 
 
-    # Check container name 
-    if not container:
+    # Check service name 
+    if not service:
         if clean:
-            abort('You must provide the container name or use the magic words "all" or "reallyall"') 
+            abort('You must provide the service name or use the magic words "all" or "reallyall"') 
         else:
-            abort('You must provide the container name or use the magic word "all"')
+            abort('You must provide the service name or use the magic word "all"')
     
     # Check instance name     
     if not instance:
         if run:
             instance = str(uuid.uuid4())[0:8]
             
-        if ssh or (clean and not container in ['all', 'reallyall']):
-            running_instances = get_running_containers_instances_matching(container)
+        if ssh or (clean and not service in ['all', 'reallyall']):
+            running_instances = get_running_services_instances_matching(service)
             if len(running_instances) == 0:
-                abort('Could not find any running instance of container matching "{}"'.format(container))                
+                abort('Could not find any running instance of service matching "{}"'.format(service))                
             if len(running_instances) > 1:
                 if clean:
-                    abort('Found more than one running instance for container "{}": {}, please specity wich one.'.format(container, running_instances))            
+                    abort('Found more than one running instance for service "{}": {}, please specity wich one.'.format(service, running_instances))            
                 else:         
-                    if not confirm('WARNING: I found more than one running instance for container "{}": {}, i will be using the first one ("{}"). Proceed?'.format(container, running_instances, running_instances[0])) :
+                    if not confirm('WARNING: I found more than one running instance for service "{}": {}, i will be using the first one ("{}"). Proceed?'.format(service, running_instances, running_instances[0])) :
                         abort('Stopped.')
-            container = running_instances[0][0]
+            service = running_instances[0][0]
             instance  = running_instances[0][1]
         
     if instance and build:
@@ -137,41 +137,41 @@ def sanity_checks(container, instance=None):
     
     
     # Avoid 'reallyall' name if building'
-    if build and container == 'reallyall':
-        abort('Sorry, you cannot use the word "reallyall" as a container name as it is reserverd.')
+    if build and service == 'reallyall':
+        abort('Sorry, you cannot use the word "reallyall" as a service name as it is reserverd.')
     
-    # Check container source if build:
-    if build and container != 'all':
+    # Check service source if build:
+    if build and service != 'all':
         
-        container_dir = get_container_dir(container)
-        if not os.path.exists(container_dir):
-            abort('I cannot find this container ("{}") source directory. Are you in the project\'s root? I was looking for "{}".'.format(container, container_dir))
+        service_dir = get_service_dir(service)
+        if not os.path.exists(service_dir):
+            abort('I cannot find this service ("{}") source directory. Are you in the project\'s root? I was looking for "{}".'.format(service, service_dir))
             
-    return (container, instance)
+    return (service, instance)
 
 
-def is_base_container(container):
-    return (container.startswith('dockerops-common-') or container.startswith('dockerops-base-') or container.startswith('dockerops-dns'))
+def is_base_service(service):
+    return (service.startswith('dockerops-common-') or service.startswith('dockerops-base-') or service.startswith('dockerops-dns'))
 
 
-def get_running_containers_instances_matching(container,instance=None):
-    '''Return a list of [container_name, instance_name] matching the request.
+def get_running_services_instances_matching(service,instance=None):
+    '''Return a list of [service_name, instance_name] matching the request.
     Examples args:
-      container = postgres_2.4, instanceo=one
-      container = postgres_2.4, instanceo=None
-      container = postgres_*,instance=one
-      container = postgres_*,instance=None'''
-    running =  info(container=container, instance=instance, capture=True)
+      service = postgres_2.4, instanceo=one
+      service = postgres_2.4, instanceo=None
+      service = postgres_*,instance=one
+      service = postgres_*,instance=None'''
+    running =  info(service=service, instance=instance, capture=True)
     instances = []
     if running:
         
         # TODO: Again, ps with capture on returns a list but should return a dict.
-        for container in running:
-            fullname = container[-1]
+        for service in running:
+            fullname = service[-1]
             if ',instance=' in fullname:
-                found_container = fullname.split(',')[0]
+                found_service = fullname.split(',')[0]
                 found_instance  = fullname.split('=')[1]
-                instances.append([found_container,found_instance])
+                instances.append([found_service,found_instance])
                 
             elif '-' in fullname:
                 raise Exception('Deprecated, fix me!!')
@@ -182,16 +182,16 @@ def get_running_containers_instances_matching(container,instance=None):
     return instances
 
 
-def get_container_dir(container=None):
-    if not container:
-        raise Exception('get_container_dir: container is required, got "{}"'.format(container))
+def get_service_dir(service=None):
+    if not service:
+        raise Exception('get_service_dir: service is required, got "{}"'.format(service))
     
-    # Handle the case for base containers
+    # Handle the case for base services
     
-    if is_base_container(container):
-        return BASE_CONTAINERS_DIR + '/' + container
+    if is_base_service(service):
+        return BASE_IMAGES_DIR + '/' + service
     else:
-        return APPS_CONTAINERS_DIR + '/' + container
+        return SERVICES_IMAGES_DIR + '/' + service
 
 
 
@@ -265,26 +265,13 @@ def booleanize(*args, **kwargs):
         else:
             return False
 
-def get_containers_run_conf(conf_file=None):
-    conf_file = 'run.conf' if not conf_file else conf_file
-    
-    if os.path.isfile(PROJECT_DIR+'/'+conf_file):
-        conf_file_path = PROJECT_DIR+'/'+conf_file
-    
-    elif os.path.isfile(APPS_CONTAINERS_DIR+'/'+conf_file): 
-        conf_file_path = APPS_CONTAINERS_DIR+'/'+conf_file   
-         
-    else:
-        # If the conf file was explicitly set, then raise, otherwise just return empty conf
-        if conf_file != 'run.conf':
-            raise IOError('No conf file {} found'.format(conf_file))
-        else:
-            return []
-        
-    # Now load it
+def get_required_env_vars(service):
+    required_env_vars_file = SERVICES_IMAGES_DIR+'/'+service+'/required_env_vars.json'
+    if not os.path.isfile(required_env_vars_file):
+        return []
     try:
-        logger.debug ('Loading conf from %s/%s', APPS_CONTAINERS_DIR, conf_file)
-        with open(conf_file_path) as f:
+        with open(required_env_vars_file) as f:
+            logger.debug ('Loading required env vars from %s', required_env_vars_file)
             content = f.read()#.replace('\n','').replace('  ',' ')
             json_content = []
             # Handle comments
@@ -294,7 +281,7 @@ def get_containers_run_conf(conf_file=None):
                 json_content.append(line)     
             json_content = '\n'.join(json_content)
             try:
-                registered_containers = json.loads(json_content)
+                required_env_vars = json.loads(json_content)
             except ValueError as e:
                 try:
                     # Try to improve the error message
@@ -302,22 +289,80 @@ def get_containers_run_conf(conf_file=None):
                     raise ValueError( str(e) + '; error in proximity of: ', json_error_msg_verbose) 
                 except:
                     # Otherwise, just raise...
-                    print json_content
+                    print 'Error in deconding', json_content
+                    raise e
+    except IOError:
+        raise IOError('Error when reading conf file {}'.format(required_env_vars_file))
+
+    logger.debug('Loaded required env vars: %s', required_env_vars)
+    return required_env_vars
+
+def get_services_run_conf(conf_file=None):
+    conf_file = 'run.conf' if not conf_file else conf_file
+    
+    if os.path.isfile(PROJECT_DIR+'/'+conf_file):
+        conf_file_path = PROJECT_DIR+'/'+conf_file
+    
+    elif os.path.isfile(SERVICES_IMAGES_DIR+'/'+conf_file): 
+        conf_file_path = SERVICES_IMAGES_DIR+'/'+conf_file   
+         
+    else:
+        # If the conf file was explicitly set, then raise, otherwise just return empty conf
+        if conf_file != 'run.conf':
+            raise IOError('No conf file {} found'.format(conf_file))
+        else:
+            return []
+        
+    # Now load it
+    try:  
+        with open(conf_file_path) as f:
+            logger.debug ('Loading conf from %s/%s', SERVICES_IMAGES_DIR, conf_file)
+            content = f.read()#.replace('\n','').replace('  ',' ')
+            json_content = []
+            # Handle comments
+            for line in content.split('\n'):
+                if '#' in line:
+                    line = line.split('#')[0]
+                json_content.append(line)     
+            json_content = '\n'.join(json_content)
+            try:
+                registered_services = json.loads(json_content)
+            except ValueError as e:
+                try:
+                    # Try to improve the error message
+                    json_error_msg_verbose = getattr(json, 'last_error_verbose')
+                    raise ValueError( str(e) + '; error in proximity of: ', json_error_msg_verbose) 
+                except:
+                    # Otherwise, just raise...
+                    print 'Error in deconding', json_content
                     raise e
     except IOError:
         raise IOError('Error when reading conf file {}'.format(conf_file_path))
-    return registered_containers
+    
+    
+    # Validate vars
+    valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt','persistent_log',
+                                      'links', 'sleep', 'env_vars']
+    
+    for service_description in registered_services:
+        for key in service_description:
+            # TODO: Chek minimal subset of required keys, like "service" and "instance" 
+            if key not in valid_service_description_keys:
+                raise Exception('Error: key "{}" for "{}" service description is not valid'.format(key, service_description['service']))
+
+    # Ok return
+    return registered_services
  
-def is_container_registered(container, conf=None):
-    registered_containers = get_containers_run_conf(conf)   
-    for registered_container in registered_containers:
-        if registered_container['container'] == container:
+def is_service_registered(service, conf=None):
+    registered_services = get_services_run_conf(conf)   
+    for registered_service in registered_services:
+        if registered_service['service'] == service:
             return True
     return False
     
-def is_container_running(container, instance):
-    '''Returns True if the container is running, False otherwise'''  
-    running = info(container=container, instance=instance, capture=True)
+def is_service_running(service, instance):
+    '''Returns True if the service is running, False otherwise'''  
+    running = info(service=service, instance=instance, capture=True)
 
     if running:
         # TODO: improve this part, return a dict or something from ps
@@ -326,9 +371,9 @@ def is_container_running(container, instance):
                 return True
     return False
 
-def container_exits_but_not_running(container, instance):
-    '''Returns True if the container is existent but not running, False otherwise'''  
-    running = info(container=container, instance=instance, capture=True)
+def service_exits_but_not_running(service, instance):
+    '''Returns True if the service is existent but not running, False otherwise'''  
+    running = info(service=service, instance=instance, capture=True)
     if running:
         # TODO: improve this part, return a dict or something from ps
         for item in running[0]:
@@ -369,17 +414,17 @@ def format_shell_error(stdout, stderr, exit_code):
     return string
 
 
-def get_container_ip(container, instance):
-    ''' Get the IP address of a given container'''
+def get_service_ip(service, instance):
+    ''' Get the IP address of a given service'''
     
     # Do not use .format as there are too many graph brackets    
-    IP = shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + PROJECT_NAME + '-' + container + '-' +instance, capture=True).stdout
+    IP = shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout
     
     if IP:
         try:
             socket.inet_aton(IP)
         except socket.error:
-            raise Exception('Error, I could not find a valid IP address for container "{}", instance "{}"'.format(container, instance))
+            raise Exception('Error, I could not find a valid IP address for service "{}", instance "{}"'.format(service, instance))
             
     return IP
 
@@ -433,28 +478,28 @@ def install_demo():
         abort('Could not create directory {}: {}'.format(INSTALL_DIR, e))
     
     try:
-        shutil.copytree(os.getcwd()+'/apps_containers', INSTALL_DIR + '/apps_containers')
+        shutil.copytree(os.getcwd()+'/services', INSTALL_DIR + '/services')
     except OSError,e:
-        abort('Could not copy demo data into {}: {}'.format(INSTALL_DIR + '/apps_containers', e))
+        abort('Could not copy demo data into {}: {}'.format(INSTALL_DIR + '/services', e))
         
     print '\nDemo installed.'
     print '\nQuickstart: enter into "{}", then:'.format(INSTALL_DIR)
     print '  - to build it, type "dockerops build:all";'
     print '  - to run it, type "dockerops run:all";'
-    print '  - to see running containers, type "dockerops ps";'
-    print '  - to ssh into the "demo", instance "two" container, type "dockerops ssh:demo,instance=two";'
-    print '    - to ping container "demo", instance "one", type: "ping demo-one";'
+    print '  - to see running services, type "dockerops ps";'
+    print '  - to ssh into the "demo", instance "two" service, type "dockerops ssh:demo,instance=two";'
+    print '    - to ping service "demo", instance "one", type: "ping demo-one";'
     print '    - to exit ssh type "exit";'
     print '  - to stop the demo, type "dockerops clean:all".'
 
 
 #--------------------------
-# Containers management
+# Services management
 #--------------------------
 
 @task
 def init(os_to_init='ubuntu14.04', verbose=False):
-    '''Initialize the base containers'''
+    '''Initialize the base services'''
     
     # Sanity checks:
     if os_to_init not in SUPPORTED_OSES:
@@ -464,12 +509,12 @@ def init(os_to_init='ubuntu14.04', verbose=False):
     os_to_init  = os_to_init
     verbose     = booleanize(verbose=verbose)
 
-    # Build dockerops containers
+    # Build dockerops services
     
-    build(container='dockerops-common-{}'.format(os_to_init), verbose=verbose)
-    build(container='dockerops-base-{}'.format(os_to_init), verbose=verbose)
-    build(container='dockerops-dns-{}'.format(os_to_init), verbose=verbose)
-    build(container='dockerops-dns', verbose=verbose)    
+    build(service='dockerops-common-{}'.format(os_to_init), verbose=verbose)
+    build(service='dockerops-base-{}'.format(os_to_init), verbose=verbose)
+    build(service='dockerops-dns-{}'.format(os_to_init), verbose=verbose)
+    build(service='dockerops-dns', verbose=verbose)    
 
     # Create default tags for this OS:
     #print '\nCreating tag dockerops/dockerops-dns to dockerops/dockerops-dns-{}'.format(os_to_init),
@@ -479,11 +524,11 @@ def init(os_to_init='ubuntu14.04', verbose=False):
     
 
 @task
-def build(container=None, verbose=False):
-    '''Build a given container. If container name is set to "all" then builds all the containers'''
+def build(service=None, verbose=False):
+    '''Build a given service. If service name is set to "all" then builds all the services'''
 
     # Sanitize...
-    (container, instance) = sanity_checks(container)
+    (service, instance) = sanity_checks(service)
 
     # Switches
     verbose  = booleanize(verbose=verbose)
@@ -497,77 +542,77 @@ def build(container=None, verbose=False):
     #if debug:
     #    logger.setLevel(logging.DEBUG)  
     
-    if container.upper()=='ALL':
+    if service.upper()=='ALL':
 
-        # Build everything then obtain which containers we have to build        
-        print '\nBuilding all containers in {}'.format(APPS_CONTAINERS_DIR)
+        # Build everything then obtain which services we have to build        
+        print '\nBuilding all services in {}'.format(SERVICES_IMAGES_DIR)
 
 
         # Find dependencies recursive function
-        def find_dependencies(container_dir):
-            with open(APPS_CONTAINERS_DIR+'/'+container_dir+'/Dockerfile') as f:
+        def find_dependencies(service_dir):
+            with open(SERVICES_IMAGES_DIR+'/'+service_dir+'/Dockerfile') as f:
                 content = f.read()
                 for line in content.split('\n'):
                     if line.startswith('FROM '):
-                        from_container = line.split(' ')[1]
-                        if '/' in from_container:   
-                            from_container_project = from_container.split('/')[0]
-                            from_container_app = from_container.split('/')[1]
-                            if from_container_project.lower() == PROJECT_NAME:                  
-                                return [from_container_app] + find_dependencies(from_container_app)                            
+                        from_service = line.split(' ')[1]
+                        if '/' in from_service:   
+                            from_service_project = from_service.split('/')[0]
+                            from_service_app = from_service.split('/')[1]
+                            if from_service_project.lower() == PROJECT_NAME:                  
+                                return [from_service_app] + find_dependencies(from_service_app)                            
                             else:
                                 return []
 
         # Find build hierarchy
         built = []
-        for container_dir in os.listdir(APPS_CONTAINERS_DIR):
-            if not os.path.isdir(APPS_CONTAINERS_DIR+'/'+container_dir):
+        for service_dir in os.listdir(SERVICES_IMAGES_DIR):
+            if not os.path.isdir(SERVICES_IMAGES_DIR+'/'+service_dir):
                 continue
-            if container_dir in built:
-                logger.debug('%s already built',container_dir)
+            if service_dir in built:
+                logger.debug('%s already built',service_dir)
                 continue
-            logger.debug('Processing %s',container_dir)
+            logger.debug('Processing %s',service_dir)
             try:
-                dependencies = find_dependencies(container_dir)
-                logger.debug('Container %s depends on: %s',container_dir, dependencies)
-                for container in dependencies:
-                    if container not in built:
+                dependencies = find_dependencies(service_dir)
+                logger.debug('Service %s depends on: %s',service_dir, dependencies)
+                for service in dependencies:
+                    if service not in built:
                         # Build by recursively call myself
-                        build(container=container, verbose=verbose)
-                        built.append(container)
-                build(container=container_dir, verbose=verbose)
+                        build(service=service, verbose=verbose)
+                        built.append(service)
+                build(service=service_dir, verbose=verbose)
                     
             except IOError:
                 pass
 
     else:
-        # Build a given container
-        container_dir = get_container_dir(container)
+        # Build a given service
+        service_dir = get_service_dir(service)
         
-        # TODO: Check for required files. Use a local Cache? use a checksum? Where to put the conf? a files.json in container's source dir?
+        # TODO: Check for required files. Use a local Cache? use a checksum? Where to put the conf? a files.json in service's source dir?
         # print 'Getting remote files...'
 
         # Default tag prefix to PROJECT_NAME    
         tag_prefix = PROJECT_NAME
         
-        # But if we are running a DockerOps container, use DockerOps image
-        if is_base_container(container):
+        # But if we are running a DockerOps service, use DockerOps image
+        if is_base_service(service):
             tag_prefix = 'dockerops'
 
-        # Ok, print the info about the container being built
-        print '\nBuilding container "{}" as "{}/{}"'.format(container, tag_prefix, container)
+        # Ok, print the info about the service being built
+        print '\nBuilding service "{}" as "{}/{}"'.format(service, tag_prefix, service)
 
         # Check that only an entrypoint is found:
-        entrypoint_files = [f for f in os.listdir(container_dir) if re.match(r'entrypoint-+.*\.sh', f)]
+        entrypoint_files = [f for f in os.listdir(service_dir) if re.match(r'entrypoint-+.*\.sh', f)]
         if len(entrypoint_files) > 1:
-            abort("Sorry, found more than one entrypoint for this container (got {})".format(entrypoint_files))
+            abort("Sorry, found more than one entrypoint for this service (got {})".format(entrypoint_files))
 
         # Update Entrypoint date to allow ordered execution
         if entrypoint_files:
-            shell('touch {}/{}'.format(container_dir, entrypoint_files[0]),silent=True)
+            shell('touch {}/{}'.format(service_dir, entrypoint_files[0]),silent=True)
  
         # Build command 
-        build_command = 'cd ' + container_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + container + ' ' + container
+        build_command = 'cd ' + service_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + service + ' ' + service
         
         # Build
         print 'Building...'
@@ -582,37 +627,37 @@ def build(container=None, verbose=False):
 
 
 @task
-def start(container,instance):
-    '''Start a stopped container. Use only if you know what you are doing.''' 
-    if container_exits_but_not_running(container,instance):
-        shell('docker start {}-{}'.format(container,instance), silent=True)
+def start(service,instance):
+    '''Start a stopped service. Use only if you know what you are doing.''' 
+    if service_exits_but_not_running(service,instance):
+        shell('docker start {}-{}'.format(service,instance), silent=True)
     else:
-        abort('Cannot start a container not in exited state. use "run" instead')
+        abort('Cannot start a service not in exited state. use "run" instead')
 
 @task
-def rerun(container, instance=None):
-    '''Re-run a given container (instance is not mandatory if only one is running)'''
-    running_instances = get_running_containers_instances_matching(container)
+def rerun(service, instance=None):
+    '''Re-run a given service (instance is not mandatory if only one is running)'''
+    running_instances = get_running_services_instances_matching(service)
     if len(running_instances) == 0:
-        abort('Could not find any running instance of container matching "{}"'.format(container))                
+        abort('Could not find any running instance of service matching "{}"'.format(service))                
     if len(running_instances) > 1:
-        abort('Found more than one running instance for container "{}": {}, please specity wich one.'.format(container, running_instances))            
-    container = running_instances[0][0]
+        abort('Found more than one running instance for service "{}": {}, please specity wich one.'.format(service, running_instances))            
+    service = running_instances[0][0]
     instance  = running_instances[0][1]
 
     # Clean    
-    clean(container,instance)
-    run(container,instance)
+    clean(service,instance)
+    run(service,instance)
 
 @task
 # TODO: clarify difference between False and None.
-def run(container=None, instance=None, group=None, instance_type=None,
+def run(service=None, instance=None, group=None, instance_type=None,
         persistent_data=None, persistent_log=None, persistent_opt=None,
         publish_ports=None, linked=None, seed_command=None, conf=None,
         safemode=False,  interactive=False, debug=False, recursive=False):
-    '''Run a given container with a given instance. In no instance name is set,
-    a standard instance with a random name is run. If container name is set to "all"
-    then all the containers are run, according  to the run conf file.'''
+    '''Run a given service with a given instance. In no instance name is set,
+    a standard instance with a random name is run. If service name is set to "all"
+    then all the services are run, according  to the run conf file.'''
 
     #------------------------
     # Handle conf(s)
@@ -640,70 +685,70 @@ def run(container=None, instance=None, group=None, instance_type=None,
         print 'Conf file being used: "{}"'.format('run.conf' if not conf else conf)
     
     #---------------------------
-    # Run a group of containers
+    # Run a group of services
     #---------------------------
-    if container == 'all' or group:
+    if service == 'all' or group:
         
-        if container == 'all':
+        if service == 'all':
             #print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
             group = 'all'
         
-        print 'Running containers in {} for group {}'.format(APPS_CONTAINERS_DIR,group)
+        print 'Running services in {} for group {}'.format(SERVICES_IMAGES_DIR,group)
 
         if safemode or interactive:
-            abort('Sorry, you cannot set one of the "safemode" or "interactive" switches if you are running more than one container') 
+            abort('Sorry, you cannot set one of the "safemode" or "interactive" switches if you are running more than one service') 
 
 
 
         # Load run conf             
         try:
-            containers_to_run_confs = get_containers_run_conf(conf)
+            services_to_run_confs = get_services_run_conf(conf)
         except Exception, e:
             abort('Got error in reading run conf for automated execution: {}.'.format(e))
 
-        if not containers_to_run_confs:
-            abort('No or empty run.conf found in {}, are you in the project\'s root?'.format(APPS_CONTAINERS_DIR))
+        if not services_to_run_confs:
+            abort('No or empty run.conf found in {}, are you in the project\'s root?'.format(SERVICES_IMAGES_DIR))
         
-        for container_conf in containers_to_run_confs:
+        for service_conf in services_to_run_confs:
             
-            # Check for container group.
-            # We will run the container if:
+            # Check for service group.
+            # We will run the service if:
             # a) the group is set to 'all'
-            # b) the group is set to 'x' and the container group is 'x'            
+            # b) the group is set to 'x' and the service group is 'x'            
             if group != 'all':
-                if 'group' in container_conf:
-                    if container_conf['group'] != group:
+                if 'group' in service_conf:
+                    if service_conf['group'] != group:
                         continue
                 else:
                     continue
                 
-            # Check for container name
-            if 'container' not in container_conf:
-                abort('Missing container name for conf: {}'.format(container_conf))
+            # Check for service name
+            if 'service' not in service_conf:
+                abort('Missing service name for conf: {}'.format(service_conf))
             else:
-                container = container_conf['container']
+                service = service_conf['service']
               
             # Check for instance name
-            if 'instance' not in container_conf:
-                abort('Missing instance name for conf: {}'.format(container_conf))
+            if 'instance' not in service_conf:
+                abort('Missing instance name for conf: {}'.format(service_conf))
             else:
-                instance = container_conf['instance']
+                instance = service_conf['instance']
 
             # Handle the instance type.
-            if 'instance_type' in container_conf:
-                    instance_type = container_conf['instance_type']
+            if 'instance_type' in service_conf:
+                    instance_type = service_conf['instance_type']
             else:
                 instance_type = None
 
             # Recursively call myself with proper args. The args of the call always win over the configuration(s)
-            run(container       = container,
+            run(service       = service,
                 instance        = instance,
                 instance_type   = instance_type,
-                persistent_data = persistent_data if persistent_data is not None else (container_conf['persistent_data'] if 'persistent_data' in container_conf else None),
-                persistent_log  = persistent_log  if persistent_log  is not None else (container_conf['persistent_log']  if 'persistent_log'  in container_conf else None),
-                persistent_opt  = persistent_opt  if persistent_opt  is not None else (container_conf['persistent_opt']  if 'persistent_opt'  in container_conf else None),
-                publish_ports   = publish_ports   if publish_ports   is not None else (container_conf['publish_ports']   if 'publish_ports'   in container_conf else None),
-                linked          = linked          if linked          is not None else (container_conf['linked']          if 'linked'          in container_conf else None),
+                persistent_data = persistent_data if persistent_data is not None else (service_conf['persistent_data'] if 'persistent_data' in service_conf else None),
+                persistent_log  = persistent_log  if persistent_log  is not None else (service_conf['persistent_log']  if 'persistent_log'  in service_conf else None),
+                persistent_opt  = persistent_opt  if persistent_opt  is not None else (service_conf['persistent_opt']  if 'persistent_opt'  in service_conf else None),
+                publish_ports   = publish_ports   if publish_ports   is not None else (service_conf['publish_ports']   if 'publish_ports'   in service_conf else None),
+                linked          = linked          if linked          is not None else (service_conf['linked']          if 'linked'          in service_conf else None),
                 interactive     = interactive,
                 safemode        = safemode,
                 debug           = debug,
@@ -714,91 +759,91 @@ def run(container=None, instance=None, group=None, instance_type=None,
         return
 
     #-----------------------
-    # Run a given container
+    # Run a given service
     #-----------------------
     
     # Sanitize...
-    (container, instance) = sanity_checks(container, instance)
+    (service, instance) = sanity_checks(service, instance)
       
     # Handle debug switch:
     if booleanize(debug=debug):
         logger.info('Setting loglevel to DEBUG from now on..')
         logger.setLevel(logging.DEBUG)      
 
-    # Run a specific container
-    print 'Running container "{}" ("{}/{}"), instance "{}"...'.format(container, PROJECT_NAME, container, instance)
+    # Run a specific service
+    print 'Running service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance)
 
-    # Check if this container is exited
-    if container_exits_but_not_running(container,instance):
+    # Check if this service is exited
+    if service_exits_but_not_running(service,instance):
 
         if interactive:
             # Only for instances run in interactive mode we take the right of cleaning
-            shell('fab clean:{},instance=safemode'.format(container), silent=True)
+            shell('fab clean:{},instance=safemode'.format(service), silent=True)
 
-        abort('Container "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking ' \
+        abort('Service "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking ' \
               'would be end up broken. Use dockerops clean:{0},instance={1} to clean it and start over clean, ' \
-              'or dockerops start:{0},instance={1} if you know what you are doing.'.format(container,instance))
+              'or dockerops start:{0},instance={1} if you know what you are doing.'.format(service,instance))
 
-    # Check if this container is already running
-    if is_container_running(container,instance):
-        print 'Container is already running, not starting.'
+    # Check if this service is already running
+    if is_service_running(service,instance):
+        print 'Service is already running, not starting.'
         # Exit
         return    
 
-    # Init container conf and requested env vars
-    container_conf = None
+    # Init service conf and requested env vars
+    service_conf = None
     ENV_VARs       = {}
- 
-    # Check if this container is listed in the run conf:
-    if is_container_registered(container, conf):
+
+    # Add to the ENV_VARs the ones specified in the required.env_vars.json file
+    for env_var in get_required_env_vars(service):
+        ENV_VARs[env_var] = None
+
+    # Check if this service is listed in the run conf:
+    if is_service_registered(service, conf):
         
-        # If the container is registered, the the rules of the run conf applies, so:
+        # If the service is registered, the the rules of the run conf applies, so:
 
         # 1) Read the conf if any
         try:
-            containers_to_run_confs = get_containers_run_conf(conf)
+            services_to_run_confs = get_services_run_conf(conf)
         except Exception, e:
-            abort('Got error in reading run conf for loading container info: {}.'.format(e))        
+            abort('Got error in reading run conf for loading service info: {}.'.format(e))        
     
-        for item in containers_to_run_confs:
-            # The configuration for a given container is ALWAYS applied.
+        for item in services_to_run_confs:
+            # The configuration for a given service is ALWAYS applied.
             # TODO: Allow to have different confs per different instances? Could be useful for linking a node with a given server. 
             # i.e. node instance A with server instance A, node instance B with server instance B.
             if instance:
-                if (container == item['container'] and instance == item['instance']):
-                    logger.debug('Found conf for container "%s", instance "%s"', container, instance)
-                    container_conf = item
+                if (service == item['service'] and instance == item['instance']):
+                    logger.debug('Found conf for service "%s", instance "%s"', service, instance)
+                    service_conf = item
             else:
-                if (container == item['container']):
-                    logger.debug('Found conf for container "%s"', container)
-                    container_conf = item
-        if not container_conf:
+                if (service == item['service']):
+                    logger.debug('Found conf for service "%s"', service)
+                    service_conf = item
+        if not service_conf:
             conf_file = conf if conf else 'default (run.conf)'
-            if not confirm('WARNING: Could not find conf for container {}, instance {} in the {} conf file. Should I proceed?'.format(container, instance, conf_file)):
+            if not confirm('WARNING: Could not find conf for service {}, instance {} in the {} conf file. Should I proceed?'.format(service, instance, conf_file)):
                 return
         
         # 2) Handle the instance type.
-        if container_conf and not instance_type:
-            if 'instance_type' in container_conf:
-                if container_conf['instance_type'] in ['standard', 'master', 'published']:
-                    instance_type = container_conf['instance_type']
+        if service_conf and not instance_type:
+            if 'instance_type' in service_conf:
+                if service_conf['instance_type'] in ['standard', 'master', 'published']:
+                    instance_type = service_conf['instance_type']
                 else:
                     abort('Unknown or unapplicable instance type "{}"'.format(instance_type))
             else:
-                if container_conf['instance'] in ['master','published','safemode']:
-                    instance_type = container_conf['instance']
+                if service_conf['instance'] in ['master','published','safemode']:
+                    instance_type = service_conf['instance']
                 else:
                     instance_type = 'standard'
                                           
-        # 3) Now, enumerate the vars required by this container:
-        if container_conf and 'env_vars' in container_conf:
-            ENV_VARs = {var:container_conf['env_vars'][var] for var in container_conf['env_vars']} if 'env_vars' in container_conf else {}
-        
-        # 4) If instance is master, add also the PUBLISH_ON_IP env var as required if not already set:
-        #if instance_type == 'master' and not 'PUBLISH_ON_IP' in ENV_VARs:
-        #    ENV_VARs = {'PUBLISH_ON_IP': None}
+        # 3) Now, enumerate the vars required by this service:
+        if service_conf and 'env_vars' in service_conf:
+            ENV_VARs = {var:service_conf['env_vars'][var] for var in service_conf['env_vars']} if 'env_vars' in service_conf else {}
                 
-    # Handle instance type for not regitered containers of if not set:
+    # Handle instance type for not regitered services of if not set:
     if not instance_type:
         if instance in ['master','published']:
             instance_type = instance
@@ -815,21 +860,22 @@ def run(container=None, instance=None, group=None, instance_type=None,
     publish_ports    = setswitch(publish_ports=publish_ports, instance_type=instance_type)
 
     # Now add the always present env vars
-    ENV_VARs['CONTAINER']       = container
+    ENV_VARs['SERVICE']         = service
     ENV_VARs['INSTANCE']        = instance
     ENV_VARs['INSTANCE_TYPE']   = instance_type
     ENV_VARs['PERSISTENT_DATA'] = persistent_data
     ENV_VARs['PERSISTENT_LOG']  = persistent_log
     ENV_VARs['PERSISTENT_OPT']  = persistent_opt
     ENV_VARs['SAFEMODE']        = safemode
+    ENV_VARs['HOST_HOSTNAME']   = socket.gethostname()
             
     # Start building run command
-    run_cmd = 'docker run --name {}-{}-{} '.format(PROJECT_NAME, container,instance)
+    run_cmd = 'docker run --name {}-{}-{} '.format(PROJECT_NAME, service,instance)
 
     # Handle linking...
     if linked:
-        if container_conf and 'links' in container_conf:
-            for link in container_conf['links']:
+        if service_conf and 'links' in service_conf:
+            for link in service_conf['links']:
 
                 if not link:
                     continue
@@ -844,49 +890,49 @@ def run(container=None, instance=None, group=None, instance_type=None,
                     
                     # Shortcuts
                     link_name      = link.split(':')[1]
-                    link_container = '-'.join(link_pieces[:-1])
+                    link_service = '-'.join(link_pieces[:-1])
                     link_instance  = link_pieces[-1]         
                 
                 elif isinstance(link, dict):
                     if 'name' not in link:
                         abort('Sorry, you need to give me a link name (ore use the string shortcut for defining it)')
-                    if 'container' not in link:
-                        abort('Sorry, you need to give me a link container (ore use the string shortcut for defining it)')
+                    if 'service' not in link:
+                        abort('Sorry, you need to give me a link service (ore use the string shortcut for defining it)')
                     if 'instance' not in link:
                         abort('Sorry, you need to give me a link instance (ore use the string shortcut for defining it)')
                     
                     # Shortcuts
                     link_name      = link['name']
-                    link_container = link['container']
+                    link_service = link['service']
                     link_instance  = link['instance']
                 else:
                     abort('Sorry, link must be defining using a dict or a string shortcut (see doc), got {}'.format(link.__class__.__name__))
 
                 
-                running_instances = get_running_containers_instances_matching(container)
+                running_instances = get_running_services_instances_matching(service)
                 
-                # Validate: detect if there is a running container for link['container'], link['instance']
+                # Validate: detect if there is a running service for link['service'], link['instance']
 
-                # Obtain any running instances. If link_instance is None, finds all running instances for container and
+                # Obtain any running instances. If link_instance is None, finds all running instances for service and
                 # warns if more than one instance is found.
-                running_instances = get_running_containers_instances_matching(link_container, link_instance)         
+                running_instances = get_running_services_instances_matching(link_service, link_instance)         
                 
                 if len(running_instances) == 0:
-                    logger.info('Could not find any running instance of container matching "{}" which is required for linking by container "{}", instance "{}". I will expect an env var for proper linking setup'.format(link_container, container, instance))             
-                    ENV_VARs[link_name.upper()+'_CONTAINER_IP'] = None
+                    logger.info('Could not find any running instance of service matching "{}" which is required for linking by service "{}", instance "{}". I will expect an env var for proper linking setup'.format(link_service, service, instance))             
+                    ENV_VARs[link_name.upper()+'_SERVICE_IP'] = None
                     
                 else:
                     if len(running_instances) > 1:
-                        logger.warning('Found more than one running instance for container "{}" which is required for linking: {}. I will use the first one ({}). You can set explicity on which instance to link on in run.conf'.format(link_container, running_instances, running_instances[0]))
+                        logger.warning('Found more than one running instance for service "{}" which is required for linking: {}. I will use the first one ({}). You can set explicity on which instance to link on in run.conf'.format(link_service, running_instances, running_instances[0]))
                       
-                    link_container = running_instances[0][0]
+                    link_service = running_instances[0][0]
                     link_instance  = running_instances[0][1]
     
                     # Now add linking flag for this link
-                    run_cmd += ' --link {}:{}'.format(PROJECT_NAME+'-'+link_container+'-'+link_instance, link_name)
+                    run_cmd += ' --link {}:{}'.format(PROJECT_NAME+'-'+link_service+'-'+link_instance, link_name)
                     
-                    # Also, add an env var with the linked container IP
-                    ENV_VARs[link_name.upper()+'_CONTAINER_IP'] = get_container_ip(link_container, link_instance)
+                    # Also, add an env var with the linked service IP
+                    ENV_VARs[link_name.upper()+'_SERVICE_IP'] = get_service_ip(link_service, link_instance)
 
 
     # If instance has publish_ports enabld (also for master and published) then check
@@ -894,7 +940,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
     if publish_ports and not 'SERVICE_IP' in ENV_VARs:
         if instance_type == 'master':
             abort('SERVICE_IP env var is required when running in master mode')
-        elif container == 'dockerops-dns':
+        elif service == 'dockerops-dns':
             abort('SERVICE_IP env var is required when publishing the dockerops-dns service')            
         else:
             logger.warning('You are publishing the service but you have not set the SERVICE_IP env var. This mean that the service(s) might not be completely accessible outside the Docker network.')
@@ -977,19 +1023,19 @@ def run(container=None, instance=None, group=None, instance_type=None,
             logger.debug('Data dir not existent, creating it.. ({})'.format(DATA_DIR))
             os.makedirs(DATA_DIR)
             
-        # Check container instance dir exists:
-        container_instance_dir = DATA_DIR + '/' + container + '_' + instance
-        if not os.path.exists(container_instance_dir):
-            logger.debug('Data dir for container instance not existent, creating it.. ({})'.format(container_instance_dir))
-            os.mkdir(container_instance_dir)
+        # Check service instance dir exists:
+        service_instance_dir = DATA_DIR + '/' + service + '_' + instance
+        if not os.path.exists(service_instance_dir):
+            logger.debug('Data dir for service instance not existent, creating it.. ({})'.format(service_instance_dir))
+            os.mkdir(service_instance_dir)
         
-        # Now mount the dir in /persistent in the Docker: here we just provide a persistent storage in the Docker container.
+        # Now mount the dir in /persistent in the Docker: here we just provide a persistent storage in the Docker service.
         # the handling of data, opt and log is done in the Dockerfile.
-        run_cmd += ' -v {}:/persistent'.format(container_instance_dir)    
+        run_cmd += ' -v {}:/persistent'.format(service_instance_dir)    
 
     # Handle extra volumes
-    if container_conf and 'volumes' in container_conf:
-        volumes = container_conf['volumes'].split(',')
+    if service_conf and 'volumes' in service_conf:
+        volumes = service_conf['volumes'].split(',')
         for volume in volumes:
             run_cmd += ' -v {}'.format(volume)
 
@@ -998,10 +1044,10 @@ def run(container=None, instance=None, group=None, instance_type=None,
 
         # Obtain the ports to publish from the Dockerfile
         try:
-            with open(get_container_dir(container)+'/Dockerfile') as f:
+            with open(get_service_dir(service)+'/Dockerfile') as f:
                 content = f.readlines()
         except IOError:
-            abort('No Dockerfile found (?!) I was looking in {}'.format(get_container_dir(container)+'/Dockerfile'))
+            abort('No Dockerfile found (?!) I was looking in {}'.format(get_service_dir(service)+'/Dockerfile'))
         
         ports =[]
         udp_ports = []
@@ -1015,7 +1061,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
                             # Append while validating
                             ports.append(int(port))
                         except ValueError:
-                            abort('Got unknown port from container\'s dockerfile: "{}"'.format(port))
+                            abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
 
             if line.startswith('#UDP_EXPOSE'):
                 # Clean up the line
@@ -1026,7 +1072,7 @@ def run(container=None, instance=None, group=None, instance_type=None,
                             # Append while validating
                             udp_ports.append(int(port))
                         except ValueError:
-                            abort('Got unknown port from container\'s dockerfile: "{}"'.format(port))
+                            abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
 
         # Handle forcing of an IP where to publish the ports
         if 'PUBLISH_ON_IP' in ENV_VARs:
@@ -1059,10 +1105,10 @@ def run(container=None, instance=None, group=None, instance_type=None,
             run_cmd += ' -e {}="{}"'.format(ENV_VAR, str(ENV_VARs[ENV_VAR]))
 
     # Handle hostname
-    if container_conf and 'hostname' in container_conf:
-        run_cmd += ' -h {}'.format(container_conf['hostname'])
+    if service_conf and 'hostname' in service_conf:
+        run_cmd += ' -h {}'.format(service_conf['hostname'])
     else:
-        run_cmd += ' -h {}-{}'.format(container,instance)
+        run_cmd += ' -h {}-{}'.format(service,instance)
 
     # Set seed command
     if not seed_command:
@@ -1074,47 +1120,47 @@ def run(container=None, instance=None, group=None, instance_type=None,
     # Default tag prefix to PROJECT_NAME    
     tag_prefix = PROJECT_NAME
 
-    # But if we are running a DockerOps container, use DockerOps image
-    if is_base_container(container):
+    # But if we are running a DockerOps service, use DockerOps image
+    if is_base_service(service):
         tag_prefix = 'dockerops'
 
     if interactive:
-        run_cmd += ' -i -t {}/{}:latest {}'.format(tag_prefix, container, seed_command)
+        run_cmd += ' -i -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)
         local(run_cmd)
-        shell('fab clean:container={},instance={}'.format(container,instance), silent=True)
+        shell('fab clean:service={},instance={}'.format(service,instance), silent=True)
         
     else:
-        run_cmd += ' -d -t {}/{}:latest {}'.format(tag_prefix, container, seed_command)   
+        run_cmd += ' -d -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)   
         if not shell(run_cmd, silent=True):
             abort('Something failed')
         print "Done."
    
     # In the end, the sleep..
-    if container_conf and 'sleep' in container_conf:
-        to_sleep = int(container_conf['sleep'])
+    if service_conf and 'sleep' in service_conf:
+        to_sleep = int(service_conf['sleep'])
         if to_sleep:
-            print "Now sleeping {} seconds to allow container setup...".format(to_sleep)
+            print "Now sleeping {} seconds to allow service setup...".format(to_sleep)
             sleep(to_sleep)
  
     
     
 @task
-def clean(container=None, instance=None, group=None, force=False, conf=None):
-    '''Clean a given container. If container name is set to "all" then clean all the containers according 
-    to the run conf file. If container name is set to "reallyall" then all containers on the host are cleaned'''
+def clean(service=None, instance=None, group=None, force=False, conf=None):
+    '''Clean a given service. If service name is set to "all" then clean all the services according 
+    to the run conf file. If service name is set to "reallyall" then all services on the host are cleaned'''
 
-    # all: list containers to clean (check run conf first)
+    # all: list services to clean (check run conf first)
     # reallyall: warn and clean all
     
-    if container == 'reallyall':
+    if service == 'reallyall':
         
         print ''
-        if confirm('Clean all containers? WARNING: this will stop and remove *really all* Docker containers running on this host!'):
-            print 'Cleaning all Docker containers on the host...'
+        if confirm('Clean all services? WARNING: this will stop and remove *really all* Docker services running on this host!'):
+            print 'Cleaning all Docker services on the host...'
             shell('docker stop $(docker ps -a -q) &> /dev/null', silent=True)
             shell('docker rm $(docker ps -a -q) &> /dev/null', silent=True)
 
-    elif container == 'all' or group:
+    elif service == 'all' or group:
         
         # Check conf
         try:
@@ -1132,71 +1178,71 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
                 
         print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
 
-        if container == 'all':
+        if service == 'all':
             #print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
             group = 'all'        
 
-        # Get container list to clean
+        # Get service list to clean
         one_in_conf = False
-        containers_run_conf = []
-        for container_conf in get_containers_run_conf(conf):
+        services_run_conf = []
+        for service_conf in get_services_run_conf(conf):
             
             # Do not clean instances not explicity set in run.conf (TODO: do we want this?)
-            if not container_conf['instance']:
+            if not service_conf['instance']:
                 continue
             
             # Do not clean instances not belonging to the group we want to clean
-            if group != 'all' and 'group' in container_conf and container_conf['group'] != group:
+            if group != 'all' and 'group' in service_conf and service_conf['group'] != group:
                 continue
             
-            # Understand if the container to clean is running
-            if is_container_running(container=container_conf['container'], instance=container_conf['instance']) \
-              or container_exits_but_not_running(container=container_conf['container'], instance=container_conf['instance']):
+            # Understand if the service to clean is running
+            if is_service_running(service=service_conf['service'], instance=service_conf['instance']) \
+              or service_exits_but_not_running(service=service_conf['service'], instance=service_conf['instance']):
                 if not one_in_conf:
-                    print ('\nThis action will clean the following containers instances according to run conf:')
+                    print ('\nThis action will clean the following services instances according to run conf:')
                     one_in_conf =True  
-                print ' - container "{}" ("{}/{}"), instance "{}"'.format(container_conf['container'], PROJECT_NAME, container_conf['container'], container_conf['instance'])
-                containers_run_conf.append({'container':container_conf['container'], 'instance':container_conf['instance']})
+                print ' - service "{}" ("{}/{}"), instance "{}"'.format(service_conf['service'], PROJECT_NAME, service_conf['service'], service_conf['instance'])
+                services_run_conf.append({'service':service_conf['service'], 'instance':service_conf['instance']})
 
         # Understand if There is more
-        more_runnign_containers_conf = []
+        more_runnign_services_conf = []
         
         for item in ps(capture=True):
             # TODO: let ps return a list of namedtuples..
-            container = item[-1].split(',')[0]
+            service = item[-1].split(',')[0]
             instance  = item[-1].split('=')[1]
             registered = False
-            for container_conf in containers_run_conf:
-                if container == container_conf['container'] and instance == container_conf['instance']:
+            for service_conf in services_run_conf:
+                if service == service_conf['service'] and instance == service_conf['instance']:
                     registered = True
             if not registered:
-                more_runnign_containers_conf.append({'container':container, 'instance':instance})
+                more_runnign_services_conf.append({'service':service, 'instance':instance})
                 
-        if one_in_conf and more_runnign_containers_conf:
-            print '\nMoreover, the following containers instances will be clean as well as part of this project:'
-        elif more_runnign_containers_conf:
-            print '\nThe following containers instances will be clean as part of this project:'
+        if one_in_conf and more_runnign_services_conf:
+            print '\nMoreover, the following services instances will be clean as well as part of this project:'
+        elif more_runnign_services_conf:
+            print '\nThe following services instances will be clean as part of this project:'
         else:
             pass
 
-        for container_conf in more_runnign_containers_conf:
-            print ' - container "{}" ("{}/{}"), instance "{}"'.format(container_conf['container'], PROJECT_NAME, container_conf['container'], container_conf['instance'])
+        for service_conf in more_runnign_services_conf:
+            print ' - service "{}" ("{}/{}"), instance "{}"'.format(service_conf['service'], PROJECT_NAME, service_conf['service'], service_conf['instance'])
         
         # Sum the two lists
-        containers_to_clean_conf = containers_run_conf + more_runnign_containers_conf
+        services_to_clean_conf = services_run_conf + more_runnign_services_conf
         
-        if not containers_to_clean_conf:
+        if not services_to_clean_conf:
             print '\nNothing to clean, exiting..'
             return
         print ''
         if force or confirm('Proceed?'):
-            for container_conf in containers_to_clean_conf:
-                if not container_conf['instance']:
-                    print 'WARNING: I Cannot clean {}, instance='.format(container_conf['container'], container_conf['instance'])
+            for service_conf in services_to_clean_conf:
+                if not service_conf['instance']:
+                    print 'WARNING: I Cannot clean {}, instance='.format(service_conf['service'], service_conf['instance'])
                 else:
-                    print 'Cleaning container "{}", instance "{}"..'.format(container_conf['container'], container_conf['instance'])          
-                    shell("docker stop "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
-                    shell("docker rm "+PROJECT_NAME+"-"+container_conf['container']+"-"+container_conf['instance']+" &> /dev/null", silent=True)
+                    print 'Cleaning service "{}", instance "{}"..'.format(service_conf['service'], service_conf['instance'])          
+                    shell("docker stop "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" &> /dev/null", silent=True)
+                    shell("docker rm "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" &> /dev/null", silent=True)
                             
     else:
         
@@ -1217,31 +1263,31 @@ def clean(container=None, instance=None, group=None, force=False, conf=None):
         print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
 
         # Sanitize (and dynamically obtain instance)...
-        (container, instance) = sanity_checks(container,instance)
+        (service, instance) = sanity_checks(service,instance)
         
         if not instance:
             print 'I did not find any running instance to clean, exiting. Please note that if the instance is not running, you have to specify the instance name to let it be clened'
         else:
-            print 'Cleaning container "{}", instance "{}"..'.format(container,instance)          
-            shell("docker stop "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
-            shell("docker rm "+PROJECT_NAME+"-"+container+"-"+instance+" &> /dev/null", silent=True)
+            print 'Cleaning service "{}", instance "{}"..'.format(service,instance)          
+            shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" &> /dev/null", silent=True)
+            shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" &> /dev/null", silent=True)
                             
         
     
 
 @task
-def ssh(container=None, instance=None):
-    '''SSH into a given container'''
+def ssh(service=None, instance=None):
+    '''SSH into a given service'''
     
     # Sanitize...
-    (container, instance) = sanity_checks(container,instance)
+    (service, instance) = sanity_checks(service,instance)
     
     try:
-        IP = get_container_ip(container, instance)
+        IP = get_service_ip(service, instance)
     except Exception, e:
-        abort('Got error when obtaining IP address for container "{}", instance "{}": "{}"'.format(container,instance, e))
+        abort('Got error when obtaining IP address for service "{}", instance "{}": "{}"'.format(service,instance, e))
     if not IP:
-        abort('Got no IP address for container "{}", instance "{}"'.format(container,instance))
+        abort('Got no IP address for service "{}", instance "{}"'.format(service,instance))
 
     # Check if the key has proper permissions
     if not shell('ls -l keys/id_rsa',capture=True).stdout.endswith('------'):
@@ -1255,17 +1301,17 @@ def help():
     shell('fab --list', capture=False)
 
 @task
-def ip(container=None, instance=None):
-    '''Get a container IP'''
+def ip(service=None, instance=None):
+    '''Get a service IP'''
 
     # Sanitize...
-    (container, instance) = sanity_checks(container,instance)
+    (service, instance) = sanity_checks(service,instance)
     
     # Get running instances
-    running_instances = get_running_containers_instances_matching(container)
+    running_instances = get_running_services_instances_matching(service)
     # For each instance found print the ip address
     for i in running_instances:
-        print 'IP address for {} {}: {}'.format(i[0], i[1], get_container_ip(i[0], i[1]))
+        print 'IP address for {} {}: {}'.format(i[0], i[1], get_service_ip(i[0], i[1]))
 
 
 
@@ -1273,29 +1319,29 @@ def ip(container=None, instance=None):
 # TODO: split in function plus task, allstates goes in the function
 
 @task
-def info(container=None, instance=None, capture=False):
-    '''Obtain info about a given container'''
-    return ps(container=container, instance=instance, capture=capture, info=True)
+def info(service=None, instance=None, capture=False):
+    '''Obtain info about a given service'''
+    return ps(service=service, instance=instance, capture=capture, info=True)
 
 @task
-def ps(container=None, instance=None, capture=False, onlyrunning=False, info=False, conf=None):
-    '''Info on running containers. Give a container name to obtain informations only about that specific container.
-    Use the magic words 'all' to list also the not running ones, and 'reallyall' to list also the containers not managed by
+def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False, conf=None):
+    '''Info on running services. Give a service name to obtain informations only about that specific service.
+    Use the magic words 'all' to list also the not running ones, and 'reallyall' to list also the services not managed by
     DockerOps (both running and not running)'''
 
     # TODO: this function has to be COMPLETELY refactored. Please do not look at this code.
     # TODO: return a list of namedtuples instead of a list of lists
 
-    known_containers_fullnames          = None
+    known_services_fullnames          = None
 
-    if not container:
-        container = 'project'
+    if not service:
+        service = 'project'
 
-    if not info and container not in ['all', 'platform', 'project', 'reallyall']:
-        abort('Sorry, I do not understand the command "{}"'.format(container))
+    if not info and service not in ['all', 'platform', 'project', 'reallyall']:
+        abort('Sorry, I do not understand the command "{}"'.format(service))
 
-    if container == 'platform':
-        known_containers_fullnames = [conf['container']+'-'+conf['instancef'] for conf in get_containers_run_conf(conf)]
+    if service == 'platform':
+        known_services_fullnames = [conf['service']+'-'+conf['instancef'] for conf in get_services_run_conf(conf)]
         
     # Handle magic words all and reallyall
     if onlyrunning: # in ['all', 'reallyall']:
@@ -1329,9 +1375,9 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
                     if item[-1]==' ':
                         item = item[:-1]
                     
-                    # Obtain container_name_position
+                    # Obtain service_name_position
                     if item == 'NAMES':
-                        container_name_position = count
+                        service_name_position = count
                         
                     if item == 'IMAGE':
                         image_name_position = count    
@@ -1373,78 +1419,78 @@ def ps(container=None, instance=None, capture=False, onlyrunning=False, info=Fal
 
             
 
-            # Convert container names
+            # Convert service names
             for i, item in enumerate(line_content):
                 
                 if i == image_name_position:
                     image_name = item
                     
-                if i == container_name_position:
+                if i == service_name_position:
 
-                    # Set container name
-                    container_name = item
+                    # Set service name
+                    service_name = item
 
                     # Filtering against defined dockers
-                    # If a container name was given, filter against it:
-                    if container and not container in ['all', 'platform', 'project', 'reallyall']:
+                    # If a service name was given, filter against it:
+                    if service and not service in ['all', 'platform', 'project', 'reallyall']:
                         
                         # Here we are filtering
-                        if container[-1] == '*':
-                            if container_name.startswith(PROJECT_NAME+'-'+container[0:-1]):
-                                if instance and not container_name.endswith('-'+instance):
+                        if service[-1] == '*':
+                            if service_name.startswith(PROJECT_NAME+'-'+service[0:-1]):
+                                if instance and not service_name.endswith('-'+instance):
                                     continue
                             else:
                                 continue
                         else:
-                            if container_name.startswith(PROJECT_NAME+'-'+container+'-'):
-                                if instance and not container_name.endswith('-'+instance):
+                            if service_name.startswith(PROJECT_NAME+'-'+service+'-'):
+                                if instance and not service_name.endswith('-'+instance):
                                     continue
                             else:
                                 continue
                         
                     if instance:
-                        if container_name.endswith('-'+instance):
+                        if service_name.endswith('-'+instance):
                             pass
                         else: 
                             continue
  
-                    # Handle Dockerops containers container
-                    if ('-' in container_name) and (not container == 'reallyall') and (container_name.startswith(PROJECT_NAME+'-')):
-                        if known_containers_fullnames is not None:
-                            # Filter against known_containers_fullnames
-                            if container_name not in known_containers_fullnames:
-                                logger.info('Skipping container "{}" as it is not recognized by DockerOps. Use the "all" magic word to list them'.format(container_name))
+                    # Handle Dockerops services service
+                    if ('-' in service_name) and (not service == 'reallyall') and (service_name.startswith(PROJECT_NAME+'-')):
+                        if known_services_fullnames is not None:
+                            # Filter against known_services_fullnames
+                            if service_name not in known_services_fullnames:
+                                logger.info('Skipping service "{}" as it is not recognized by DockerOps. Use the "all" magic word to list them'.format(service_name))
                                 continue
                             else:
                                 
                                 # Remove project name:
-                                if not container_name.startswith(PROJECT_NAME):
-                                    raise Exception('Error: this container ("{}") is not part of this project ("{}")?!'.format(container_name, PROJECT_NAME))
-                                container_name = container_name[len(PROJECT_NAME)+1:]    
+                                if not service_name.startswith(PROJECT_NAME):
+                                    raise Exception('Error: this service ("{}") is not part of this project ("{}")?!'.format(service_name, PROJECT_NAME))
+                                service_name = service_name[len(PROJECT_NAME)+1:]    
                                 
                                 # Add it 
-                                container_instance = container_name.split('-')[-1]
-                                container_name = '-'.join(container_name.split('-')[0:-1]) + ',instance='+str(container_instance)
-                                line_content[container_name_position] = container_name
+                                service_instance = service_name.split('-')[-1]
+                                service_name = '-'.join(service_name.split('-')[0:-1]) + ',instance='+str(service_instance)
+                                line_content[service_name_position] = service_name
                                 content.append(line_content)    
                                 
                         else:
                             
                             # Remove project name:
-                            if not container_name.startswith(PROJECT_NAME):
-                                raise Exception('Error: this container ("{}") is not part of this project ("{}")?!'.format(container_name, PROJECT_NAME))
-                            container_name = container_name[len(PROJECT_NAME)+1:]
+                            if not service_name.startswith(PROJECT_NAME):
+                                raise Exception('Error: this service ("{}") is not part of this project ("{}")?!'.format(service_name, PROJECT_NAME))
+                            service_name = service_name[len(PROJECT_NAME)+1:]
                             
                             # Add it
-                            container_instance = container_name.split('-')[-1]
-                            container_name = '-'.join(container_name.split('-')[0:-1]) + ',instance='+str(container_instance)
-                            line_content[container_name_position] = container_name
+                            service_instance = service_name.split('-')[-1]
+                            service_name = '-'.join(service_name.split('-')[0:-1]) + ',instance='+str(service_instance)
+                            line_content[service_name_position] = service_name
                             content.append(line_content)
                             
-                    # Handle non-Dockerops containers 
+                    # Handle non-Dockerops services 
                     else:
-                        if container=='reallyall': 
-                            line_content[container_name_position] = container_name
+                        if service=='reallyall': 
+                            line_content[service_name_position] = service_name
                             content.append(line_content)
                         else:
                             continue

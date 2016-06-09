@@ -5,7 +5,7 @@ function install_as_root {
                            echo 'Installing as root...'
                            echo ''
                            sudo cp -a ../DockerOps /usr/share/ && sudo ln -s /usr/share/DockerOps/dockerops /usr/local/bin/dockerops
-                           echo 'Building base containers on top of Ubuntu 14.04... (in the next versions you will be able to choose the OS)'
+                           echo 'Building...'
                            sudo fab init
                            echo 'Done.'
                          }
@@ -20,7 +20,7 @@ function install_as_user {
                            ln -s $HOME/.DockerOps/dockerops $HOME/bin/dockerops
                            cp -a ../DockerOps $HOME/.DockerOps
                            echo ''
-                           echo 'Building base containers on top of Ubuntu 14.04... (in the next versions you will be able to choose the OS)'
+                           echo 'Building...'
                            fab init
                            echo 'Done. On most of the Linux distributions you have to open a new shell to have $HOME/bin loaded'
                          }

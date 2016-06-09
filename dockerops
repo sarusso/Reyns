@@ -4,11 +4,10 @@
 
 # Credits: http://www.cyberciti.biz/faq/unix-linux-appleosx-bsd-bash-script-find-what-directory-itsstoredin/
 
-
 # Set some default env vars
-if [ -z "$APPS_CONTAINERS_DIR" ]; then
-    # DEBUG echo "Defaulting apps_containers dir"
-    export APPS_CONTAINERS_DIR="$(pwd)/apps_containers"
+if [ -z "$SERVICES_IMAGES_DIR" ]; then
+    # DEBUG echo "Defaulting services images dir"
+    export SERVICES_IMAGES_DIR="$(pwd)/services"
 fi
 
 if [ -z "$PROJECT_DIR" ]; then

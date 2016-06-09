@@ -63,7 +63,7 @@ chmod 755 /allentrypoints.sh
 
 
 if [ "x$SAFEMODE" == "xFalse" ]; then
-    echo "[INFO] Executing containers entrypoints (current + parents)..."
+    echo "[INFO] Executing  entrypoints (current + parents)..."
     
     # Exec everything in /entrypoints
 
@@ -76,7 +76,7 @@ if [ "x$SAFEMODE" == "xFalse" ]; then
     
 
 else
-    echo "[INFO] Not executing container's local entrypoint as we are in safemode"
+    echo "[INFO] Not executing entrypoint(s) as we are in safemode"
 fi
 
 
@@ -85,7 +85,7 @@ fi
 #---------------------
 echo "[INFO] Dumping env"
 
-# Save env vars for in-container usage (e.g. ssh)
+# Save env vars for later usage (e.g. ssh)
 
 env | \
 while read env_var; do
