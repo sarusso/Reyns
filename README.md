@@ -4,12 +4,10 @@ DockerOps
 
 Simple yet powerful Docker operations orchestrator for managing entire platforms. Allows to speed up both Dev (every developer can run its own instance of the platform) and Ops (what is put in production is deterministically tested before).
 
-Developed By Stefano Alberto Russo with an important contribution from Gianfranco Gallizia. Thanks also to Enerlife (http://www.enerlife.it) and eXact Lab (http://www.exact-lab.it) for allowing this project to be open source.
-
+Developed by Stefano Alberto Russo with an important contribution from Gianfranco Gallizia. Thanks also to Enerlife (http://www.enerlife.it) and eXact Lab (http://www.exact-lab.it) for allowing this project to be open source.
 
 &nbsp;
 # Quick start and demo
----
 
 **Dependencies:** Docker, Fabric (apt-get install fabric). Please note that Fabric requires Python version 2.5 - 2.7.
 
@@ -34,10 +32,8 @@ To install and run the demo, run the following commands:
 	 - to exit ssh type "exit"
 	- to stop the demo, type "dockerops clean:all"
 
-
 &nbsp;
 # Documentation
----
 
 ## Introduction and basics
 
@@ -286,11 +282,11 @@ Note that for enabling the DNS service the connection can both be established us
 
 Services can register themselves to the DNS using three approaches, defined trought the environment variable DNS_UPDATE_POLICY:
 
-- **DNS_UPDATE_POLICY="HIDED"**: In this case the service is not published to the DNS, but the DNS service is queryable. Useful for testing purposes.
+- **DNS_UPDATE_POLICY="HIDE"**: In this case the service is not published to the DNS, but the DNS service is queryable. Useful for testing purposes.
 
 - **DNS_UPDATE_POLICY="APPEND"** (default): In this case the DNS record corresponding to the service name is appended, so if there is another service wiht the same name running (but different instance) and you query the DNS for the service name, both the IPs of the services will be provided (in round robin). Particluary useful for scaling up.
 
-- **DNS_UPDATE_POLICY="UPDATE"**: In this case the DNS record corresponding to the service name, if already present, is replaced. So, if there is another service wiht the same name running (but different instance) and you query the DNS for the service name, only the last run service IP address will be provided. Usefoul for hot-updating servers.
+- **DNS_UPDATE_POLICY="REPLACE"**: In this case the DNS record corresponding to the service name, if already present, is replaced. So, if there is another service wiht the same name running (but different instance) and you query the DNS for the service name, only the last run service IP address will be provided. Usefoul for hot-updating servers.
 
 Notes:
 
@@ -329,8 +325,7 @@ If you have errors in the execution of the entrypoint of some services, you can 
 If you still have errors, and in partiucular you are running with persistent data enabled, then you can try to rename the data dir temporary (to understande the mv: inter-device move failed error, in particular).
 
 
-Licensing
-=========
+## Licensing
 DockerOps is licensed under the Apache License, Version 2.0. See
 [LICENSE](https://raw.githubusercontent.com/sarusso/DockerOps/master/LICENSE) for the full
 license text.
