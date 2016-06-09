@@ -15,7 +15,7 @@ else
     IP=$SERVICE_IP
 fi
 
-if [[ "x$DNS_UPDATE_POLICY" == "xDISABLED" ]] ; then
+if [[ "x$DNS_UPDATE_POLICY" == "xHIDE" ]] ; then
 # Update DNS resolv only
                 cp /etc/resolv.conf /etc/resolv.conf.bak
                 cat > /etc/resolv.conf << __EOT__
@@ -25,10 +25,12 @@ __EOT__
     exit 0
 fi
 
-if [[ "x$DNS_UPDATE_POLICY" == "xAPPEND" ]] ; then
+if [[ "x$DNS_UPDATE_POLICY" == "xREPLACE" ]] ; then
 cat > /mydnsdata << __EOT__
 server $DNS_SERVICE_IP
 zone local.zone
+update delete `echo $SERVICE`.local.zone. A
+update delete `hostname`.local.zone. A
 update add `echo $SERVICE`.local.zone. 86400 A $IP
 update add `hostname`.local.zone. 86400 A $IP
 show
@@ -38,8 +40,6 @@ else
 cat > /mydnsdata << __EOT__
 server $DNS_SERVICE_IP
 zone local.zone
-update delete `echo $SERVICE`.local.zone. A
-update delete `hostname`.local.zone. A
 update add `echo $SERVICE`.local.zone. 86400 A $IP
 update add `hostname`.local.zone. 86400 A $IP
 show
