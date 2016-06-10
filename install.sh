@@ -4,7 +4,10 @@ function install_as_root {
                            echo ''
                            echo 'Installing as root...'
                            echo ''
-                           sudo cp -a ../DockerOps /usr/share/ && sudo ln -s /usr/share/DockerOps/dockerops /usr/local/bin/dockerops
+                           sudo rm -f /usr/local/bin/dockerops
+                           sudo rm -rf /usr/share/DockerOps
+                           sudo cp -a $PWD /usr/share/DockerOps
+                           sudo ln -s /usr/share/DockerOps/dockerops /usr/local/bin/dockerops
                            echo 'Building...'
                            sudo fab init
                            echo 'Done.'
@@ -17,8 +20,8 @@ function install_as_user {
                            mkdir -p $HOME/bin/
                            rm -f $HOME/bin/dockerops
                            rm -rf $HOME/.DockerOps
+                           cp -a $PWD $HOME/.DockerOps
                            ln -s $HOME/.DockerOps/dockerops $HOME/bin/dockerops
-                           cp -a ../DockerOps $HOME/.DockerOps
                            echo ''
                            echo 'Building...'
                            fab init
@@ -57,7 +60,7 @@ fi
 
 echo ""
 read -p "Install for this user only? [y/n] "  -r
-echo ""
+
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
     install_as_user
