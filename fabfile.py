@@ -34,9 +34,11 @@ SUPPORTED_OSES      = ['ubuntu14.04']
 
 # Defaults   
 defaults={}
-defaults['master']    = {'linked':True,  'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'publish_ports':True,  'safemode':False}
-defaults['published'] = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':True,  'safemode':False}
-defaults['standard']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':False}
+defaults['standard']   = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':False, 'interactive':False}
+defaults['published']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':True,  'safemode':False, 'interactive':False}
+defaults['persistent'] = {'linked':True,  'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'publish_ports':False, 'safemode':False, 'interactive':False}
+defaults['master']     = {'linked':True,  'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'publish_ports':True,  'safemode':False, 'interactive':False}
+defaults['debug']      = {'linked':False, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':True,  'interactive':True }
 
 
 #--------------------------
@@ -342,7 +344,7 @@ def get_services_run_conf(conf_file=None):
     
     # Validate vars
     valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt','persistent_log',
-                                      'links', 'sleep', 'env_vars']
+                                      'links', 'sleep', 'env_vars', 'instance_type']
     
     for service_description in registered_services:
         for key in service_description:
@@ -386,7 +388,7 @@ def service_exits_but_not_running(service, instance):
 def setswitch(**kwargs): 
     '''Set a switch according to the default of the instance types, or use the value if set'''
          
-    instance_type = kwargs.pop('instance_type')    
+    instance_type = kwargs.pop('instance_type') 
     for i, swicth in enumerate(kwargs):
         
         if kwargs[swicth] is not None:
@@ -528,19 +530,14 @@ def build(service=None, verbose=False):
     '''Build a given service. If service name is set to "all" then builds all the services'''
 
     # Sanitize...
-    (service, instance) = sanity_checks(service)
+    (service, _) = sanity_checks(service)
 
     # Switches
     verbose  = booleanize(verbose=verbose)
-    debug    = booleanize(verbose=verbose)
     
     # Backcomp #TODO: remove 'verbose'
     if verbose:
         verbose = True
-    
-    # Handle debug switch:
-    #if debug:
-    #    logger.setLevel(logging.DEBUG)  
     
     if service.upper()=='ALL':
 
@@ -654,7 +651,7 @@ def rerun(service, instance=None):
 def run(service=None, instance=None, group=None, instance_type=None,
         persistent_data=None, persistent_log=None, persistent_opt=None,
         publish_ports=None, linked=None, seed_command=None, conf=None,
-        safemode=False,  interactive=False, debug=False, recursive=False):
+        safemode=None,  interactive=None, recursive=False):
     '''Run a given service with a given instance. In no instance name is set,
     a standard instance with a random name is run. If service name is set to "all"
     then all the services are run, according  to the run conf file.'''
@@ -751,7 +748,6 @@ def run(service=None, instance=None, group=None, instance_type=None,
                 linked          = linked          if linked          is not None else (service_conf['linked']          if 'linked'          in service_conf else None),
                 interactive     = interactive,
                 safemode        = safemode,
-                debug           = debug,
                 conf            = conf,
                 recursive       = True)
                 
@@ -764,11 +760,6 @@ def run(service=None, instance=None, group=None, instance_type=None,
     
     # Sanitize...
     (service, instance) = sanity_checks(service, instance)
-      
-    # Handle debug switch:
-    if booleanize(debug=debug):
-        logger.info('Setting loglevel to DEBUG from now on..')
-        logger.setLevel(logging.DEBUG)      
 
     # Run a specific service
     print 'Running service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance)
@@ -829,23 +820,24 @@ def run(service=None, instance=None, group=None, instance_type=None,
         # 2) Handle the instance type.
         if service_conf and not instance_type:
             if 'instance_type' in service_conf:
-                if service_conf['instance_type'] in ['standard', 'master', 'published']:
+                if service_conf['instance_type'] in ['standard', 'published', 'persistent', 'master']:
                     instance_type = service_conf['instance_type']
                 else:
                     abort('Unknown or unapplicable instance type "{}"'.format(instance_type))
             else:
-                if service_conf['instance'] in ['master','published','safemode']:
+                if service_conf['instance'] in ['standard', 'published', 'persistent', 'master', 'debug']:
                     instance_type = service_conf['instance']
                 else:
                     instance_type = 'standard'
                                           
         # 3) Now, enumerate the vars required by this service:
-        if service_conf and 'env_vars' in service_conf:
-            ENV_VARs = {var:service_conf['env_vars'][var] for var in service_conf['env_vars']} if 'env_vars' in service_conf else {}
+        if service_conf and 'env_vars' in service_conf:     
+            for env_var in service_conf['env_vars']:
+                ENV_VARs[env_var] = service_conf['env_vars'][env_var]
                 
     # Handle instance type for not regitered services of if not set:
     if not instance_type:
-        if instance in ['master','published']:
+        if instance in ['standard', 'published', 'persistent', 'master', 'debug']:
             instance_type = instance
         else:
             instance_type = 'standard'
@@ -857,7 +849,9 @@ def run(service=None, instance=None, group=None, instance_type=None,
     persistent_data = setswitch(persistent_data=persistent_data, instance_type=instance_type)
     persistent_log  = setswitch(persistent_log=persistent_log, instance_type=instance_type)
     persistent_opt  = setswitch(persistent_opt=persistent_opt, instance_type=instance_type)
-    publish_ports    = setswitch(publish_ports=publish_ports, instance_type=instance_type)
+    publish_ports   = setswitch(publish_ports=publish_ports, instance_type=instance_type)
+    interactive     = setswitch(interactive=interactive, instance_type=instance_type)
+    safemode        = setswitch(safemode=safemode, instance_type=instance_type)
 
     # Now add the always present env vars
     ENV_VARs['SERVICE']         = service

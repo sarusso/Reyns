@@ -116,19 +116,25 @@ When you run a service using DockerOps, there are a few properties already imple
 
 
 ## Instances
-DockerOps introduces the concept of *instances* of the same Docker conatiner: this is just a naming convention and does not modify in any way how Docker works, but it is an extremely useful feature. For examle you can have a service running in two instances (i.e. nodeA and nodeB)
+DockerOps introduces the concept of *instances* of the same Docker container (or DockerOps service): this is just a naming convention and does not modify in any way how Docker works, but it is an useful logical separation. For example you can have a service running in two instances (i.e. nodeA and nodeB).
 
-A DockerOps instance can be of four *instance types*: **standard**, **published**, **master**, **interactive** and **safemode**. The safemode and interactive instances types will be covered more in detail in thei section. The following table summarize the defaults properies for the instances types, but no one prevents you from specifying custom settings (command line arguments have the highest possible precedence in DockerOps)
+A DockerOps instance can be of five *instance types*: **standard**, **published**, **master**, **interactive** and **debug**. The following table summarize the defaults properies for the instances types, but no one prevents you from specifying custom settings (command line arguments have the highest possible priority in DockerOps)
 
-| Instance type | linked | publish ports | persistent data | persisten opt | persistent log | 
-|---------------|:------:|:-------------:|:---------------:|:-------------:|---------------:|
-| standard      | YES    | NO            | NO              | NO            | NO             |  
-| published     | YES    | YES           | NO              | NO            | NO             |
-| master        | YES*   | YES           | YES             | NO            | YES            |
+| Instance name | Intance type| linked | publish ports | persistent data | persisten opt | persistent log | interactive |entrypoints| 
+|---------------|-------------|:------:|:-------------:|:---------------:|:-------------:|:--------------:|:-----------:|:---------:|
+| &nbsp; *      | standard    | YES    | NO            | NO              | NO            | NO             | NO          | EXECUTED  |
+| published     | published   | YES    | YES           | NO              | NO            | NO             | NO          | EXECUTED  |
+| persistent    | persistent  | YES    | NO            | YES             | NO            | YES            | NO          | EXECUTED  |
+| master        | master      | YES*   | YES           | YES             | NO            | YES            | NO          | EXECUTED  |
+| debug         | debug       | NO     | NO            | NO              | NO            | NO             | YES         | SKIPPED   |
 
-*the linking in an instance of type **master** require a proper setting of the env vars (as explained in the dedicated section) or using the DNS service (dockerops-dns)
 
-There is also a rapid shortcut when running the services: if you do not specify the instance type but you name an instance **master** or **published**, the instance type will be set accordingly. Whatevere other name you use for the instance (without excplicity specifying the instance type) will run an instance of type 'standard'.
+*the linking in an instance of type **master** without using the DNS service (dockerops-dns) requires a proper setting of the envvironment 
+varibales (as explained in the dedicated section "Linking")
+
+*Note:* basically, a master instance is a instance of both types published and persistent
+
+*Note:* basically, the interactive switch provides you an interactive shell. From there you can execute the entrypoints by simply typing "sudo /allentrypoints.sh""
 
 Examples for running a standard instance:
 
