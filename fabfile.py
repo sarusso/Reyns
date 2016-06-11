@@ -452,7 +452,7 @@ def version():
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        print '\nDockerOps v0.6'
+        print '\nDockerOps v0.6 RC1 (work in progress)'
     else:
         print '\nDockerOps v0.6 RC1 (work in progress)'
         last_commit_info_lines = last_commit_info.split('\n')
