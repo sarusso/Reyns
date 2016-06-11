@@ -448,22 +448,25 @@ def uninstall(how=''):
 
 @task
 def version():
-    '''Get DockerOps version (Git short hash)'''
+    '''Get DockerOps version'''
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        abort('Error: could not determine the version using git')
-    last_commit_info_lines = last_commit_info.split('\n')
-    commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
-    commit_date      = last_commit_info_lines[-1].replace('  ', '')
-    print '\nDockerOps version: ' + commit_shorthash + ' (' + commit_date + ')'
-
-    python_version = shell('python -V', capture=True)
+        print '\nDockerOps v0.6'
+    else:
+        print '\nDockerOps v0.6 RC1 (work in progress)'
+        last_commit_info_lines = last_commit_info.split('\n')
+        commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
+        commit_date      = last_commit_info_lines[-1].replace('  ', '')
+        print 'Current repository commit: ' + commit_shorthash
+        print commit_date
     
-    if python_version.stdout:
-        print '\nPython version: ' + python_version.stdout
-    if python_version.stderr:
-        print '\nPython version: ' + python_version.stderr
+        python_version = shell('python -V', capture=True)
+        
+        if python_version.stdout:
+            print 'Python version: ' + python_version.stdout
+        if python_version.stderr:
+            print 'Python version: ' + python_version.stderr
 
 @task
 def install_demo():
@@ -652,7 +655,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
         persistent_data=None, persistent_log=None, persistent_opt=None,
         publish_ports=None, linked=None, seed_command=None, conf=None,
         safemode=None,  interactive=None, recursive=False):
-    '''Run a given service with a given instance. In no instance name is set,
+    '''Run a given service with a given instance. If no instance name is set,
     a standard instance with a random name is run. If service name is set to "all"
     then all the services are run, according  to the run conf file.'''
 
@@ -1295,7 +1298,7 @@ def help():
     shell('fab --list', capture=False)
 
 @task
-def ip(service=None, instance=None):
+def get_ip(service=None, instance=None):
     '''Get a service IP'''
 
     # Sanitize...
@@ -1306,9 +1309,6 @@ def ip(service=None, instance=None):
     # For each instance found print the ip address
     for i in running_instances:
         print 'IP address for {} {}: {}'.format(i[0], i[1], get_service_ip(i[0], i[1]))
-
-
-
 
 # TODO: split in function plus task, allstates goes in the function
 
