@@ -105,16 +105,16 @@ def sanity_checks(service, instance=None):
     if not clean and not build and not run and not ssh and not ip:
         raise Exception('Unknown caller (got "{}")'.format(caller))
 
-    # Check not valid chars in service name TODO: Use a regex suitable for a hostname
-    if '_' in service:
-        abort('Character "_" is not allowed in a service name (got "{}")'.format(service)) 
-
     # Check service name 
     if not service:
         if clean:
             abort('You must provide the service name or use the magic words "all" or "reallyall"') 
         else:
             abort('You must provide the service name or use the magic word "all"')
+    
+    # Check not valid chars in service name TODO: Use a regex suitable for a hostname
+    if '_' in service:
+        abort('Character "_" is not allowed in a service name (got "{}")'.format(service)) 
     
     # Check instance name     
     if not instance:
