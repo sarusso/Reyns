@@ -1017,7 +1017,8 @@ def run(service=None, instance=None, group=None, instance_type=None,
 
         # Check project data dir exists:
         if not os.path.exists(DATA_DIR):
-            logger.debug('Data dir not existent, creating it.. ({})'.format(DATA_DIR))
+            if not confirm('WARNING: You are running with persistency enabled but I cannot find the data directory "{}". If this is the first time you are runnign the project with persitsency enabled, this is fine. Otherwise, you might want to check you configuration. Proceed?'.format(DATA_DIR)):
+                abort('Exiting...')             
             os.makedirs(DATA_DIR)
             
         # Check service instance dir exists:
