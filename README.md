@@ -95,10 +95,10 @@ As for the building, place yourself at the level of the apps_services directory,
 
 
     dockerops run:your_service_name[,instance=your_instance_name, instance_type=standard
-                  published/master, group=your_service_group_name, persistent_data=True/False,
-                  persistent_log=True/False, persistent_opt=True/False, publish_ports=True/False,
+                  published/persistent/master/debug, group=your_service_group_name, persistent_data=True/False,
+                  persistent_opt=True/False, persistent_log=True/False, publish_ports=True/False,
                   linked=True/False, seed_command=cusom_seed_command, safemode=True/False,
-                  interactive=True/False, debug=True/False, conf=conf_file(default:run.conf)]
+                  interactive=True/False, conf=conf_file(default:run.conf)]
 
 All the above arguments are explained in detail in the following sections. There are also some env variables
 
@@ -108,33 +108,34 @@ All the above arguments are explained in detail in the following sections. There
 
 When you run a service using DockerOps, there are a few properties already implemented to make the life easier. These are:
 
-* `linked`: linking enabled or not (according to the project's run.conf, see later)
-* `publish_ports`: if set to true, publish the ports on the host according to the EXPOSE instruction in the Dockerfile
-* `persistent_data`: if enabled, all the data in /data inside the service is made persistent on the host filesystem (if data is already present, it is preserved) 
-* `persistent_opt`: if enabled, all the data in /opt inside the serviceis made persistent on the host filesystem (if data is already present, it is preserved) 
-* `persistent_log`: if enabled, all the data in /var/log inside the service is made persistent on the host filesystem (if data is already present, it is preserved) 
-
+* `persistent_data`: if enabled, all the data in /data inside the service is made persistent on the host filesystem (if data is already present, it is preserved).
+* `persistent_opt`: if enabled, all the data in /opt inside the serviceis made persistent on the host filesystem (if data is already present, it is preserved).
+* `persistent_log`: if enabled, all the data in /var/log inside the service is made persistent on the host filesystem (if data is already present, it is preserved).
+* `publish_ports`: if set to true, publish the ports on the host according to the EXPOSE instruction in the Dockerfile (note: you can also use the "#UDPEXPOSE" command in the Dockerfile to expose UPD ports).
+* `linked`: linking enabled or not (according to the project's run.conf, see later).
+* `seed_command`: specify here a custom seed comamnd to execute at the service startup. The default is 'supervisord'.
+* `safemode`: if enabled containers entrypoints will not be executed.
+* `interactive`: provides you an interactive shell. From there you can execute the entrypoints by simply typing "sudo /allentrypoints.sh".
+* `conf`: the run conf file to use.
 
 ## Instances
 DockerOps introduces the concept of *instances* of the same Docker container (or DockerOps service): this is just a naming convention and does not modify in any way how Docker works, but it is an useful logical separation. For example you can have a service running in two instances (i.e. nodeA and nodeB).
 
-A DockerOps instance can be of five *instance types*: **standard**, **published**, **master**, **interactive** and **debug**. The following table summarize the defaults properies for the instances types, but no one prevents you from specifying custom settings (command line arguments have the highest possible priority in DockerOps)
+A DockerOps instance can be of five `instance_type `: **standard**, **published**, **persistent**, **master** and **debug**. The following table summarize the default propertied for the instances types, but no one prevents you from specifying custom settings (command line arguments have the highest possible priority in DockerOps)
 
-| Instance name | Intance type| linked | publish ports | persistent data | persisten opt | persistent log | interactive |entrypoints| 
-|---------------|-------------|:------:|:-------------:|:---------------:|:-------------:|:--------------:|:-----------:|:---------:|
-| &nbsp; *      | standard    | YES    | NO            | NO              | NO            | NO             | NO          | EXECUTED  |
-| published     | published   | YES    | YES           | NO              | NO            | NO             | NO          | EXECUTED  |
-| persistent    | persistent  | YES    | NO            | YES             | NO            | YES            | NO          | EXECUTED  |
-| master        | master      | YES*   | YES           | YES             | NO            | YES            | NO          | EXECUTED  |
-| debug         | debug       | NO     | NO            | NO              | NO            | NO             | YES         | SKIPPED   |
+| Instance name | Intance type| linked | publish ports | persistent data | persisten opt | persistent log | interactive | execute entrypoints| 
+|---------------|-------------|:------:|:-------------:|:---------------:|:-------------:|:--------------:|:-----------:|:------------------:|
+| &nbsp; *      | standard    | YES    | NO            | NO              | NO            | NO             | NO          | YES                |
+| published     | published   | YES    | YES           | NO              | NO            | NO             | NO          | YES                |
+| persistent    | persistent  | YES    | NO            | YES             | NO            | YES            | NO          | YES                |
+| master        | master      | YES*   | YES           | YES             | NO            | YES            | NO          | YES                |
+| debug         | debug       | NO     | NO            | NO              | NO            | NO             | YES         | NO                 |
 
 
 *the linking in an instance of type **master** without using the DNS service (dockerops-dns) requires a proper setting of the envvironment 
 varibales (as explained in the dedicated section "Linking")
 
-*Note:* basically, a master instance is a instance of both types published and persistent
-
-*Note:* basically, the interactive switch provides you an interactive shell. From there you can execute the entrypoints by simply typing "sudo /allentrypoints.sh""
+*Note:* basically, a master instance is a instance of both types published and persistent.
 
 Examples for running a standard instance:
 

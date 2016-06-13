@@ -652,7 +652,7 @@ def rerun(service, instance=None):
 @task
 # TODO: clarify difference between False and None.
 def run(service=None, instance=None, group=None, instance_type=None,
-        persistent_data=None, persistent_log=None, persistent_opt=None,
+        persistent_data=None, persistent_opt=None, persistent_log=None,
         publish_ports=None, linked=None, seed_command=None, conf=None,
         safemode=None,  interactive=None, recursive=False):
     '''Run a given service with a given instance. If no instance name is set,
