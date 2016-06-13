@@ -452,9 +452,9 @@ def version():
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        print '\nDockerOps v0.6'
+        print '\nDockerOps v0.5.1'
     else:
-        print '\nDockerOps v0.6'
+        print '\nDockerOps v0.5.1'
         last_commit_info_lines = last_commit_info.split('\n')
         commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
         commit_date      = last_commit_info_lines[-1].replace('  ', '')
@@ -575,6 +575,8 @@ def build(service=None, verbose=False):
             try:
                 dependencies = find_dependencies(service_dir)
                 logger.debug('Service %s depends on: %s',service_dir, dependencies)
+                dependencies.reverse()
+                logger.debug('Dependencies build order: %s', dependencies) 
                 for service in dependencies:
                     if service not in built:
                         # Build by recursively call myself
