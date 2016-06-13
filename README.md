@@ -6,7 +6,7 @@ Simple yet powerful Docker operations orchestrator for managing entire platforms
 
 Developed by Stefano Alberto Russo with an important contribution from Gianfranco Gallizia. Thanks also to Enerlife (http://www.enerlife.it) and eXact Lab (http://www.exact-lab.it) for allowing this project to be open source.
 
-&nbsp;
+
 # Quick start and demo
 
 **Dependencies:** Docker, Fabric (apt-get install fabric). Please note that Fabric requires Python version 2.5 - 2.7.
@@ -32,7 +32,7 @@ To install and run the demo, run the following commands:
 	 - to exit ssh type "exit"
 	- to stop the demo, type "dockerops clean:all"
 
-&nbsp;
+
 # Documentation
 
 ## Introduction and basics
