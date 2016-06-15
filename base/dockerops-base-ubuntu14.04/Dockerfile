@@ -13,12 +13,10 @@ COPY update-dns.sh /
 RUN chmod 755 /update-dns.sh
 
 #-----------------------
-# Entrypoint
+# Prestartup
 #-----------------------
-# Copy, give right permissions & unique name to entrypoint
-COPY entrypoint-base.sh /entrypoints/
-RUN chmod 755 /entrypoints/entrypoint-base.sh
-RUN mv /entrypoints/entrypoint-base.sh /entrypoints/entrypoint-base-$(date +%s).sh
+COPY prestartup_dockerops-base.sh /prestartup/
+
 
 
 

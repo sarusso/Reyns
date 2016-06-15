@@ -82,18 +82,11 @@ COPY supervisord_sshd.conf /etc/supervisor/conf.d/
 
 
 #----------------------
-# Entrypoint files
+# Startup scripts
 #----------------------
 
-# Create directory for entrypoints
-RUN mkdir /entrypoints
-
-# Copy seed entrypoint (and custom one)
-COPY entrypoint.sh /
-
-# Give right permissions
-RUN chmod 755 /entrypoint.sh
-
+# Create directory for startup scripts
+RUN mkdir /startup
 
 #----------------------------
 # Generate DNS key
@@ -103,9 +96,16 @@ RUN apt-get -y install bind9utils && \
     chmod 600 /etc/rndc.key
 
 #----------------------
-# Startup
+# Entrypoint
 #----------------------
 
+# Copy entrypoint
+COPY entrypoint.sh /
+
+# Give right permissions
+RUN chmod 755 /entrypoint.sh
+
+# Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
 
 

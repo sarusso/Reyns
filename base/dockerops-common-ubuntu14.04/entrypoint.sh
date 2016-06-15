@@ -53,30 +53,23 @@ fi
 
 
 #---------------------
-#  Entrypoints
+#  Prestartup scripts
 #---------------------
 
-# Create script from all the entrypoints
-
-ls -tr /entrypoints/*.sh | xargs cat > /allentrypoints.sh
-chmod 755 /allentrypoints.sh
-
+# Create single script from all the prestartup scripts, ordering by creation time
+ls -tr /prestartup/*.sh | xargs cat > /prestartup.sh
+chmod 755 /prestartup.sh
 
 if [ "x$SAFEMODE" == "xFalse" ]; then
-    echo "[INFO] Executing  entrypoints (current + parents)..."
-    
-    # Exec everything in /entrypoints
-
-    echo "" >> /var/log/allentrypoints.log
-    echo "-----------------------------------" >> /var/log/allentrypoints.log
-    date >> /var/log/allentrypoints.log
-    echo "-----------------------------------" >> /var/log/allentrypoints.log
-    echo ""  >> /var/log/allentrypoints.log
-    /allentrypoints.sh 2>&1 | tee -a /var/log/allentrypoints.log
-    
-
+    echo "[INFO] Executing  prestartup scripts (current + parents)..."
+    echo "" >> /var/log/prestartup.log
+    echo "-----------------------------------" >> /var/log/prestartup.log
+    date >> /var/log/prestartup.log
+    echo "-----------------------------------" >> /var/log/prestartup.log
+    echo ""  >> /var/log/prestartup.log
+    /prestartup.sh 2>&1 | tee -a /var/log/prestartup.log
 else
-    echo "[INFO] Not executing entrypoint(s) as we are in safemode"
+    echo "[INFO] Not executing prestartup scripts as we are in safemode"
 fi
 
 

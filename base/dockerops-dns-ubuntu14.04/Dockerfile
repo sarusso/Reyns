@@ -40,10 +40,6 @@ COPY runbind.sh /
 RUN chmod 755 /runbind.sh
 
 #-----------------------
-# Entrypoint
+# Prestartup
 #-----------------------
-# Copy, give right permissions & unique name to entrypoint
-COPY entrypoint-dns.sh /entrypoints/
-RUN chmod 755 /entrypoints/entrypoint-dns.sh
-RUN mv /entrypoints/entrypoint-dns.sh /entrypoints/entrypoint-dns-$(date +%s).sh
-
+COPY prestartup_dockerops-dns.sh /prestartup/

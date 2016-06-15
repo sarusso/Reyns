@@ -81,13 +81,11 @@ To build a sevice you also have to actually sun some application in it. To do so
 
     COPY supervisord_bind.conf /etc/supervisor/conf.d/
 
-This approach allows you also to hierarchically extend services. There is also support for executing custom entrypoins for each service, hierarchically:
+This approach allows you also to hierarchically extend services. There is also support for executing custom prestartup scripts for each service, hierarchically:
 
-    COPY entrypoint-dns.sh /entrypoints/
-    RUN chmod 755 /entrypoints/entrypoint-dns.sh
-    RUN mv /entrypoints/entrypoint-dns.sh /entrypoints/entrypoint-dns-$(date +%s).sh 
+    COPY prestartup_dockerops--dns.sh /prestartup/
 
-The DockerOps' entrypopint will execute every entrypoint inside the /entrypoints/ directory of the service, and with the above syntax it will execute parent's custom entrypoints first. It is highly suggested to always use this lines. In the service entrypoint you also have full access to all environment variables (read the "Environment variables" section for more details about them). 
+The DockerOps' entrypoint script will execute every script inside the /prestartup/ directory of the service, and it will execute parent's prestartup scripts first. In the service prestartup scripts you also have full access to all environment variables (read the "Environment variables" section for more details about them). 
 
 ## Runnign a service
 
@@ -111,11 +109,11 @@ When you run a service using DockerOps, there are a few properties already imple
 * `persistent_data`: if enabled, all the data in /data inside the service is made persistent on the host filesystem (if data is already present, it is preserved).
 * `persistent_opt`: if enabled, all the data in /opt inside the serviceis made persistent on the host filesystem (if data is already present, it is preserved).
 * `persistent_log`: if enabled, all the data in /var/log inside the service is made persistent on the host filesystem (if data is already present, it is preserved).
-* `publish_ports`: if set to true, publish the ports on the host according to the EXPOSE instruction in the Dockerfile (note: you can also use the "#UDPEXPOSE" command in the Dockerfile to expose UPD ports).
+* `publish_ports`: if set to true, publish the ports on the host according to the EXPOSE instruction in the Dockerfile (note: you can also use the "#UDPEXPOSE" command in the Dockerfile to expose and publish UPD ports).
 * `linked`: linking enabled or not (according to the project's run.conf, see later).
 * `seed_command`: specify here a custom seed comamnd to execute at the service startup. The default is 'supervisord'.
-* `safemode`: if enabled containers entrypoints will not be executed.
-* `interactive`: provides you an interactive shell. From there you can execute the entrypoints by simply typing "sudo /allentrypoints.sh".
+* `safemode`: if enabled services prestartup scripts will not be executed. See the "Logging and debugging" section for more info.
+* `interactive`: provides you an interactive shell. See the "Logging and debugging" section for more info.
 * `conf`: the run conf file to use.
 
 ## Instances
@@ -123,7 +121,7 @@ DockerOps introduces the concept of *instances* of the same Docker container (or
 
 A DockerOps instance can be of five `instance_type `: **standard**, **published**, **persistent**, **master** and **debug**. The following table summarize the default propertied for the instances types, but no one prevents you from specifying custom settings (command line arguments have the highest possible priority in DockerOps)
 
-| Instance name | Intance type| linked | publish ports | persistent data | persisten opt | persistent log | interactive | execute entrypoints| 
+| Instance name | Intance type| linked | publish ports | persistent data | persisten opt | persistent log | interactive | prestartup executed| 
 |---------------|-------------|:------:|:-------------:|:---------------:|:-------------:|:--------------:|:-----------:|:------------------:|
 | &nbsp; *      | standard    | YES    | NO            | NO              | NO            | NO             | NO          | YES                |
 | published     | published   | YES    | YES           | NO              | NO            | NO             | NO          | YES                |
@@ -155,7 +153,7 @@ Examples for runnign a master instance:
 
 There are also two particular ways of running instances of a given type: *interactive* and in *safe mode*.
 
-An instance which run in  **interactive** mode has the particularity tha it does not start supervisord, but it start a shell and gives you acces to in in the terminal. In an instance which run in **safemode** the the entrypoints are not executed, to allow debugging in cases where the instance cannot even start. (see more about the entrypoint-local.sh script in the dedicated section)
+An instance which run in  **interactive** mode has the particularity tha it does not start supervisord, but it start a shell and gives you acces to in in the terminal. In an instance which run in **safemode** the the prestartup scripts are not executed, to allow debugging in cases where the instance cannot even start.
 
 You may also want to siable linking my specifing **linked=False** depending on the use case. You can also have an instance which runs both in safemode and interactively
 
@@ -196,7 +194,7 @@ The service has full visibiliy on a fixed set of environment varibales, which ar
 
 *Note:* If a variable starts with "from_", then DockerOps will set the value using the IP of the network interface coming after. In example, "from_eth0" will take the value of the IP address of the host's eth0 network interface.
 
-### Entrypoints
+### Prestartup scripts
 Coming soon...
 
 ## Project-level management
@@ -317,22 +315,24 @@ If you insance does not run as expect when starting (and since it does not start
 
 First of all, you can try to run in in an interactive way:
     
-    dockerops run:postgres,instance=master,interactive=True,safemode=True
+    dockerops run:postgres,instance=master,interactive=True
 
-This will run DokcerOps's entrypoint, the services aentrypoints and give you a shell. You can then type 'supervisord' to start the service as normal (but still interactivey).
+This will run the services prestartup scripts and and give you a shell. You can then type 'supervisord' to start the service as normal (but still interactivey).
 
-If you have errors in the execution of the entrypoint of some services, you can use the safemode, which just run  DokcerOps's entrypoint (that should never fail) and not the service entrypoints (the scripts in the directory '/entrypoints'). 
+If you have errors in the execution of the prestartup scripts for some services, you can use the safemode, which just runs  DockerOps's prestartup (that should never fail) and not the service prestarup scripts
 
     dockerops run:postgres,instance=master,safemode=True
+        
 
-..or you can cobine the two.
+You can also combine the two, which is probably the most useful approach:
 
     dockerops run:postgres,instance=master,interactive=True,safemode=True
 
-If you still have errors, and in partiucular you are running with persistent data enabled, then you can try to rename the data dir temporary (to understande the mv: inter-device move failed error, in particular).
+..and you can execute the prestartup scrpts in the interactive mode just by typing /prestartup.sh.        
 
+Note: Sometimes you can get an error similar to "mv: inter-device move failed error". In this case, and in partiucular if you are running with persistent data enabled,  you can try to temporary rename the data dir to understand why the error arise.
 
-## Licensing
+# Licensing
 DockerOps is licensed under the Apache License, Version 2.0. See
 [LICENSE](https://raw.githubusercontent.com/sarusso/DockerOps/master/LICENSE) for the full
 license text.

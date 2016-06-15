@@ -604,14 +604,14 @@ def build(service=None, verbose=False):
         # Ok, print the info about the service being built
         print '\nBuilding service "{}" as "{}/{}"'.format(service, tag_prefix, service)
 
-        # Check that only an entrypoint is found:
-        entrypoint_files = [f for f in os.listdir(service_dir) if re.match(r'entrypoint-+.*\.sh', f)]
-        if len(entrypoint_files) > 1:
-            abort("Sorry, found more than one entrypoint for this service (got {})".format(entrypoint_files))
+        # Check that only a prestartup script is found:
+        prestartup_scripts = [f for f in os.listdir(service_dir) if re.match(r'prestartup_+.*\.sh', f)]
+        if len(prestartup_scripts) > 1:
+            abort("Sorry, found more than one prestartup script for this service an this is not allowed (got {})".format(prestartup_scripts))
 
-        # Update Entrypoint date to allow ordered execution
-        if entrypoint_files:
-            shell('touch {}/{}'.format(service_dir, entrypoint_files[0]),silent=True)
+        # Update prestartup script date to allow ordered execution
+        if prestartup_scripts:
+            shell('touch {}/{}'.format(service_dir, prestartup_scripts[0]),silent=True)
  
         # Build command 
         build_command = 'cd ' + service_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + service + ' ' + service
@@ -1024,7 +1024,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
             os.makedirs(DATA_DIR)
             
         # Check service instance dir exists:
-        service_instance_dir = DATA_DIR + '/' + service + '_' + instance
+        service_instance_dir = DATA_DIR + '/' + service + '-' + instance
         if not os.path.exists(service_instance_dir):
             logger.debug('Data dir for service instance not existent, creating it.. ({})'.format(service_instance_dir))
             os.mkdir(service_instance_dir)
