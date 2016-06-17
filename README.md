@@ -294,14 +294,13 @@ Services register themselves on the DNS both as their hostanme (i.e. "demo-one")
 - **DNS_UPDATE_POLICY="APPEND"**: In this case the DNS record corresponding to the service name is appended, so if there are thwo instances of the same service running and you query the DNS for the service name, both the IPs of the instances will be provided (in Round Robin). Particluary useful for scaling up. Please note that scaling down and re-runnign services is not supported for now, as removing records from the DNS is not yet supported.
 
 
-Notes:
+**Notes:**
 
-Be sure that nothing is listening on port 53 both TCP **AND** UDP (E.G.
+If running in published mode, be sure that nothing is listening on port 53 both TCP **AND** UDP (E.G.
 dnsmasq or bind) on **your** host because DNS queries are sent through
 UDP but DNS updates are sent through TCP so both need to be available.
 
-Also please note that you might want to increase the sleep timer to allow
-bind to set up in the DNS service.
+Also, you might want to increase the sleep timer to allow bind to set up in the DNS service.
 
 Thanks to Gianfranco Gallizia and eXact Lab (http://www.exact-lab.it/) for this contribution.
 
