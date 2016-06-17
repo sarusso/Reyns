@@ -21,9 +21,6 @@ if [ -z "$PROJECT_NAME" ]; then
     export PROJECT_NAME="${PWD##*/}"
 fi
 
-# Who am i?
-# _script="$(readlink -f ${BASH_SOURCE[0]})" does not work on OSX
-
 TARGET_FILE=${BASH_SOURCE[0]}
 
 cd `dirname $TARGET_FILE`
