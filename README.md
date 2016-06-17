@@ -285,13 +285,14 @@ After this, you should be able to contact the DNS service and ask it your local 
 
 Note that for enabling the DNS service the connection can both be established using the standard linking and just by setting the DNS_SERVICE_IP env var.
 
-Services can register themselves to the DNS using three approaches, defined trought the environment variable DNS_UPDATE_POLICY:
+Services register themselves on the DNS both as their hostanme (i.e. "demo-one") and as their service name (i.e. "demo"). The behaviour on how to handle the service name (i.e. "demo") in case of multiple instances (i.e. "demo-one" and "demo-two") depends on the update policy, which is defined trought the environment variable DNS_UPDATE_POLICY and can follow three different approaches:
 
-- **DNS_UPDATE_POLICY="HIDE"**: In this case the service is not published to the DNS, but the DNS service is queryable. Useful for testing purposes.
+- **DNS_UPDATE_POLICY="HIDE"**: The service is not published to the DNS at all, but the DNS service is queryable. Useful for testing purposes as an "observer".
 
-- **DNS_UPDATE_POLICY="APPEND"** (default): In this case the DNS record corresponding to the service name is appended, so if there is another service wiht the same name running (but different instance) and you query the DNS for the service name, both the IPs of the services will be provided (in round robin). Particluary useful for scaling up.
+- **DNS_UPDATE_POLICY="REPLACE"** *(default)*: the DNS record corresponding to the service name, if already present, is replaced. In other words, if there are two instances of the same service running and you query the DNS for the service name, only the IP address of the last instance will be provided. Useful for hot-updating servers.
 
-- **DNS_UPDATE_POLICY="REPLACE"**: In this case the DNS record corresponding to the service name, if already present, is replaced. So, if there is another service wiht the same name running (but different instance) and you query the DNS for the service name, only the last run service IP address will be provided. Usefoul for hot-updating servers.
+- **DNS_UPDATE_POLICY="APPEND"**: In this case the DNS record corresponding to the service name is appended, so if there are thwo instances of the same service running and you query the DNS for the service name, both the IPs of the instances will be provided (in Round Robin). Particluary useful for scaling up. Please note that scaling down and re-runnign services is not supported for now, as removing records from the DNS is not yet supported.
+
 
 Notes:
 

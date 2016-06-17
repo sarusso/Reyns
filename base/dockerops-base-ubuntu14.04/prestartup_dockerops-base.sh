@@ -25,14 +25,13 @@ __EOT__
     exit 0
 fi
 
-if [[ "x$DNS_UPDATE_POLICY" == "xREPLACE" ]] ; then
+if [[ "x$DNS_UPDATE_POLICY" == "xAPPEND" ]] ; then
 cat > /mydnsdata << __EOT__
 server $DNS_SERVICE_IP
 zone local.zone
-update delete `echo $SERVICE`.local.zone. A
 update delete `hostname`.local.zone. A
-update add `echo $SERVICE`.local.zone. 86400 A $IP
-update add `hostname`.local.zone. 86400 A $IP
+update add `hostname`.local.zone. 60 A $IP
+update add `echo $SERVICE`.local.zone. 60 A $IP
 show
 send
 __EOT__
@@ -40,8 +39,10 @@ else
 cat > /mydnsdata << __EOT__
 server $DNS_SERVICE_IP
 zone local.zone
-update add `echo $SERVICE`.local.zone. 86400 A $IP
-update add `hostname`.local.zone. 86400 A $IP
+update delete `hostname`.local.zone. A
+update delete `echo $SERVICE`.local.zone. A
+update add `hostname`.local.zone. 60 A $IP
+update add `echo $SERVICE`.local.zone. 60 A $IP
 show
 send
 __EOT__

@@ -51,6 +51,8 @@ cd $_base
 # Execute
 if [[ $# -eq 0 ]] ; then
     fab help
+elif [[ "x$1" == "x--version" ]] ; then
+    fab version
 else
     fab $@
 fi

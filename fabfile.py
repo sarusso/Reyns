@@ -304,10 +304,7 @@ def get_services_run_conf(conf_file=None):
     
     if os.path.isfile(PROJECT_DIR+'/'+conf_file):
         conf_file_path = PROJECT_DIR+'/'+conf_file
-    
-    elif os.path.isfile(SERVICES_IMAGES_DIR+'/'+conf_file): 
-        conf_file_path = SERVICES_IMAGES_DIR+'/'+conf_file   
-         
+ 
     else:
         # If the conf file was explicitly set, then raise, otherwise just return empty conf
         if conf_file != 'run.conf':
@@ -318,7 +315,7 @@ def get_services_run_conf(conf_file=None):
     # Now load it
     try:  
         with open(conf_file_path) as f:
-            logger.debug ('Loading conf from %s/%s', SERVICES_IMAGES_DIR, conf_file)
+            logger.debug ('Loading conf from %s/%s', PROJECT_DIR, conf_file)
             content = f.read()#.replace('\n','').replace('  ',' ')
             json_content = []
             # Handle comments
@@ -452,9 +449,9 @@ def version():
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        print '\nDockerOps v0.6'
+        print '\nDockerOps v0.6.1'
     else:
-        print '\nDockerOps v0.6'
+        print '\nDockerOps v0.6.1'
         last_commit_info_lines = last_commit_info.split('\n')
         commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
         commit_date      = last_commit_info_lines[-1].replace('  ', '')
@@ -472,18 +469,13 @@ def version():
 def install_demo():
     '''install the DockerOps demo in a directory named 'dockerops-demo' in the current path'''
     
-    INSTALL_DIR = PROJECT_DIR + '/dockerops-demo'
+    INSTALL_DIR = PROJECT_DIR
     
     print '\nInstalling DockerOps demo in current directory ({})...'.format(INSTALL_DIR)
     import shutil
 
     try:
-        os.makedirs(INSTALL_DIR)
-    except OSError,e:
-        abort('Could not create directory {}: {}'.format(INSTALL_DIR, e))
-    
-    try:
-        shutil.copytree(os.getcwd()+'/services', INSTALL_DIR + '/services')
+        shutil.copytree(os.getcwd()+'/demo', INSTALL_DIR + '/dockerops-demo')
     except OSError,e:
         abort('Could not copy demo data into {}: {}'.format(INSTALL_DIR + '/services', e))
         
@@ -649,14 +641,14 @@ def rerun(service, instance=None):
 
     # Clean    
     clean(service,instance)
-    run(service,instance)
+    run(service,instance,from_rerun=True)
 
 @task
 # TODO: clarify difference between False and None.
 def run(service=None, instance=None, group=None, instance_type=None,
         persistent_data=None, persistent_opt=None, persistent_log=None,
         publish_ports=None, linked=None, seed_command=None, conf=None,
-        safemode=None,  interactive=None, recursive=False):
+        safemode=None,  interactive=None, recursive=False, from_rerun=False):
     '''Run a given service with a given instance. If no instance name is set,
     a standard instance with a random name is run. If service name is set to "all"
     then all the services are run, according  to the run conf file.'''
@@ -840,6 +832,19 @@ def run(service=None, instance=None, group=None, instance_type=None,
             for env_var in service_conf['env_vars']:
                 ENV_VARs[env_var] = service_conf['env_vars'][env_var]
                 
+        
+    # Handle the instance type.
+    if 'instance_type' in service_conf:
+            instance_type = service_conf['instance_type']
+    else:
+        instance_type = None
+
+    persistent_data = persistent_data if persistent_data is not None else (service_conf['persistent_data'] if 'persistent_data' in service_conf else None)
+    persistent_log  = persistent_log  if persistent_log  is not None else (service_conf['persistent_log']  if 'persistent_log'  in service_conf else None)
+    persistent_opt  = persistent_opt  if persistent_opt  is not None else (service_conf['persistent_opt']  if 'persistent_opt'  in service_conf else None)
+    publish_ports   = publish_ports   if publish_ports   is not None else (service_conf['publish_ports']   if 'publish_ports'   in service_conf else None)
+    linked          = linked          if linked          is not None else (service_conf['linked']          if 'linked'          in service_conf else None)               
+
     # Handle instance type for not regitered services of if not set:
     if not instance_type:
         if instance in ['standard', 'published', 'persistent', 'master', 'debug']:
@@ -1137,10 +1142,11 @@ def run(service=None, instance=None, group=None, instance_type=None,
    
     # In the end, the sleep..
     if service_conf and 'sleep' in service_conf:
-        to_sleep = int(service_conf['sleep'])
-        if to_sleep:
-            print "Now sleeping {} seconds to allow service setup...".format(to_sleep)
-            sleep(to_sleep)
+        if not interactive and not from_rerun:
+            to_sleep = int(service_conf['sleep'])
+            if to_sleep:
+                print "Now sleeping {} seconds to allow service setup...".format(to_sleep)
+                sleep(to_sleep)
  
     
     
