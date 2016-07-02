@@ -449,9 +449,9 @@ def version():
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        print '\nDockerOps v0.6.1'
+        print '\nDockerOps v0.6.2 (working...)'
     else:
-        print '\nDockerOps v0.6.1'
+        print '\nDockerOps v0.6.2 (working...)'
         last_commit_info_lines = last_commit_info.split('\n')
         commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
         commit_date      = last_commit_info_lines[-1].replace('  ', '')
@@ -832,6 +832,9 @@ def run(service=None, instance=None, group=None, instance_type=None,
             for env_var in service_conf['env_vars']:
                 ENV_VARs[env_var] = service_conf['env_vars'][env_var]
                 
+    # If no service_conf, set an empty one
+    if not service_conf:
+        service_conf = []
         
     # Handle the instance type.
     if 'instance_type' in service_conf:
