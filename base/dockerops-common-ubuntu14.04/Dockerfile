@@ -6,7 +6,7 @@ MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 #----------------------
 
 # Update
-RUN apt-get update #20160525 last update, change date to invalidate cache
+RUN apt-get update
 
 # Utilities
 RUN apt-get install -y nano
@@ -31,8 +31,13 @@ RUN locale-gen en_US en_US.UTF-8
 # DockerOps user
 #------------------------
 
-# Add usser
-RUN useradd dockerops -m -s /bin/bash
+# Add group. We chose GID 65527 to try avoiding conflicts.
+RUN groupadd -g 65527 dockerops
+
+# Add user. We chose UID 65527 to try avoiding conflicts.
+RUN useradd dockerops -u 65527 -g 65527 -m -s /bin/bash
+
+# Add dockerops user to sudoers
 RUN adduser dockerops sudo
 
 # Keys
