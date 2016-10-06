@@ -341,7 +341,7 @@ def get_services_run_conf(conf_file=None):
     
     # Validate vars
     valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt','persistent_log',
-                                      'links', 'sleep', 'env_vars', 'instance_type']
+                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'hostnet']
     
     for service_description in registered_services:
         for key in service_description:
@@ -508,9 +508,9 @@ def init(os_to_init='ubuntu14.04', verbose=False):
 
     # Build dockerops services
     
-    build(service='dockerops-common-{}'.format(os_to_init), verbose=verbose)
-    build(service='dockerops-base-{}'.format(os_to_init), verbose=verbose)
-    build(service='dockerops-dns-{}'.format(os_to_init), verbose=verbose)
+    build(service='dockerops-common-{}'.format(os_to_init), verbose=verbose, nocache=True)
+    build(service='dockerops-base-{}'.format(os_to_init), verbose=verbose, nocache=True)
+    build(service='dockerops-dns-{}'.format(os_to_init), verbose=verbose, nocache=True)
     build(service='dockerops-dns', verbose=verbose)    
 
     # Create default tags for this OS:
@@ -521,7 +521,7 @@ def init(os_to_init='ubuntu14.04', verbose=False):
     
 
 @task
-def build(service=None, verbose=False):
+def build(service=None, verbose=False, nocache=False):
     '''Build a given service. If service name is set to "all" then builds all the services'''
 
     # Sanitize...
@@ -566,14 +566,15 @@ def build(service=None, verbose=False):
             logger.debug('Processing %s',service_dir)
             try:
                 dependencies = find_dependencies(service_dir)
-                logger.debug('Service %s depends on: %s',service_dir, dependencies)
-                dependencies.reverse()
-                logger.debug('Dependencies build order: %s', dependencies) 
-                for service in dependencies:
-                    if service not in built:
-                        # Build by recursively call myself
-                        build(service=service, verbose=verbose)
-                        built.append(service)
+                if dependencies:
+                    logger.debug('Service %s depends on: %s',service_dir, dependencies)
+                    dependencies.reverse()
+                    logger.debug('Dependencies build order: %s', dependencies) 
+                    for service in dependencies:
+                        if service not in built:
+                            # Build by recursively call myself
+                            build(service=service, verbose=verbose)
+                            built.append(service)
                 build(service=service_dir, verbose=verbose)
                     
             except IOError:
@@ -606,7 +607,12 @@ def build(service=None, verbose=False):
             shell('touch {}/{}'.format(service_dir, prestartup_scripts[0]),silent=True)
  
         # Build command 
-        build_command = 'cd ' + service_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + service + ' ' + service
+        if nocache:
+            print('Building without cache')
+            build_command = 'cd ' + service_dir + '/.. &&' + 'docker build --no-cache -t ' + tag_prefix +'/' + service + ' ' + service
+        else:
+            print('Building with cache')
+            build_command = 'cd ' + service_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + service + ' ' + service
         
         # Build
         print 'Building...'
@@ -648,7 +654,7 @@ def rerun(service, instance=None):
 def run(service=None, instance=None, group=None, instance_type=None,
         persistent_data=None, persistent_opt=None, persistent_log=None,
         publish_ports=None, linked=None, seed_command=None, conf=None,
-        safemode=None,  interactive=None, recursive=False, from_rerun=False):
+        safemode=None,  interactive=None, recursive=False, from_rerun=False, hostnet=None):
     '''Run a given service with a given instance. If no instance name is set,
     a standard instance with a random name is run. If service name is set to "all"
     then all the services are run, according  to the run conf file.'''
@@ -735,7 +741,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
                 instance_type = None
 
             # Recursively call myself with proper args. The args of the call always win over the configuration(s)
-            run(service       = service,
+            run(service         = service,
                 instance        = instance,
                 instance_type   = instance_type,
                 persistent_data = persistent_data if persistent_data is not None else (service_conf['persistent_data'] if 'persistent_data' in service_conf else None),
@@ -831,8 +837,11 @@ def run(service=None, instance=None, group=None, instance_type=None,
         if service_conf and 'env_vars' in service_conf:     
             for env_var in service_conf['env_vars']:
                 ENV_VARs[env_var] = service_conf['env_vars'][env_var]
-                
-        
+
+    # Set emptu service_conf dict to avoid looking up in a None object
+    if not isinstance(service_conf,dict):
+        service_conf={}
+ 
     # Handle the instance type.
     if 'instance_type' in service_conf:
             instance_type = service_conf['instance_type']
@@ -844,6 +853,8 @@ def run(service=None, instance=None, group=None, instance_type=None,
     persistent_opt  = persistent_opt  if persistent_opt  is not None else (service_conf['persistent_opt']  if 'persistent_opt'  in service_conf else None)
     publish_ports   = publish_ports   if publish_ports   is not None else (service_conf['publish_ports']   if 'publish_ports'   in service_conf else None)
     linked          = linked          if linked          is not None else (service_conf['linked']          if 'linked'          in service_conf else None)               
+    hostnet         = hostnet         if hostnet         is not None else (service_conf['hostnet']         if 'hostnet'         in service_conf else None)
+
 
     # Handle instance type for not regitered services of if not set:
     if not instance_type:
@@ -874,7 +885,10 @@ def run(service=None, instance=None, group=None, instance_type=None,
     ENV_VARs['HOST_HOSTNAME']   = socket.gethostname()
             
     # Start building run command
-    run_cmd = 'docker run --name {}-{}-{} '.format(PROJECT_NAME, service,instance)
+    if hostnet:
+        run_cmd = 'docker run --name {}-{}-{} --net host'.format(PROJECT_NAME, service,instance)
+    else:
+        run_cmd = 'docker run --name {}-{}-{} '.format(PROJECT_NAME, service,instance)
 
     # Handle linking...
     if linked:
@@ -1110,10 +1124,11 @@ def run(service=None, instance=None, group=None, instance_type=None,
             run_cmd += ' -e {}="{}"'.format(ENV_VAR, str(ENV_VARs[ENV_VAR]))
 
     # Handle hostname
-    if service_conf and 'hostname' in service_conf:
-        run_cmd += ' -h {}'.format(service_conf['hostname'])
-    else:
-        run_cmd += ' -h {}-{}'.format(service,instance)
+    if not hostnet:
+        if service_conf and 'hostname' in service_conf:
+            run_cmd += ' -h {}'.format(service_conf['hostname'])
+        else:
+            run_cmd += ' -h {}-{}'.format(service,instance)
 
     # Set seed command
     if not seed_command:
