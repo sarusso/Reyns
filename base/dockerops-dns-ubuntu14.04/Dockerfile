@@ -2,7 +2,7 @@ FROM dockerops/dockerops-common-ubuntu14.04
 MAINTAINER Gianfranco Gallizia <gianfranco.gallizia@exact-lab.it>
 
 # Update
-RUN apt-get update #20160403 last update, change date to invalidate cache
+RUN apt-get update
 
 #-----------------------
 # Install bind package
