@@ -341,7 +341,7 @@ def get_services_run_conf(conf_file=None):
     
     # Validate vars
     valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt','persistent_log',
-                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'hostnet']
+                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost']
     
     for service_description in registered_services:
         for key in service_description:
@@ -654,7 +654,7 @@ def rerun(service, instance=None):
 def run(service=None, instance=None, group=None, instance_type=None,
         persistent_data=None, persistent_opt=None, persistent_log=None,
         publish_ports=None, linked=None, seed_command=None, conf=None,
-        safemode=None,  interactive=None, recursive=False, from_rerun=False, hostnet=None):
+        safemode=None,  interactive=None, recursive=False, from_rerun=False, nethost=None):
     '''Run a given service with a given instance. If no instance name is set,
     a standard instance with a random name is run. If service name is set to "all"
     then all the services are run, according  to the run conf file.'''
@@ -853,7 +853,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     persistent_opt  = persistent_opt  if persistent_opt  is not None else (service_conf['persistent_opt']  if 'persistent_opt'  in service_conf else None)
     publish_ports   = publish_ports   if publish_ports   is not None else (service_conf['publish_ports']   if 'publish_ports'   in service_conf else None)
     linked          = linked          if linked          is not None else (service_conf['linked']          if 'linked'          in service_conf else None)               
-    hostnet         = hostnet         if hostnet         is not None else (service_conf['hostnet']         if 'hostnet'         in service_conf else None)
+    nethost         = nethost         if nethost         is not None else (service_conf['nethost']         if 'nethost'         in service_conf else None)
 
 
     # Handle instance type for not regitered services of if not set:
@@ -885,7 +885,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     ENV_VARs['HOST_HOSTNAME']   = socket.gethostname()
             
     # Start building run command
-    if hostnet:
+    if nethost:
         run_cmd = 'docker run --name {}-{}-{} --net host'.format(PROJECT_NAME, service,instance)
     else:
         run_cmd = 'docker run --name {}-{}-{} '.format(PROJECT_NAME, service,instance)
@@ -1124,7 +1124,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
             run_cmd += ' -e {}="{}"'.format(ENV_VAR, str(ENV_VARs[ENV_VAR]))
 
     # Handle hostname
-    if not hostnet:
+    if not nethost:
         if service_conf and 'hostname' in service_conf:
             run_cmd += ' -h {}'.format(service_conf['hostname'])
         else:
