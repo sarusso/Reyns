@@ -10,6 +10,7 @@ import json
 import socket
 import fcntl
 import struct
+import platform
 import re
 
 from fabric.utils import abort
@@ -55,6 +56,13 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 #--------------------------
 # Utility functions & vars
 #--------------------------
+
+# Are we running on OSX?
+def running_on_osx():
+    if platform.system().upper() == 'DARWIN':
+        return True
+    else:
+        return False
 
 # Load host conf
 def load_host_conf():
@@ -505,13 +513,15 @@ def init(os_to_init='ubuntu14.04', verbose=False):
     # Switches
     os_to_init  = os_to_init
     verbose     = booleanize(verbose=verbose)
-
-    # Build dockerops services
     
-    build(service='dockerops-common-{}'.format(os_to_init), verbose=verbose, nocache=True)
-    build(service='dockerops-base-{}'.format(os_to_init), verbose=verbose, nocache=True)
-    build(service='dockerops-dns-{}'.format(os_to_init), verbose=verbose, nocache=True)
-    build(service='dockerops-dns', verbose=verbose)    
+    # Build base images
+    build(service='dockerops-common-{}'.format(os_to_init), verbose=verbose, nocache=False)
+    build(service='dockerops-base-{}'.format(os_to_init), verbose=verbose, nocache=False)
+
+    # If DockerOps DNS service does not exist, build and use this one
+    if shell('docker inspect dockerops/dockerops-dns', capture=True) != 0:
+        build(service='dockerops-dns-{}'.format(os_to_init), verbose=verbose, nocache=False)
+        shell('docker tag dockerops/dockerops-dns-{} dockerops/dockerops-dns'.format(os_to_init))
 
     # Create default tags for this OS:
     #print '\nCreating tag dockerops/dockerops-dns to dockerops/dockerops-dns-{}'.format(os_to_init),
@@ -1114,6 +1124,28 @@ def run(service=None, instance=None, group=None, instance_type=None,
             external_port = port
             run_cmd += ' -p {}{}:{}/udp'.format(pubish_on_ip, internal_port, external_port)
 
+    # If OSX, expose ssh on a different port
+    if running_on_osx():
+        from random import randint
+
+        while True:
+
+            # Get a random ephimeral port
+            port = randint(49152, 65535)
+
+            # Check port is available
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            result = sock.connect_ex(('127.0.0.1', port))
+            if result == 0:
+                logger.info('Found not available ephimeral port ({}) , choosing another one...'.format(port))
+                import time
+                time.sleep(1)
+            else:
+                break
+
+        run_cmd += ' -p {}:22'.format(port)
+
+
     # Add env vars..
     logger.debug("Adding env vars: %s", ENV_VARs)
     for ENV_VAR in ENV_VARs:  
@@ -1314,7 +1346,28 @@ def ssh(service=None, instance=None):
     if not shell('ls -l keys/id_rsa',capture=True).stdout.endswith('------'):
         shell('chmod 600 keys/id_rsa', silent=True)
 
-    shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@' + IP, interactive=True)
+    # Workaround for bug in OSX
+    # See https://github.com/docker/docker/issues/22753
+    if running_on_osx():
+        # Get container ID
+        info = shell('dockerops info:{},{}'.format(service,instance),capture=True).stdout.split('\n')
+        container_id = info[2].split(' ')[0]
+
+        # Get inspect data
+        inspect = json.loads(shell('docker inspect {}'.format(container_id),capture=True).stdout)
+
+        # Check that we are operating on the right container
+        if not inspect[0]['Id'].startswith(container_id):
+            abort('DockerOps intenral error (containers ID do not match)')
+
+        # Get host's port for SSH
+        port = inspect[0]['NetworkSettings']['Ports']['22/tcp'][0]['HostPort']
+
+        # Call SSH on the right (host's) port
+        shell(command='ssh -p {} -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@127.0.0.1'.format(port), interactive=True)
+
+    else:
+        shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@' + IP, interactive=True)
 
 @task
 def help():

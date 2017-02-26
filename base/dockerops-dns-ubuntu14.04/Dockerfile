@@ -43,3 +43,10 @@ RUN chmod 755 /runbind.sh
 # Prestartup
 #-----------------------
 COPY prestartup_dockerops-dns.sh /prestartup/
+
+#-----------------------
+# Expose ports
+#-----------------------
+EXPOSE 53
+#UDP_EXPOSE 53
+
