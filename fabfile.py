@@ -313,14 +313,18 @@ def get_required_env_vars(service):
     return required_env_vars
 
 def get_services_run_conf(conf_file=None):
-    conf_file = 'run.conf' if not conf_file else conf_file
+
+    conf_file = 'default.conf' if not conf_file else conf_file
+
+    if not conf_file.endswith('.conf'):
+        conf_file = conf_file+'.conf'
     
     if os.path.isfile(PROJECT_DIR+'/'+conf_file):
         conf_file_path = PROJECT_DIR+'/'+conf_file
  
     else:
         # If the conf file was explicitly set, then raise, otherwise just return empty conf
-        if conf_file != 'run.conf':
+        if conf_file != 'default.conf':
             raise IOError('No conf file {} found'.format(conf_file))
         else:
             return []
@@ -718,7 +722,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
 
     print('')
     if not recursive:
-        print('Conf file being used: "{}"'.format('run.conf' if not conf else conf))
+        print('Conf being used: "{}"\n'.format('default' if not conf else conf))
     
     #---------------------------
     # Run a group of services
@@ -743,7 +747,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
             abort('Got error in reading run conf for automated execution: {}.'.format(e))
 
         if not services_to_run_confs:
-            abort('No or empty run.conf found in {}, are you in the project\'s root?'.format(SERVICES_IMAGES_DIR))
+            abort('No or empty conf file found in {}, are you in the project\'s root?'.format(SERVICES_IMAGES_DIR))
         
         for service_conf in services_to_run_confs:
             
@@ -772,7 +776,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
 
             # Handle the instance type.
             if 'instance_type' in service_conf:
-                    instance_type = service_conf['instance_type']
+                instance_type = service_conf['instance_type']
             else:
                 instance_type = None
 
@@ -852,8 +856,8 @@ def run(service=None, instance=None, group=None, instance_type=None,
                     logger.debug('Found conf for service "%s"', service)
                     service_conf = item
         if not service_conf:
-            conf_file = conf if conf else 'default (run.conf)'
-            if not confirm('WARNING: Could not find conf for service {}, instance {} in the {} conf file. Should I proceed?'.format(service, instance, conf_file)):
+            conf_file = conf if conf else 'default'
+            if not confirm('WARNING: Could not find conf for service {}, instance {} in the "{}" conf. Should I proceed?'.format(service, instance, conf_file)):
                 return
         
         # 2) Handle the instance type.
@@ -878,12 +882,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     if not isinstance(service_conf,dict):
         service_conf={}
  
-    # Handle the instance type.
-    if 'instance_type' in service_conf:
-            instance_type = service_conf['instance_type']
-    else:
-        instance_type = None
-
+    # Prelminary set of switches
     persistent_data = persistent_data if persistent_data is not None else (service_conf['persistent_data'] if 'persistent_data' in service_conf else None)
     persistent_log  = persistent_log  if persistent_log  is not None else (service_conf['persistent_log']  if 'persistent_log'  in service_conf else None)
     persistent_opt  = persistent_opt  if persistent_opt  is not None else (service_conf['persistent_opt']  if 'persistent_opt'  in service_conf else None)
@@ -891,14 +890,15 @@ def run(service=None, instance=None, group=None, instance_type=None,
     linked          = linked          if linked          is not None else (service_conf['linked']          if 'linked'          in service_conf else None)               
     nethost         = nethost         if nethost         is not None else (service_conf['nethost']         if 'nethost'         in service_conf else None)
 
-
-    # Handle instance type for not regitered services of if not set:
+    # Handle the instance type.
+    if not instance_type:
+        if 'instance_type' in service_conf:
+                instance_type = service_conf['instance_type']
     if not instance_type:
         if instance in ['standard', 'published', 'persistent', 'master', 'debug']:
             instance_type = instance
         else:
             instance_type = 'standard'
-
     print('Instance type set to "{}"'.format(instance_type))
 
     # Set switches (command line values have always the precedence)
@@ -977,7 +977,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
                     
                 else:
                     if len(running_instances) > 1:
-                        logger.warning('Found more than one running instance for service "{}" which is required for linking: {}. I will use the first one ({}). You can set explicity on which instance to link on in run.conf'.format(link_service, running_instances, running_instances[0]))
+                        logger.warning('Found more than one running instance for service "{}" which is required for linking: {}. I will use the first one ({}). You can set explicity on which instance to link on in the conf file'.format(link_service, running_instances, running_instances[0]))
                       
                     link_service = running_instances[0][0]
                     link_instance  = running_instances[0][1]
@@ -1255,7 +1255,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             else:
                 conf = last_conf
                 
-        print('\nConf file being used: "{}"'.format('run.conf' if not conf else conf))
+        print('\nConf being used: "{}"'.format('default' if not conf else conf))
 
         if service == 'all':
             #print('WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.')
@@ -1266,7 +1266,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
         services_run_conf = []
         for service_conf in get_services_run_conf(conf):
             
-            # Do not clean instances not explicity set in run.conf (TODO: do we want this?)
+            # Do not clean instances not explicity set in conf file (TODO: do we want this?)
             if not service_conf['instance']:
                 continue
             
@@ -1339,7 +1339,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             else:
                 conf = last_conf
                 
-        print('\nConf file being used: "{}"'.format('run.conf' if not conf else conf))
+        print('\nConf being used: "{}"'.format('default' if not conf else conf))
 
         # Sanitize (and dynamically obtain instance)...
         (service, instance) = sanity_checks(service,instance)
