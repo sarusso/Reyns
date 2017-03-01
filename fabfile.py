@@ -519,7 +519,7 @@ def init(os_to_init='ubuntu14.04', verbose=False):
     build(service='dockerops-base-{}'.format(os_to_init), verbose=verbose, nocache=False)
 
     # If DockerOps DNS service does not exist, build and use this one
-    if shell('docker inspect dockerops/dockerops-dns', capture=True) != 0:
+    if shell('docker inspect dockerops/dockerops-dns', capture=True).exit_code != 0:
         build(service='dockerops-dns-{}'.format(os_to_init), verbose=verbose, nocache=False)
         shell('docker tag dockerops/dockerops-dns-{} dockerops/dockerops-dns'.format(os_to_init))
 
@@ -593,9 +593,36 @@ def build(service=None, verbose=False, nocache=False):
     else:
         # Build a given service
         service_dir = get_service_dir(service)
-        
-        # TODO: Check for required files. Use a local Cache? use a checksum? Where to put the conf? a files.json in service's source dir?
-        # print 'Getting remote files...'
+
+        # Obtain the base image
+        with open('{}/Dockerfile'.format(service_dir)) as f:
+            content = f.read()
+
+        image = None
+        for line in content.split('\n'):
+            if line.startswith('FROM'):
+                image = line.strip().split(' ')[-1]
+
+        if not image:
+            abort('Missing "FROM" in Dockerfile?!')
+
+        # If dockerops's 'FROM' images does not existe, build them
+        if image.startswith('dockerops/'):
+            logger.debug('Checking image "{}"...'.format(image))
+            if shell('docker inspect {}'.format(image), capture=True).exit_code != 0:
+                logger.info('Could not find image "{}", now building it...'.format(image))
+                build(service=image.split('/')[1], verbose=verbose, nocache=False)
+
+                # If we built a base and no DNS is yet present, buid it as well
+                if image in ['dockerops/dockerops-base-ubuntu14.04']: #TODO: support 16.04 as well
+                    if shell('docker inspect dockerops/dockerops-dns', capture=True).exit_code != 0:
+                        logger.info('Building DNS as well...')
+                        build(service='dockerops-dns-ubuntu14.04', verbose=verbose, nocache=False)
+                        shell('docker tag dockerops/dockerops-dns-ubuntu14.04 dockerops/dockerops-dns')
+                    else:
+                        logger.debgu('DNS alredy present, not building it...')
+            else:
+                logger.debug('Found image "{}"'.format(image))
 
         # Default tag prefix to PROJECT_NAME    
         tag_prefix = PROJECT_NAME
