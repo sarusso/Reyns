@@ -8,24 +8,26 @@ function install_as_root {
                            sudo rm -rf /usr/share/DockerOps
                            sudo cp -a $PWD /usr/share/DockerOps
                            sudo ln -s /usr/share/DockerOps/dockerops /usr/local/bin/dockerops
-                           echo 'Building...'
-                           sudo fab init
                            echo 'Done.'
+                           echo ""
                          }
 
 
 function install_as_user {
                            echo ''
                            echo "Installing for user \"$USER\"..."
-                           mkdir -p $HOME/bin/
                            rm -f $HOME/bin/dockerops
                            rm -rf $HOME/.DockerOps
                            cp -a $PWD $HOME/.DockerOps
-                           ln -s $HOME/.DockerOps/dockerops $HOME/bin/dockerops
-                           echo ''
-                           echo 'Building...'
-                           fab init
-                           echo 'Done. On most of the Linux distributions you have to open a new shell to have $HOME/bin loaded'
+
+                           TEST="`cat /Users/ste/.bash_profile | grep \"/.DockerOps/\"`"
+                           if [ -z "$TEST" ]; then
+                               echo "PATH=\$PATH:$HOME/.DockerOps/" >> $HOME/.bash_profile
+                               echo "export \$PATH" >> $HOME/.bash_profile
+                           fi
+
+                           echo "Done. Open a new (Bash) shell for being able to use DockerOps"
+                           echo ""
                          }
 
 echo ""
@@ -40,9 +42,9 @@ fi
 
 # Check that fab is installed
 if hash fab 2>/dev/null; then
-    echo "[OK] Found fabric package (fab command)"
+    echo "[OK] Found Fabric package (fab command)"
 else
-    echo "[ERROR] Missing fabric package (fab command)"
+    echo "[ERROR] Missing Fabric package (fab command)"
     exit 1
 fi
 
