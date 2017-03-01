@@ -466,9 +466,9 @@ def version():
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        print('\nDockerOps v0.6.2-pre')
+        print('\nDockerOps v0.7-pre')
     else:
-        print('\nDockerOps v0.6.2-pre')
+        print('\nDockerOps v0.7-pre')
         last_commit_info_lines = last_commit_info.split('\n')
         commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
         commit_date      = last_commit_info_lines[-1].replace('  ', '')
@@ -697,7 +697,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
         safemode=None,  interactive=None, recursive=False, from_rerun=False, nethost=None):
     '''Run a given service with a given instance. If no instance name is set,
     a standard instance with a random name is run. If service name is set to "all"
-    then all the services are run, according  to the run conf file.'''
+    then all the services are run, according to the conf.'''
 
     #------------------------
     # Handle conf(s)
@@ -709,8 +709,8 @@ def run(service=None, instance=None, group=None, instance_type=None,
     # Handle last run conf
     try:
         last_conf = host_conf['last_conf']
-        if not conf:
-            conf = last_conf
+        #if not conf:
+        #    conf = last_conf
     except KeyError:
         if conf:
             host_conf['last_conf'] = conf
@@ -1226,7 +1226,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
 @task
 def clean(service=None, instance=None, group=None, force=False, conf=None):
     '''Clean a given service. If service name is set to "all" then clean all the services according 
-    to the run conf file. If service name is set to "reallyall" then all services on the host are cleaned'''
+    to the conf. If service name is set to "reallyall" then all services on the host are cleaned'''
 
     # all: list services to clean (check run conf first)
     # reallyall: warn and clean all
@@ -1278,7 +1278,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             if is_service_running(service=service_conf['service'], instance=service_conf['instance']) \
               or service_exits_but_not_running(service=service_conf['service'], instance=service_conf['instance']):
                 if not one_in_conf:
-                    print('\nThis action will clean the following services instances according to run conf:')
+                    print('\nThis action will clean the following services instances according to the conf:')
                     one_in_conf =True  
                 print(' - service "{}" ("{}/{}"), instance "{}"'.format(service_conf['service'], PROJECT_NAME, service_conf['service'], service_conf['instance']))
                 services_run_conf.append({'service':service_conf['service'], 'instance':service_conf['instance']})
@@ -1375,12 +1375,17 @@ def ssh(service=None, instance=None):
     # Workaround for bug in OSX
     # See https://github.com/docker/docker/issues/22753
     if running_on_osx():
+        
         # Get container ID
-        info = shell('dockerops info:{},{}'.format(service,instance),capture=True).stdout.split('\n')
-        container_id = info[2].split(' ')[0]
+        console_out = shell('dockerops info:{},{}'.format(service,instance),capture=True)
+        #DEBUG print(console_out)            
+        info = console_out.stdout.split('\n')
+        container_id = info[2].strip().split(' ')[0]
 
         # Get inspect data
-        inspect = json.loads(shell('docker inspect {}'.format(container_id),capture=True).stdout)
+        console_out = shell('docker inspect {}'.format(container_id),capture=True)
+        #DEBUG print(console_out)
+        inspect = json.loads(console_out.stdout)
 
         # Check that we are operating on the right container
         if not inspect[0]['Id'].startswith(container_id):
