@@ -857,7 +857,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
                     service_conf = item
         if not service_conf:
             conf_file = conf if conf else 'default'
-            if not confirm('WARNING: Could not find conf for service {}, instance {} in the "{}" conf. Should I proceed?'.format(service, instance, conf_file)):
+            if not confirm('WARNING: Could not find conf for service {}, instance {} in the conf in use ("{}"). Should I proceed?'.format(service, instance, conf_file)):
                 return
         
         # 2) Handle the instance type.
