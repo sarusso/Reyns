@@ -1401,7 +1401,7 @@ def help():
     shell('fab --list', capture=False)
 
 @task
-def get_ip(service=None, instance=None):
+def getip(service=None, instance=None):
     '''Get a service IP'''
 
     # Sanitize...
