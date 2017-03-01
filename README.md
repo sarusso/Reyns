@@ -9,7 +9,7 @@ Developed by Stefano Alberto Russo with an important contribution from Gianfranc
 
 # Quick start and demo
 
-**Dependencies:** Docker, Fabric (apt-get install fabric). Please note that Fabric requires Python version 2.5 - 2.7.
+**Requirements:** Docker > 1.9.0, Bash, Python 2.7 to 3.6, Fabric (pip install fabric3).
 
 To install, run the following commands:
 
