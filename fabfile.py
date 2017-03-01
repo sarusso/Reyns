@@ -1,6 +1,7 @@
 #--------------------------
 # Imports
 #--------------------------
+from __future__ import print_function
 
 import os
 import inspect
@@ -20,6 +21,7 @@ from fabric.contrib.console import confirm
 from subprocess import Popen, PIPE
 from collections import namedtuple
 from time import sleep
+
 
 #--------------------------
 # Conf
@@ -204,7 +206,6 @@ def get_service_dir(service=None):
         return SERVICES_IMAGES_DIR + '/' + service
 
 
-
 def shell(command, capture=False, verbose=False, interactive=False, silent=False):
     '''Execute a command in the shell. By default prints everything. If the capture switch is set,
     then it returns a namedtuple with stdout, stderr, and exit code.'''
@@ -226,6 +227,10 @@ def shell(command, capture=False, verbose=False, interactive=False, silent=False
     (stdout, stderr) = process.communicate()
     exit_code        = process.wait()
 
+    # Convert to str (Python 3)
+    stdout = stdout.decode(encoding='UTF-8')
+    stderr = stderr.decode(encoding='UTF-8')
+
     # Formatting..
     stdout = stdout[:-1] if (stdout and stdout[-1] == '\n') else stdout
     stderr = stderr[:-1] if (stderr and stderr[-1] == '\n') else stderr
@@ -237,15 +242,15 @@ def shell(command, capture=False, verbose=False, interactive=False, silent=False
         if capture:
             return Output(stdout, stderr, exit_code)
         else:
-            print format_shell_error(stdout, stderr, exit_code)           
+            print(format_shell_error(stdout, stderr, exit_code))      
             return False    
     else:
         if capture:
             return Output(stdout, stderr, exit_code)
         elif not silent:
             # Just print stdout and stderr cleanly
-            print stdout
-            print stderr
+            print(stdout)
+            print(stderr)
             return True
         else:
             return True
@@ -299,7 +304,7 @@ def get_required_env_vars(service):
                     raise ValueError( str(e) + '; error in proximity of: ', json_error_msg_verbose) 
                 except:
                     # Otherwise, just raise...
-                    print 'Error in deconding', json_content
+                    print('Error in deconding {}'.format(json_content))
                     raise e
     except IOError:
         raise IOError('Error when reading conf file {}'.format(required_env_vars_file))
@@ -341,7 +346,7 @@ def get_services_run_conf(conf_file=None):
                     raise ValueError( str(e) + '; error in proximity of: ', json_error_msg_verbose) 
                 except:
                     # Otherwise, just raise...
-                    print 'Error in deconding', json_content
+                    print('Error in deconding {}'.format(json_content))
                     raise e
     except IOError:
         raise IOError('Error when reading conf file {}'.format(conf_file_path))
@@ -457,21 +462,21 @@ def version():
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        print '\nDockerOps v0.6.1'
+        print('\nDockerOps v0.6.2-pre')
     else:
-        print '\nDockerOps v0.6.1'
+        print('\nDockerOps v0.6.2-pre')
         last_commit_info_lines = last_commit_info.split('\n')
         commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
         commit_date      = last_commit_info_lines[-1].replace('  ', '')
-        print 'Current repository commit: ' + commit_shorthash
-        print commit_date
+        print('Current repository commit: {}'.format(commit_shorthash))
+        print(commit_date)
     
         python_version = shell('python -V', capture=True)
         
         if python_version.stdout:
-            print 'Python version: ' + python_version.stdout
+            print('Python version: {}'.format(python_version.stdout))
         if python_version.stderr:
-            print 'Python version: ' + python_version.stderr
+            print('Python version: {}'.format(python_version.stderr))
 
 @task
 def install_demo():
@@ -479,23 +484,23 @@ def install_demo():
     
     INSTALL_DIR = PROJECT_DIR
     
-    print '\nInstalling DockerOps demo in current directory ({})...'.format(INSTALL_DIR)
+    print('\nInstalling DockerOps demo in current directory ({})...'.format(INSTALL_DIR))
     import shutil
 
     try:
         shutil.copytree(os.getcwd()+'/demo', INSTALL_DIR + '/dockerops-demo')
-    except OSError,e:
+    except OSError as e:
         abort('Could not copy demo data into {}: {}'.format(INSTALL_DIR + '/services', e))
         
-    print '\nDemo installed.'
-    print '\nQuickstart: enter into "{}", then:'.format(INSTALL_DIR)
-    print '  - to build it, type "dockerops build:all";'
-    print '  - to run it, type "dockerops run:all";'
-    print '  - to see running services, type "dockerops ps";'
-    print '  - to ssh into the "demo", instance "two" service, type "dockerops ssh:demo,instance=two";'
-    print '    - to ping service "demo", instance "one", type: "ping demo-one";'
-    print '    - to exit ssh type "exit";'
-    print '  - to stop the demo, type "dockerops clean:all".'
+    print('\nDemo installed.')
+    print('\nQuickstart: enter into "{}", then:'.format(INSTALL_DIR))
+    print('  - to build it, type "dockerops build:all";')
+    print('  - to run it, type "dockerops run:all";')
+    print('  - to see running services, type "dockerops ps";')
+    print('  - to ssh into the "demo", instance "two" service, type "dockerops ssh:demo,instance=two";')
+    print('    - to ping service "demo", instance "one", type: "ping demo-one";')
+    print('    - to exit ssh type "exit";')
+    print('  - to stop the demo, type "dockerops clean:all".')
 
 
 #--------------------------
@@ -523,12 +528,6 @@ def init(os_to_init='ubuntu14.04', verbose=False):
         build(service='dockerops-dns-{}'.format(os_to_init), verbose=verbose, nocache=False)
         shell('docker tag dockerops/dockerops-dns-{} dockerops/dockerops-dns'.format(os_to_init))
 
-    # Create default tags for this OS:
-    #print '\nCreating tag dockerops/dockerops-dns to dockerops/dockerops-dns-{}'.format(os_to_init),
-    #shell('docker tag -f dockerops/dockerops-dns dockerops/dockerops-dns-{}'.format(os_to_init))
-    #shell('docker tag -f dockerops/dockerops-base dockerops/dockerops-base-{}'.format(os_to_init))
-    #shell('docker tag -f dockerops/dockerops-common dockerops/dockerops-common-{}'.format(os_to_init))
-    
 
 @task
 def build(service=None, verbose=False, nocache=False):
@@ -547,7 +546,7 @@ def build(service=None, verbose=False, nocache=False):
     if service.upper()=='ALL':
 
         # Build everything then obtain which services we have to build        
-        print '\nBuilding all services in {}'.format(SERVICES_IMAGES_DIR)
+        print('\nBuilding all services in {}'.format(SERVICES_IMAGES_DIR))
 
 
         # Find dependencies recursive function
@@ -632,7 +631,7 @@ def build(service=None, verbose=False, nocache=False):
             tag_prefix = 'dockerops'
 
         # Ok, print the info about the service being built
-        print '\nBuilding service "{}" as "{}/{}"'.format(service, tag_prefix, service)
+        print('\nBuilding service "{}" as "{}/{}"'.format(service, tag_prefix, service))
 
         # Check that only a prestartup script is found:
         prestartup_scripts = [f for f in os.listdir(service_dir) if re.match(r'prestartup_+.*\.sh', f)]
@@ -652,12 +651,12 @@ def build(service=None, verbose=False, nocache=False):
             build_command = 'cd ' + service_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + service + ' ' + service
         
         # Build
-        print 'Building...'
+        print('Building...')
         if verbose:
             shell(build_command, verbose=True)
         else:
             if shell(build_command, verbose=False, capture=False, silent=True):
-                print 'Build OK'
+                print('Build OK')
             else:
                 abort('Something happened')
 
@@ -717,9 +716,9 @@ def run(service=None, instance=None, group=None, instance_type=None,
             host_conf['last_conf'] = conf
             save_host_conf(host_conf)
 
-    print ''
+    print('')
     if not recursive:
-        print 'Conf file being used: "{}"'.format('run.conf' if not conf else conf)
+        print('Conf file being used: "{}"'.format('run.conf' if not conf else conf))
     
     #---------------------------
     # Run a group of services
@@ -727,10 +726,10 @@ def run(service=None, instance=None, group=None, instance_type=None,
     if service == 'all' or group:
         
         if service == 'all':
-            #print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
+            #print('WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.')
             group = 'all'
         
-        print 'Running services in {} for group {}'.format(SERVICES_IMAGES_DIR,group)
+        print('Running services in {} for group {}'.format(SERVICES_IMAGES_DIR,group))
 
         if safemode or interactive:
             abort('Sorry, you cannot set one of the "safemode" or "interactive" switches if you are running more than one service') 
@@ -740,7 +739,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
         # Load run conf             
         try:
             services_to_run_confs = get_services_run_conf(conf)
-        except Exception, e:
+        except Exception as e:
             abort('Got error in reading run conf for automated execution: {}.'.format(e))
 
         if not services_to_run_confs:
@@ -802,7 +801,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     (service, instance) = sanity_checks(service, instance)
 
     # Run a specific service
-    print 'Running service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance)
+    print('Running service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance))
 
     # Check if this service is exited
     if service_exits_but_not_running(service,instance):
@@ -817,7 +816,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
 
     # Check if this service is already running
     if is_service_running(service,instance):
-        print 'Service is already running, not starting.'
+        print('Service is already running, not starting.')
         # Exit
         return    
 
@@ -837,7 +836,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
         # 1) Read the conf if any
         try:
             services_to_run_confs = get_services_run_conf(conf)
-        except Exception, e:
+        except Exception as e:
             abort('Got error in reading run conf for loading service info: {}.'.format(e))        
     
         for item in services_to_run_confs:
@@ -900,7 +899,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
         else:
             instance_type = 'standard'
 
-    print 'Instance type set to "{}"'.format(instance_type)
+    print('Instance type set to "{}"'.format(instance_type))
 
     # Set switches (command line values have always the precedence)
     linked          = setswitch(linked=linked, instance_type=instance_type)
@@ -1007,7 +1006,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
             logger.debug('Found env var %s with value "%s"', requested_ENV_VAR, requested_ENV_VAR_env_value)
             
             if ENV_VARs[requested_ENV_VAR] is not None:
-                print ('WARNING: I am overriding atomaticaly set env var {} (value="{}") and I will use value "{}" as I found it in the env'.format(requested_ENV_VAR, ENV_VARs[requested_ENV_VAR], requested_ENV_VAR_env_value))
+                print('WARNING: I am overriding atomaticaly set env var {} (value="{}") and I will use value "{}" as I found it in the env'.format(requested_ENV_VAR, ENV_VARs[requested_ENV_VAR], requested_ENV_VAR_env_value))
 
             ENV_VARs[requested_ENV_VAR] = requested_ENV_VAR_env_value
 
@@ -1212,14 +1211,14 @@ def run(service=None, instance=None, group=None, instance_type=None,
         run_cmd += ' -d -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)   
         if not shell(run_cmd, silent=True):
             abort('Something failed')
-        print "Done."
+        print('Done.')
    
     # In the end, the sleep..
     if service_conf and 'sleep' in service_conf:
         if not interactive and not from_rerun:
             to_sleep = int(service_conf['sleep'])
             if to_sleep:
-                print "Now sleeping {} seconds to allow service setup...".format(to_sleep)
+                print('Now sleeping {} seconds to allow service setup...'.format(to_sleep))
                 sleep(to_sleep)
  
     
@@ -1234,9 +1233,9 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
     
     if service == 'reallyall':
         
-        print ''
+        print('')
         if confirm('Clean all services? WARNING: this will stop and remove *really all* Docker services running on this host!'):
-            print 'Cleaning all Docker services on the host...'
+            print('Cleaning all Docker services on the host...')
             shell('docker stop $(docker ps -a -q) &> /dev/null', silent=True)
             shell('docker rm $(docker ps -a -q) &> /dev/null', silent=True)
 
@@ -1256,10 +1255,10 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             else:
                 conf = last_conf
                 
-        print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
+        print('\nConf file being used: "{}"'.format('run.conf' if not conf else conf))
 
         if service == 'all':
-            #print 'WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.'
+            #print('WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.')
             group = 'all'        
 
         # Get service list to clean
@@ -1279,9 +1278,9 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             if is_service_running(service=service_conf['service'], instance=service_conf['instance']) \
               or service_exits_but_not_running(service=service_conf['service'], instance=service_conf['instance']):
                 if not one_in_conf:
-                    print ('\nThis action will clean the following services instances according to run conf:')
+                    print('\nThis action will clean the following services instances according to run conf:')
                     one_in_conf =True  
-                print ' - service "{}" ("{}/{}"), instance "{}"'.format(service_conf['service'], PROJECT_NAME, service_conf['service'], service_conf['instance'])
+                print(' - service "{}" ("{}/{}"), instance "{}"'.format(service_conf['service'], PROJECT_NAME, service_conf['service'], service_conf['instance']))
                 services_run_conf.append({'service':service_conf['service'], 'instance':service_conf['instance']})
 
         # Understand if There is more
@@ -1299,28 +1298,28 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
                 more_runnign_services_conf.append({'service':service, 'instance':instance})
                 
         if one_in_conf and more_runnign_services_conf:
-            print '\nMoreover, the following services instances will be clean as well as part of this project:'
+            print('\nMoreover, the following services instances will be clean as well as part of this project:')
         elif more_runnign_services_conf:
-            print '\nThe following services instances will be clean as part of this project:'
+            print('\nThe following services instances will be clean as part of this project:')
         else:
             pass
 
         for service_conf in more_runnign_services_conf:
-            print ' - service "{}" ("{}/{}"), instance "{}"'.format(service_conf['service'], PROJECT_NAME, service_conf['service'], service_conf['instance'])
+            print(' - service "{}" ("{}/{}"), instance "{}"'.format(service_conf['service'], PROJECT_NAME, service_conf['service'], service_conf['instance']))
         
         # Sum the two lists
         services_to_clean_conf = services_run_conf + more_runnign_services_conf
         
         if not services_to_clean_conf:
-            print '\nNothing to clean, exiting..'
+            print('\nNothing to clean, exiting..')
             return
-        print ''
+        print('')
         if force or confirm('Proceed?'):
             for service_conf in services_to_clean_conf:
                 if not service_conf['instance']:
-                    print 'WARNING: I Cannot clean {}, instance='.format(service_conf['service'], service_conf['instance'])
+                    print('WARNING: I Cannot clean {}, instance='.format(service_conf['service'], service_conf['instance']))
                 else:
-                    print 'Cleaning service "{}", instance "{}"..'.format(service_conf['service'], service_conf['instance'])          
+                    print('Cleaning service "{}", instance "{}"..'.format(service_conf['service'], service_conf['instance']))          
                     shell("docker stop "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" &> /dev/null", silent=True)
                     shell("docker rm "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" &> /dev/null", silent=True)
                             
@@ -1340,15 +1339,15 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             else:
                 conf = last_conf
                 
-        print '\nConf file being used: "{}"'.format('run.conf' if not conf else conf)
+        print('\nConf file being used: "{}"'.format('run.conf' if not conf else conf))
 
         # Sanitize (and dynamically obtain instance)...
         (service, instance) = sanity_checks(service,instance)
         
         if not instance:
-            print 'I did not find any running instance to clean, exiting. Please note that if the instance is not running, you have to specify the instance name to let it be clened'
+            print('I did not find any running instance to clean, exiting. Please note that if the instance is not running, you have to specify the instance name to let it be clened')
         else:
-            print 'Cleaning service "{}", instance "{}"..'.format(service,instance)          
+            print('Cleaning service "{}", instance "{}"..'.format(service,instance))   
             shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" &> /dev/null", silent=True)
             shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" &> /dev/null", silent=True)
                             
@@ -1364,7 +1363,7 @@ def ssh(service=None, instance=None):
     
     try:
         IP = get_service_ip(service, instance)
-    except Exception, e:
+    except Exception as e:
         abort('Got error when obtaining IP address for service "{}", instance "{}": "{}"'.format(service,instance, e))
     if not IP:
         abort('Got no IP address for service "{}", instance "{}"'.format(service,instance))
@@ -1412,7 +1411,7 @@ def get_ip(service=None, instance=None):
     running_instances = get_running_services_instances_matching(service)
     # For each instance found print the ip address
     for i in running_instances:
-        print 'IP address for {} {}: {}'.format(i[0], i[1], get_service_ip(i[0], i[1]))
+        print('IP address for {} {}: {}'.format(i[0], i[1], get_service_ip(i[0], i[1])))
 
 # TODO: split in function plus task, allstates goes in the function
 
@@ -1450,7 +1449,7 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
     
     # If error:
     if out.exit_code != 0:
-        print format_shell_error(out.stdout, out.stderr, out.exit_code)
+        print(format_shell_error(out.stdout, out.stderr, out.exit_code))
 
     index=[]
     content=[]
@@ -1509,7 +1508,6 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
                         pass
                     
                     line_content.append(item)
-                    # DEBUGprint count, item
                            
             if len(line_content) == 6:
                 line_content.append(line_content[5])
@@ -1597,7 +1595,7 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
     # Print output
     #-------------------
     if not capture:
-        print ''
+        print('')
         # Prepare 'stats' 
         fields=['CONTAINER ID', 'NAMES', 'IMAGE', 'STATUS']
         max_lenghts = []
@@ -1618,35 +1616,36 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
         cursor=0
         for i, item in enumerate(index):
             if i in positions:
-                print item,
+                print('  {}'.format(item), end=' ')
                 # How many spaces?
                 spaces = max_lenghts[cursor] - len(item)
                 
                 if spaces>0:
                     for _ in range(spaces):
-                        print '',
+                        print(' ', end='')
     
                 cursor+=1
-        print ''
+        print('')
         
         # Print List 
         for entry in content:
             cursor=0
             for i, item in enumerate(entry):
                 if i in positions:
-                    print item,
+                    print('  {}'.format(item), end=' ')
                     # How many spaces?
                     spaces = max_lenghts[cursor] - len(item)
                     
                     if spaces>0:
                         for _ in range(spaces):
-                            print '',
+                            print(' ', end='')
         
                     cursor+=1
-            print ''
+            print('')
     
         # Print output and stderr if any
-        print out.stderr
+        if out.stderr:
+            print(out.stderr)
         
     else:
         return content
