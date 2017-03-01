@@ -96,7 +96,7 @@ As for the building, place yourself at the level of the apps_services directory,
                   published/persistent/master/debug, group=your_service_group_name, persistent_data=True/False,
                   persistent_opt=True/False, persistent_log=True/False, publish_ports=True/False,
                   linked=True/False, seed_command=cusom_seed_command, safemode=True/False,
-                  interactive=True/False, conf=conf_file(default:run.conf)]
+                  interactive=True/False, conf=conf_file(default:default.conf)]
 
 All the above arguments are explained in detail in the following sections. There are also some env variables
 
@@ -110,7 +110,7 @@ When you run a service using DockerOps, there are a few properties already imple
 * `persistent_opt`: if enabled, all the data in /opt inside the serviceis made persistent on the host filesystem (if data is already present, it is preserved).
 * `persistent_log`: if enabled, all the data in /var/log inside the service is made persistent on the host filesystem (if data is already present, it is preserved).
 * `publish_ports`: if set to true, publish the ports on the host according to the EXPOSE instruction in the Dockerfile (note: you can also use the "#UDPEXPOSE" command in the Dockerfile to expose and publish UPD ports).
-* `linked`: linking enabled or not (according to the project's run.conf, see later).
+* `linked`: linking enabled or not (according to the conf file being used, see later).
 * `seed_command`: specify here a custom seed comamnd to execute at the service startup. The default is 'supervisord'.
 * `safemode`: if enabled services prestartup scripts will not be executed. See the "Logging and debugging" section for more info.
 * `interactive`: provides you an interactive shell. See the "Logging and debugging" section for more info.
@@ -242,7 +242,7 @@ DockerOps provides a dynamic DNS service. If enabled, Other services running in 
 updates their records so that you can interconnect services just by using the hostname. This method
 is much more powerful that base Docker linking, as it allows to move a service on another host seamlessly.
 
-To use it in your project, just add it to the `run.conf` file following this example:
+To use it in your project, just add it to the conf file following this example:
 
     [
      {
