@@ -7,8 +7,8 @@ function uninstall_as_root {
 
 
 function uninstall_as_user {
-                   echo 'Uninstalling for user...'
-                   rm  $HOME/bin/dockerops
+                   echo 'Uninstalling for this user...'
+                   rm -f $HOME/bin/dockerops # Older versions
                    rm -rf $HOME/.DockerOps
                 }
 
