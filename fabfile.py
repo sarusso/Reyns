@@ -95,12 +95,12 @@ def get_ip_address(ifname):
     )[20:24])
 
 
-# More verbose json error message
-json_original_errmsg = json.decoder.errmsg
-def json_errmsg_plus_verbose(msg, doc, pos, end=None):
-    json.last_error_verbose = doc[pos-15:pos+15].replace('\n','').replace('  ',' ')
-    return json_original_errmsg(msg, doc, pos, end)
-json.decoder.errmsg = json_errmsg_plus_verbose
+# More verbose json error message [Removed as does not work anymore in Python 3.6]
+#json_original_errmsg = json.decoder.errmsg
+#def json_errmsg_plus_verbose(msg, doc, pos, end=None):
+#    json.last_error_verbose = doc[pos-15:pos+15].replace('\n','').replace('  ',' ')
+#    return json_original_errmsg(msg, doc, pos, end)
+#json.decoder.errmsg = json_errmsg_plus_verbose
 
 
 def sanity_checks(service, instance=None):
