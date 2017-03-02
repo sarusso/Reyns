@@ -466,9 +466,9 @@ def version():
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        print('\nDockerOps v0.7')
+        print('\nDockerOps v0.7.1')
     else:
-        print('\nDockerOps v0.7')
+        print('\nDockerOps v0.7.1')
         last_commit_info_lines = last_commit_info.split('\n')
         commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
         commit_date      = last_commit_info_lines[-1].replace('  ', '')
