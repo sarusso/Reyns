@@ -747,7 +747,13 @@ def run(service=None, instance=None, group=None, instance_type=None,
             abort('Got error in reading run conf for automated execution: {}.'.format(e))
 
         if not services_to_run_confs:
-            abort('No or empty conf file found in {}, are you in the project\'s root?'.format(SERVICES_IMAGES_DIR))
+            
+            # TODO: Move this in a separate routine (duplicate from beginning of get_services_run_conf)
+            conf_file = 'default.conf' if not conf else conf
+            if not conf_file.endswith('.conf'):
+                conf_file = conf_file + '.conf'
+            
+            abort('No or empty conf file (looking for "{}"), are you in the project\'s root?'.format(conf_file))
         
         for service_conf in services_to_run_confs:
             
