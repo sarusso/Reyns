@@ -1116,14 +1116,24 @@ def run(service=None, instance=None, group=None, instance_type=None,
             if line.startswith('EXPOSE'):
                 # Clean up the line
                 line_clean =  line.replace('\n','').replace(' ',',').replace('EXPOSE','')
-                for port in line_clean.split(','):
-                    if port:
-                        try:
-                            # Append while validating
-                            ports.append(int(port))
-                        except ValueError:
-                            abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
+                
+                # DockerOps' "expose as" syntax
+                if '#AS' in line:
+                    internal_port = int(line.split('#')[0].replace('EXPOSE ',''))
+                    external_port = int(line.split('#')[1].replace('AS ','').replace(' ',''))
+                
+                    ports.append([internal_port,external_port])
+                    
+                else:
+                    for port in line_clean.split(','):
+                        if port:
+                            try:
+                                # Append while validating
+                                ports.append(int(port))
+                            except ValueError:
+                                abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
 
+            # DockerOps' syntax for exposing UDP
             if line.startswith('#UDP_EXPOSE'):
                 # Clean up the line
                 line_clean =  line.replace('\n','').replace(' ',',').replace('#UDP_EXPOSE','')
@@ -1145,10 +1155,13 @@ def run(service=None, instance=None, group=None, instance_type=None,
 
         # TCP ports publishing
         for port in ports:
-            
-            internal_port = port
-            external_port = port
-            run_cmd += ' -p {}{}:{}'.format(pubish_on_ip, internal_port, external_port)
+            if isinstance(port, list):
+                internal_port = port[0]
+                external_port = port[1]
+            else: 
+                internal_port = port
+                external_port = port
+            run_cmd += ' -p {}{}:{}'.format(pubish_on_ip, external_port, internal_port)
 
         # UDP ports publishing
         for port in udp_ports:
