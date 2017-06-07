@@ -1113,25 +1113,19 @@ def run(service=None, instance=None, group=None, instance_type=None,
         ports =[]
         udp_ports = []
         for line in content:
+            
+            # Standard EXPOSE
             if line.startswith('EXPOSE'):
                 # Clean up the line
                 line_clean =  line.replace('\n','').replace(' ',',').replace('EXPOSE','')
                 
-                # DockerOps' "expose as" syntax
-                if '#AS' in line:
-                    internal_port = int(line.split('#')[0].replace('EXPOSE ',''))
-                    external_port = int(line.split('#')[1].replace('AS ','').replace(' ',''))
-                
-                    ports.append([internal_port,external_port])
-                    
-                else:
-                    for port in line_clean.split(','):
-                        if port:
-                            try:
-                                # Append while validating
-                                ports.append(int(port))
-                            except ValueError:
-                                abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
+                for port in line_clean.split(','):
+                    if port:
+                        try:
+                            # Append while validating
+                            ports.append(int(port))
+                        except ValueError:
+                            abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
 
             # DockerOps' syntax for exposing UDP
             if line.startswith('#UDP_EXPOSE'):
@@ -1144,6 +1138,18 @@ def run(service=None, instance=None, group=None, instance_type=None,
                             udp_ports.append(int(port))
                         except ValueError:
                             abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
+
+            # DockerOps' syntax for EXPOSE AS
+            if line.startswith('#EXPOSE_AS'):
+                # Clean up the line
+                line_clean =  line.replace('\n','').replace(' ','').replace('#EXPOSE_AS','') 
+                try:
+                    internal_port = int(line_clean.split(',')[0])
+                    external_port = int(line_clean.split(',')[1])
+                    ports.append([internal_port,external_port])  
+                except Exception as e:
+                    abort('Got error on service\'s dockerfile when parsing EXPOSE_AS: "{}"'.format(e))
+                  
 
         # Handle forcing of an IP where to publish the ports
         if 'PUBLISH_ON_IP' in ENV_VARs:
