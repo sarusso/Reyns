@@ -20,7 +20,7 @@ function install_as_user {
                            rm -rf $HOME/.DockerOps
                            cp -a $PWD $HOME/.DockerOps
 
-                           TEST="`cat /Users/ste/.bash_profile | grep \"/.DockerOps/\"`"
+                           TEST="`cat /Users/$USER/.bash_profile | grep \"/.DockerOps/\"`"
                            if [ -z "$TEST" ]; then
                                echo "PATH=\$PATH:$HOME/.DockerOps/" >> $HOME/.bash_profile
                                echo "export PATH" >> $HOME/.bash_profile
