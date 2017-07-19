@@ -9,7 +9,10 @@ import uuid
 import logging
 import json
 import socket
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 import struct
 import platform
 import re
@@ -66,6 +69,19 @@ def running_on_osx():
     else:
         return False
 
+# Are we running on Windows?
+def running_on_windows():
+    if platform.system().upper() == 'WINDOWS':
+        return True
+    else:
+        return False
+
+# Set redirect accordignly
+if running_on_windows():
+    redirect = ''
+else:
+    redirect = "&> /dev/null"
+
 # Load host conf
 def load_host_conf():
     host_conf = {}
@@ -87,12 +103,15 @@ def save_host_conf(host_conf):
 
 # Get IP address of an interface              
 def get_ip_address(ifname):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    return socket.inet_ntoa(fcntl.ioctl(
-        s.fileno(),
-        0x8915,  # SIOCGIFADDR
-        struct.pack('256s', ifname[:15])
-    )[20:24])
+    if fcntl:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', ifname[:15])
+        )[20:24])
+    else:
+        raise Exception('Sorry not supported on this OS')
 
 
 # More verbose json error message [Removed as does not work anymore in Python 3.6]
@@ -433,9 +452,14 @@ def format_shell_error(stdout, stderr, exit_code):
 def get_service_ip(service, instance):
     ''' Get the IP address of a given service'''
     
+
+    inspect_json = json.loads(shell('docker inspect ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout)
+    IP = inspect_json[0]['NetworkSettings']['IPAddress']    
+
+    # The following does not work on WIndows
     # Do not use .format as there are too many graph brackets    
-    IP = shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout
-    
+    #IP = shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout
+
     if IP:
         try:
             socket.inet_aton(IP)
@@ -443,7 +467,6 @@ def get_service_ip(service, instance):
             raise Exception('Error, I could not find a valid IP address for service "{}", instance "{}"'.format(service, instance))
             
     return IP
-
 
 
 #--------------------------
@@ -1345,8 +1368,8 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
                     print('WARNING: I Cannot clean {}, instance='.format(service_conf['service'], service_conf['instance']))
                 else:
                     print('Cleaning service "{}", instance "{}"..'.format(service_conf['service'], service_conf['instance']))          
-                    shell("docker stop "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" &> /dev/null", silent=True)
-                    shell("docker rm "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" &> /dev/null", silent=True)
+                    shell("docker stop "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" " + redirect, silent=True)
+                    shell("docker rm "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" " + redirect, silent=True)
                             
     else:
         
@@ -1373,8 +1396,8 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             print('I did not find any running instance to clean, exiting. Please note that if the instance is not running, you have to specify the instance name to let it be clened')
         else:
             print('Cleaning service "{}", instance "{}"..'.format(service,instance))   
-            shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" &> /dev/null", silent=True)
-            shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" &> /dev/null", silent=True)
+            shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" " + redirect, silent=True)
+            shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" " + redirect, silent=True)
                             
         
     
