@@ -15,18 +15,23 @@ function install_as_root {
 
 function install_as_user {
                            echo ''
-                           echo "Installing for user \"$USER\"..."
+
+                           echo "Installing in \"$HOME\"..."
                            rm -f $HOME/bin/dockerops
                            rm -rf $HOME/.DockerOps
                            cp -a $PWD $HOME/.DockerOps
 
-                           TEST="`cat /Users/$USER/.bash_profile | grep \"/.DockerOps/\"`"
-                           if [ -z "$TEST" ]; then
-                               echo "PATH=\$PATH:$HOME/.DockerOps/" >> $HOME/.bash_profile
-                               echo "export PATH" >> $HOME/.bash_profile
+                           # Ensure .bash_profile exists for this user
+                           if [ ! -f $HOME/.bash_profile ]; then
+                               touch $HOME/.bash_profile
                            fi
 
-                           echo "Done. Open a new (Bash) shell for being able to use DockerOps"
+                           TEST="`cat $HOME/.bash_profile | grep \"/.DockerOps/\"`"
+                           if [ -z "$TEST" ]; then
+                               echo "PATH=\$PATH:$HOME/.DockerOps/ && export PATH #BsKwKOabGH - Added by DockerOps, do not edit!" >> $HOME/.bash_profile
+                           fi
+
+                           echo "Done. Open a new Bash (login) shell for being able to use DockerOps."
                            echo ""
                          }
 

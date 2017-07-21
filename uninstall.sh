@@ -8,8 +8,17 @@ function uninstall_as_root {
 
 function uninstall_as_user {
                    echo 'Uninstalling for this user...'
+
+                   # Remove data files
                    rm -f $HOME/bin/dockerops # Older versions
                    rm -rf $HOME/.DockerOps
+
+                   # Remove from bash_profile
+                   if [ -f $HOME/.bash_profile ]; then
+                       cp $HOME/.bash_profile $HOME/.bash_profile_backedup_by_DockerOps
+                       awk '!/#BsKwKOabGH/' $HOME/.bash_profile > $HOME/.bash_profile
+                   fi
+
                 }
 
                
