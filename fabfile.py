@@ -9,7 +9,10 @@ import uuid
 import logging
 import json
 import socket
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 import struct
 import platform
 import re
@@ -66,6 +69,19 @@ def running_on_osx():
     else:
         return False
 
+# Are we running on Windows?
+def running_on_windows():
+    if platform.system().upper() == 'WINDOWS':
+        return True
+    else:
+        return False
+
+# Set REDIRECT accordignly
+if running_on_windows():
+    REDIRECT = ''
+else:
+    REDIRECT = "&> /dev/null"
+
 # Load host conf
 def load_host_conf():
     host_conf = {}
@@ -95,8 +111,7 @@ def get_ip_address(ifname):
             struct.pack('256s', ifname[:15])
         )[20:24])
     else:
-        raise Exception('Sorry not supported on this OS (not fcntl module)')
-
+        raise Exception('Sorry not supported on this OS (missing fcntl module)') 
 
 
 # More verbose json error message [Removed as does not work anymore in Python 3.6]
@@ -437,9 +452,14 @@ def format_shell_error(stdout, stderr, exit_code):
 def get_service_ip(service, instance):
     ''' Get the IP address of a given service'''
     
+
+    inspect_json = json.loads(shell('docker inspect ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout)
+    IP = inspect_json[0]['NetworkSettings']['IPAddress']    
+
+    # The following does not work on WIndows
     # Do not use .format as there are too many graph brackets    
-    IP = shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout
-    
+    #IP = shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout
+
     if IP:
         try:
             socket.inet_aton(IP)
@@ -447,7 +467,6 @@ def get_service_ip(service, instance):
             raise Exception('Error, I could not find a valid IP address for service "{}", instance "{}"'.format(service, instance))
             
     return IP
-
 
 
 #--------------------------
@@ -1265,8 +1284,8 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
         print('')
         if confirm('Clean all services? WARNING: this will stop and remove *really all* Docker services running on this host!'):
             print('Cleaning all Docker services on the host...')
-            shell('docker stop $(docker ps -a -q) &> /dev/null', silent=True)
-            shell('docker rm $(docker ps -a -q) &> /dev/null', silent=True)
+            shell('docker stop $(docker ps -a -q) ' + REDIRECT, silent=True)
+            shell('docker rm $(docker ps -a -q) ' + REDIRECT, silent=True)
 
     elif service == 'all' or group:
         
@@ -1349,8 +1368,8 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
                     print('WARNING: I Cannot clean {}, instance='.format(service_conf['service'], service_conf['instance']))
                 else:
                     print('Cleaning service "{}", instance "{}"..'.format(service_conf['service'], service_conf['instance']))          
-                    shell("docker stop "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" &> /dev/null", silent=True)
-                    shell("docker rm "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" &> /dev/null", silent=True)
+                    shell("docker stop "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" " + REDIRECT, silent=True)
+                    shell("docker rm "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" " + REDIRECT, silent=True)
                             
     else:
         
@@ -1377,8 +1396,8 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             print('I did not find any running instance to clean, exiting. Please note that if the instance is not running, you have to specify the instance name to let it be clened')
         else:
             print('Cleaning service "{}", instance "{}"..'.format(service,instance))   
-            shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" &> /dev/null", silent=True)
-            shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" &> /dev/null", silent=True)
+            shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
+            shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
                             
         
     
