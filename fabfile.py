@@ -1403,7 +1403,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
     
 
 @task
-def ssh(service=None, instance=None):
+def ssh(service=None, instance=None, command=None):
     '''SSH into a given service'''
     
     # Sanitize...
@@ -1446,7 +1446,16 @@ def ssh(service=None, instance=None):
         shell(command='ssh -p {} -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@127.0.0.1'.format(port), interactive=True)
 
     else:
-        shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@' + IP, interactive=True)
+
+        if command:
+            command = command.replace('+', ' ')
+            out = shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@' + IP + ' -- "{}"'.format(command), capture=True)
+            if out.stderr:
+                print(format_shell_error(out.stdout, out.stderr, out.exit_code))
+            else:
+                print(out.stdout)
+        else:
+            shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@' + IP, interactive=True)
 
 @task
 def help():
