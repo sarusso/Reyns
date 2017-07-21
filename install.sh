@@ -25,7 +25,6 @@ function set_platform_capabilities {
 
 
 function install_as_root {
-                           echo ''
                            echo 'Installing as root...'
                            echo ''
                            sudo rm -f /usr/local/bin/dockerops
@@ -38,8 +37,6 @@ function install_as_root {
 
 
 function install_as_user {
-                           echo ''
-
                            echo "Installing in \"$HOME\"..."
                            rm -f $HOME/bin/dockerops
                            rm -rf $HOME/.DockerOps
@@ -138,7 +135,6 @@ fi
 echo ""
 read -p "Proceed in installing for this user only? [y/n] "  -r
 echo ""
-
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
     install_as_user
