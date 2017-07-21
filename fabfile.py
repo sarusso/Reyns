@@ -87,12 +87,16 @@ def save_host_conf(host_conf):
 
 # Get IP address of an interface              
 def get_ip_address(ifname):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    return socket.inet_ntoa(fcntl.ioctl(
-        s.fileno(),
-        0x8915,  # SIOCGIFADDR
-        struct.pack('256s', ifname[:15])
-    )[20:24])
+    if fcntl:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', ifname[:15])
+        )[20:24])
+    else:
+        raise Exception('Sorry not supported on this OS (not fcntl module)')
+
 
 
 # More verbose json error message [Removed as does not work anymore in Python 3.6]
