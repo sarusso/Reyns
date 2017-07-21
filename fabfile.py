@@ -1405,7 +1405,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
 @task
 def ssh(service=None, instance=None, command=None):
     '''SSH into a given service'''
-    
+
     # Sanitize...
     (service, instance) = sanity_checks(service,instance)
     
@@ -1424,6 +1424,9 @@ def ssh(service=None, instance=None, command=None):
     # See https://github.com/docker/docker/issues/22753
     if running_on_osx():
         
+        if command:
+            abort('Sorry, SSH commands are not yet supported on this OS')
+
         # Get container ID
         console_out = shell('dockerops info:{},{}'.format(service,instance),capture=True)
         #DEBUG print(console_out)            

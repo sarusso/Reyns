@@ -23,7 +23,6 @@ function set_platform_capabilities {
                 
                 }
 
-
 function uninstall_as_root {
                    echo 'Uninstalling as root...'
                    sudo rm -rf /usr/share/DockerOps && sudo rm /usr/local/bin/dockerops
@@ -39,8 +38,8 @@ function uninstall_as_user {
 
                    # Remove from bash_profile
                    if [ -f $HOME/.bash_profile ]; then
-                       cp $HOME/.bash_profile $HOME/.bash_profile_backedup_by_DockerOps
-                       awk '!/#BsKwKOabGH/' $HOME/.bash_profile > $HOME/.bash_profile
+                       mv $HOME/.bash_profile $HOME/.bash_profile_backedup_by_DockerOps
+                       grep -v ".DockerOps/ && export PATH #BsKwKOabGH" $HOME/.bash_profile_backedup_by_DockerOps > $HOME/.bash_profile
                    fi
 
                 }
