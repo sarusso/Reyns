@@ -2,7 +2,7 @@
 set -e
 
 echo ""
-echo "[INFO] Executing DockerOps  entrypoint script..."
+echo "[INFO] Executing Reyns  entrypoint script..."
 
 #---------------------
 #   Persistency

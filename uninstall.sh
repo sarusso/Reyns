@@ -25,7 +25,7 @@ function set_platform_capabilities {
 
 function uninstall_as_root {
                    echo 'Uninstalling as root...'
-                   sudo rm -rf /usr/share/DockerOps && sudo rm /usr/local/bin/dockerops
+                   sudo rm -rf /usr/share/Reyns && sudo rm /usr/local/bin/reyns
                 } 
 
 
@@ -33,13 +33,13 @@ function uninstall_as_user {
                    echo 'Uninstalling for this user...'
 
                    # Remove data files
-                   rm -f $HOME/bin/dockerops # Older versions
-                   rm -rf $HOME/.DockerOps
+                   rm -f $HOME/bin/reyns # Older versions
+                   rm -rf $HOME/.Reyns
 
                    # Remove from bash_profile
                    if [ -f $HOME/.bash_profile ]; then
-                       mv $HOME/.bash_profile $HOME/.bash_profile_backedup_by_DockerOps
-                       grep -v ".DockerOps/ && export PATH #BsKwKOabGH" $HOME/.bash_profile_backedup_by_DockerOps > $HOME/.bash_profile
+                       mv $HOME/.bash_profile $HOME/.bash_profile_backedup_by_Reyns
+                       grep -v ".Reyns/ && export PATH #Ad9vdX8zB3" $HOME/.bash_profile_backedup_by_Reyns > $HOME/.bash_profile
                    fi
 
                 }
@@ -90,7 +90,7 @@ echo ""
 if [ "$ROOT_INSTALL_SUPPORTED" == "False" ]; then
     echo "WARNING: it seems that root install was not possible on this platform."
 else
-    echo "NOTICE: by default, DockerOps is installed in user-space. For root uninstall, use \"./uninstall.sh root\"."
+    echo "NOTICE: by default, Reyns is installed in user-space. For root uninstall, use \"./uninstall.sh root\"."
 fi
 
 echo ""

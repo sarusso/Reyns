@@ -30,7 +30,7 @@ from time import sleep
 # Conf
 #--------------------------
 
-PROJECT_NAME        = os.getenv('PROJECT_NAME', 'dockerops').lower()
+PROJECT_NAME        = os.getenv('PROJECT_NAME', 'reyns').lower()
 PROJECT_DIR         = os.getenv('PROJECT_DIR', os.getcwd())
 DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/data_' + PROJECT_NAME)
 SERVICES_IMAGES_DIR = os.getenv('SERVICES_IMAGES_DIR', os.getcwd() + '/services')
@@ -53,7 +53,7 @@ defaults['debug']      = {'linked':False, 'persistent_data':False, 'persistent_o
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s: %(message)s')
 #logger = logging.getLogger(__name__)
-logger = logging.getLogger('DockerOps')
+logger = logging.getLogger('Reyns')
 logger.setLevel(getattr(logging, LOG_LEVEL))
 
 
@@ -182,7 +182,7 @@ def sanity_checks(service, instance=None):
 
 
 def is_base_service(service):
-    return (service.startswith('dockerops-common-') or service.startswith('dockerops-base-') or service.startswith('dockerops-dns'))
+    return (service.startswith('reyns-common-') or service.startswith('reyns-base-') or service.startswith('reyns-dns'))
 
 
 def get_running_services_instances_matching(service,instance=None):
@@ -475,23 +475,23 @@ def get_service_ip(service, instance):
 
 @task
 def install(how=''):
-    '''Install DockerOps (user/root)'''
+    '''Install Reyns (user/root)'''
     shell(os.getcwd()+'/install.sh {}'.format(how), interactive=True)
 
 @task
 def uninstall(how=''):
-    '''Uninstall DockerOps (user/root)'''
+    '''Uninstall Reyns (user/root)'''
     shell(os.getcwd()+'/uninstall.sh {}'.format(how), interactive=True)
 
 @task
 def version():
-    '''Get DockerOps version'''
+    '''Get Reyns version'''
     
     last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        print('\nDockerOps v0.7.2')
+        print('\nReyns v0.7.2')
     else:
-        print('\nDockerOps v0.7.2')
+        print('\nReyns v0.7.2')
         last_commit_info_lines = last_commit_info.split('\n')
         commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
         commit_date      = last_commit_info_lines[-1].replace('  ', '')
@@ -507,27 +507,27 @@ def version():
 
 @task
 def install_demo():
-    '''install the DockerOps demo in a directory named 'dockerops-demo' in the current path'''
+    '''install the Reyns demo in a directory named 'reyns-demo' in the current path'''
     
     INSTALL_DIR = PROJECT_DIR
     
-    print('\nInstalling DockerOps demo in current directory ({})...'.format(INSTALL_DIR))
+    print('\nInstalling Reyns demo in current directory ({})...'.format(INSTALL_DIR))
     import shutil
 
     try:
-        shutil.copytree(os.getcwd()+'/demo', INSTALL_DIR + '/dockerops-demo')
+        shutil.copytree(os.getcwd()+'/demo', INSTALL_DIR + '/reyns-demo')
     except OSError as e:
         abort('Could not copy demo data into {}: {}'.format(INSTALL_DIR + '/services', e))
         
     print('\nDemo installed.')
     print('\nQuickstart: enter into "{}", then:'.format(INSTALL_DIR))
-    print('  - to build it, type "dockerops build:all";')
-    print('  - to run it, type "dockerops run:all";')
-    print('  - to see running services, type "dockerops ps";')
-    print('  - to ssh into the "demo", instance "two" service, type "dockerops ssh:demo,instance=two";')
+    print('  - to build it, type "reyns build:all";')
+    print('  - to run it, type "reyns run:all";')
+    print('  - to see running services, type "reyns ps";')
+    print('  - to ssh into the "demo", instance "two" service, type "reyns ssh:demo,instance=two";')
     print('    - to ping service "demo", instance "one", type: "ping demo-one";')
     print('    - to exit ssh type "exit";')
-    print('  - to stop the demo, type "dockerops clean:all".')
+    print('  - to stop the demo, type "reyns clean:all".')
 
 
 #--------------------------
@@ -547,13 +547,13 @@ def init(os_to_init='ubuntu14.04', verbose=False):
     verbose     = booleanize(verbose=verbose)
     
     # Build base images
-    build(service='dockerops-common-{}'.format(os_to_init), verbose=verbose, nocache=False)
-    build(service='dockerops-base-{}'.format(os_to_init), verbose=verbose, nocache=False)
+    build(service='reyns-common-{}'.format(os_to_init), verbose=verbose, nocache=False)
+    build(service='reyns-base-{}'.format(os_to_init), verbose=verbose, nocache=False)
 
-    # If DockerOps DNS service does not exist, build and use this one
-    if shell('docker inspect dockerops/dockerops-dns', capture=True).exit_code != 0:
-        build(service='dockerops-dns-{}'.format(os_to_init), verbose=verbose, nocache=False)
-        shell('docker tag dockerops/dockerops-dns-{} dockerops/dockerops-dns'.format(os_to_init))
+    # If Reyns DNS service does not exist, build and use this one
+    if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
+        build(service='reyns-dns-{}'.format(os_to_init), verbose=verbose, nocache=False)
+        shell('docker tag reyns/reyns-dns-{} reyns/reyns-dns'.format(os_to_init))
 
 
 @task
@@ -632,19 +632,19 @@ def build(service=None, verbose=False, nocache=False):
         if not image:
             abort('Missing "FROM" in Dockerfile?!')
 
-        # If dockerops's 'FROM' images does not existe, build them
-        if image.startswith('dockerops/'):
+        # If reyns's 'FROM' images does not existe, build them
+        if image.startswith('reyns/'):
             logger.debug('Checking image "{}"...'.format(image))
             if shell('docker inspect {}'.format(image), capture=True).exit_code != 0:
                 logger.info('Could not find image "{}", now building it...'.format(image))
                 build(service=image.split('/')[1], verbose=verbose, nocache=False)
 
                 # If we built a base and no DNS is yet present, buid it as well
-                if image in ['dockerops/dockerops-base-ubuntu14.04']: #TODO: support 16.04 as well
-                    if shell('docker inspect dockerops/dockerops-dns', capture=True).exit_code != 0:
+                if image in ['reyns/reyns-base-ubuntu14.04']: #TODO: support 16.04 as well
+                    if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
                         logger.info('Building DNS as well...')
-                        build(service='dockerops-dns-ubuntu14.04', verbose=verbose, nocache=False)
-                        shell('docker tag dockerops/dockerops-dns-ubuntu14.04 dockerops/dockerops-dns')
+                        build(service='reyns-dns-ubuntu14.04', verbose=verbose, nocache=False)
+                        shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns')
                     else:
                         logger.debgu('DNS alredy present, not building it...')
             else:
@@ -653,9 +653,9 @@ def build(service=None, verbose=False, nocache=False):
         # Default tag prefix to PROJECT_NAME    
         tag_prefix = PROJECT_NAME
         
-        # But if we are running a DockerOps service, use DockerOps image
+        # But if we are running a Reyns service, use Reyns image
         if is_base_service(service):
-            tag_prefix = 'dockerops'
+            tag_prefix = 'reyns'
 
         # Ok, print the info about the service being built
         print('\nBuilding service "{}" as "{}/{}"'.format(service, tag_prefix, service))
@@ -844,8 +844,8 @@ def run(service=None, instance=None, group=None, instance_type=None,
             shell('fab clean:{},instance=safemode'.format(service), silent=True)
 
         abort('Service "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking ' \
-              'would be end up broken. Use dockerops clean:{0},instance={1} to clean it and start over clean, ' \
-              'or dockerops start:{0},instance={1} if you know what you are doing.'.format(service,instance))
+              'would be end up broken. Use reyns clean:{0},instance={1} to clean it and start over clean, ' \
+              'or reyns start:{0},instance={1} if you know what you are doing.'.format(service,instance))
 
     # Check if this service is already running
     if is_service_running(service,instance):
@@ -1023,8 +1023,8 @@ def run(service=None, instance=None, group=None, instance_type=None,
     if publish_ports and not 'SERVICE_IP' in ENV_VARs:
         if instance_type == 'master':
             abort('SERVICE_IP env var is required when running in master mode')
-        elif service == 'dockerops-dns':
-            abort('SERVICE_IP env var is required when publishing the dockerops-dns service')            
+        elif service == 'reyns-dns':
+            abort('SERVICE_IP env var is required when publishing the reyns-dns service')            
         else:
             logger.warning('You are publishing the service but you have not set the SERVICE_IP env var. This mean that the service(s) might not be completely accessible outside the Docker network.')
 
@@ -1150,7 +1150,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
                         except ValueError:
                             abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
 
-            # DockerOps' syntax for exposing UDP
+            # Reyns' syntax for exposing UDP
             if line.startswith('#UDP_EXPOSE'):
                 # Clean up the line
                 line_clean =  line.replace('\n','').replace(' ',',').replace('#UDP_EXPOSE','')
@@ -1162,7 +1162,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
                         except ValueError:
                             abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
 
-            # DockerOps' syntax for EXPOSE AS
+            # Reyns' syntax for EXPOSE AS
             if line.startswith('#EXPOSE_AS'):
                 # Clean up the line
                 line_clean =  line.replace('\n','').replace(' ','').replace('#EXPOSE_AS','') 
@@ -1246,9 +1246,9 @@ def run(service=None, instance=None, group=None, instance_type=None,
     # Default tag prefix to PROJECT_NAME    
     tag_prefix = PROJECT_NAME
 
-    # But if we are running a DockerOps service, use DockerOps image
+    # But if we are running a Reyns service, use Reyns image
     if is_base_service(service):
-        tag_prefix = 'dockerops'
+        tag_prefix = 'reyns'
 
     if interactive:
         run_cmd += ' -i -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)
@@ -1428,7 +1428,7 @@ def ssh(service=None, instance=None, command=None):
             abort('Sorry, SSH commands are not yet supported on this OS')
 
         # Get container ID
-        console_out = shell('dockerops info:{},{}'.format(service,instance),capture=True)
+        console_out = shell('reyns info:{},{}'.format(service,instance),capture=True)
         #DEBUG print(console_out)            
         info = console_out.stdout.split('\n')
         container_id = info[2].strip().split(' ')[0]
@@ -1440,25 +1440,25 @@ def ssh(service=None, instance=None, command=None):
 
         # Check that we are operating on the right container
         if not inspect[0]['Id'].startswith(container_id):
-            abort('DockerOps intenral error (containers ID do not match)')
+            abort('Reyns intenral error (containers ID do not match)')
 
         # Get host's port for SSH
         port = inspect[0]['NetworkSettings']['Ports']['22/tcp'][0]['HostPort']
 
         # Call SSH on the right (host's) port
-        shell(command='ssh -p {} -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@127.0.0.1'.format(port), interactive=True)
+        shell(command='ssh -p {} -oStrictHostKeyChecking=no -i keys/id_rsa reyns@127.0.0.1'.format(port), interactive=True)
 
     else:
 
         if command:
             command = command.replace('+', ' ')
-            out = shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@' + IP + ' -- "{}"'.format(command), capture=True)
+            out = shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa reyns@' + IP + ' -- "{}"'.format(command), capture=True)
             if out.stderr:
                 print(format_shell_error(out.stdout, out.stderr, out.exit_code))
             else:
                 print(out.stdout)
         else:
-            shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa dockerops@' + IP, interactive=True)
+            shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa reyns@' + IP, interactive=True)
 
 @task
 def help():
@@ -1489,7 +1489,7 @@ def info(service=None, instance=None, capture=False):
 def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False, conf=None):
     '''Info on running services. Give a service name to obtain informations only about that specific service.
     Use the magic words 'all' to list also the not running ones, and 'reallyall' to list also the services not managed by
-    DockerOps (both running and not running)'''
+    Reyns (both running and not running)'''
 
     # TODO: this function has to be COMPLETELY refactored. Please do not look at this code.
     # TODO: return a list of namedtuples instead of a list of lists
@@ -1615,12 +1615,12 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
                         else: 
                             continue
  
-                    # Handle Dockerops services service
+                    # Handle Reyns services service
                     if ('-' in service_name) and (not service == 'reallyall') and (service_name.startswith(PROJECT_NAME+'-')):
                         if known_services_fullnames is not None:
                             # Filter against known_services_fullnames
                             if service_name not in known_services_fullnames:
-                                logger.info('Skipping service "{}" as it is not recognized by DockerOps. Use the "all" magic word to list them'.format(service_name))
+                                logger.info('Skipping service "{}" as it is not recognized by Reyns. Use the "all" magic word to list them'.format(service_name))
                                 continue
                             else:
                                 
@@ -1648,7 +1648,7 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
                             line_content[service_name_position] = service_name
                             content.append(line_content)
                             
-                    # Handle non-Dockerops services 
+                    # Handle non-Reyns services 
                     else:
                         if service=='reallyall': 
                             line_content[service_name_position] = service_name

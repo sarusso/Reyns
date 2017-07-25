@@ -1,4 +1,4 @@
-FROM dockerops/dockerops-common-ubuntu14.04
+FROM reyns/reyns-common-ubuntu14.04
 MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 
 #----------------------------
@@ -15,7 +15,7 @@ RUN chmod 755 /update-dns.sh
 #-----------------------
 # Prestartup
 #-----------------------
-COPY prestartup_dockerops-base.sh /prestartup/
+COPY prestartup_reyns-base.sh /prestartup/
 
 
 

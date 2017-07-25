@@ -5,7 +5,7 @@ if [[ "x$SERVICE" == "xdns" ]] ; then
 fi
 
 if [[ "x$DNS_SERVICE_IP" == "x" ]] ; then
-    echo "WARNING: Empty DNS_SERVICE_IP env var: disabling DockerOps dynamic DNS"
+    echo "WARNING: Empty DNS_SERVICE_IP env var: disabling Reyns dynamic DNS"
     exit 0
 fi
 

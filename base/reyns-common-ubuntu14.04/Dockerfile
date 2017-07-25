@@ -28,31 +28,31 @@ RUN locale-gen en_US en_US.UTF-8
 
 
 #------------------------
-# DockerOps user
+# Reyns user
 #------------------------
 
 # Add group. We chose GID 65527 to try avoiding conflicts.
-RUN groupadd -g 65527 dockerops
+RUN groupadd -g 65527 reyns
 
 # Add user. We chose UID 65527 to try avoiding conflicts.
-RUN useradd dockerops -u 65527 -g 65527 -m -s /bin/bash
+RUN useradd reyns -u 65527 -g 65527 -m -s /bin/bash
 
-# Add dockerops user to sudoers
-RUN adduser dockerops sudo
+# Add reyns user to sudoers
+RUN adduser reyns sudo
 
 # Keys
-RUN mkdir /home/dockerops/.ssh
-COPY keys/authorized_keys /home/dockerops/.ssh/
-COPY keys/id_rsa /home/dockerops/.ssh/
-RUN chmod 0600 /home/dockerops/.ssh/id_rsa
-COPY keys/id_rsa.pub /home/dockerops/.ssh/
-RUN chown -R dockerops:dockerops /home/dockerops/.ssh
+RUN mkdir /home/reyns/.ssh
+COPY keys/authorized_keys /home/reyns/.ssh/
+COPY keys/id_rsa /home/reyns/.ssh/
+RUN chmod 0600 /home/reyns/.ssh/id_rsa
+COPY keys/id_rsa.pub /home/reyns/.ssh/
+RUN chown -R reyns:reyns /home/reyns/.ssh
 
 # No pass sudo (for everyone, actually)
 COPY sudoers /etc/sudoers
 
 # bash_profile for loading correct env (/env.sh created by entrypoint.sh)
-RUN echo "source /env.sh" > /home/dockerops/.bash_profile
+RUN echo "source /env.sh" > /home/reyns/.bash_profile
 
 #------------------------
 # Data, Logs and opt dirs
@@ -60,13 +60,13 @@ RUN echo "source /env.sh" > /home/dockerops/.bash_profile
 
 # Create dirs
 RUN mkdir /data
-RUN mkdir /opt/dockerops
-RUN mkdir /var/log/dockerops 
+RUN mkdir /opt/reyns
+RUN mkdir /var/log/reyns 
 
 # Give right permissions
-RUN chown -R dockerops:dockerops /data
-RUN chown -R dockerops:dockerops /opt/dockerops
-RUN chown -R dockerops:dockerops /var/log/dockerops
+RUN chown -R reyns:reyns /data
+RUN chown -R reyns:reyns /opt/reyns
+RUN chown -R reyns:reyns /var/log/reyns
 
 
 #----------------------

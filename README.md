@@ -1,6 +1,6 @@
 
-DockerOps
-=========
+Reyns
+=====
 
 Simple yet powerful Docker operations orchestrator for managing entire platforms. Allows to speed up both Dev (every developer can run its own instance of the platform) and Ops (what is put in production is deterministically tested before).
 
@@ -15,50 +15,50 @@ Developed by Stefano Alberto Russo with an important contribution from Gianfranc
 
 To install, run the following commands:
 
-	# git clone https://github.com/sarusso/DockerOps.git
-	# cd DockerOps
+	# git clone https://github.com/sarusso/Reyns.git
+	# cd Reyns
 	# ./install.sh (Several minutes needs to fetch Ubuntu base image )
 
 To install and run the demo, run the following commands:
 
-	# mkdir $HOME/Demo-DockerOps
-	# cd $HOME/Demo-DockerOps
-	# dockerops install_demo
+	# mkdir $HOME/Demo-Reyns
+	# cd $HOME/Demo-Reyns
+	# reyns install_demo
 	Demo installed.
-	Quickstart: enter into $HOME/Demo-DockerOps, then:
-	- to build it, type "dockerops build:all"
-	- to run it, type "dockerops run:all"
-	- to see running services, type "dockerops ps"
-	- to ssh into the "demo", instance "two" service, type "dockerops ssh:demo,instance=two"
+	Quickstart: enter into $HOME/Demo-Reyns, then:
+	- to build it, type "reyns build:all"
+	- to run it, type "reyns run:all"
+	- to see running services, type "reyns ps"
+	- to ssh into the "demo", instance "two" service, type "reyns ssh:demo,instance=two"
 	 - to ping service "demo", instance "one", type: "ping demo-one"
 	 - to exit ssh type "exit"
-	- to stop the demo, type "dockerops clean:all"
+	- to stop the demo, type "reyns clean:all"
 
 
 # Documentation
 
 ## Introduction and basics
 
-DockerOps allow you to manage a set of *services* (defined trought Docker images and run as Docker containers) by defining how to build, run and interconnect them in a *project*.
+Reyns allow you to manage a set of *services* (defined trought Docker images and run as Docker containers) by defining how to build, run and interconnect them in a *project*.
 
-DockerOps comes with a base Docker image which you should build all your services, where Supervisor and SSH are installed and configured by default. The default user is named "dockerops" and it has the SSH keys for accessing every other service you create on top of the base image. Please note that in production you may want to change or remove the SSH keys.
+Reyns comes with a base Docker image which you should build all your services, where Supervisor and SSH are installed and configured by default. The default user is named "reyns" and it has the SSH keys for accessing every other service you create on top of the base image. Please note that in production you may want to change or remove the SSH keys.
 
 A project is organized in folders: each service must have its own folder and by default they have to be contained in a top-level folder named "services". Inside the folder of a service, you have to place a Dockerfile wich starts with the line: 
 
-	FROM dockerops/dockerops-base-ubuntu14.04
+	FROM reyns/reyns-base-ubuntu14.04
 	
 ..and with your Dokerfile commands.
 
-The basic usage of DockerOps relies on four very simple commands.
+The basic usage of Reyns relies on four very simple commands.
 
-- First, you have to build your service using `dockerops build:your_service_name`.
-- Then, you can run an instance of it by simply typing `dockerops run:your_service_name`. In this case a the name choosen for the instance is randomly generated.
--  Once the service is started, you can ssh into is using `dockerops ssh:your_service_name`.
--  To turn it off, just use `dockerops clean:your_service_name`.
+- First, you have to build your service using `reyns build:your_service_name`.
+- Then, you can run an instance of it by simply typing `reyns run:your_service_name`. In this case a the name choosen for the instance is randomly generated.
+-  Once the service is started, you can ssh into is using `reyns ssh:your_service_name`.
+-  To turn it off, just use `reyns clean:your_service_name`.
 
 ## Building a service
 
-To build a sevice you also have to actually sun some application in it. To do so the sugested way is to use Supervisord. The following Example is taken from DockerOps' internal DNS:
+To build a sevice you also have to actually sun some application in it. To do so the sugested way is to use Supervisord. The following Example is taken from Reyns' internal DNS:
 
     [program:bind]
     
@@ -85,16 +85,16 @@ To build a sevice you also have to actually sun some application in it. To do so
 
 This approach allows you also to hierarchically extend services. There is also support for executing custom prestartup scripts for each service, hierarchically:
 
-    COPY prestartup_dockerops--dns.sh /prestartup/
+    COPY prestartup_reyns--dns.sh /prestartup/
 
-The DockerOps' entrypoint script will execute every script inside the /prestartup/ directory of the service, and it will execute parent's prestartup scripts first. In the service prestartup scripts you also have full access to all environment variables (read the "Environment variables" section for more details about them). 
+The Reyns' entrypoint script will execute every script inside the /prestartup/ directory of the service, and it will execute parent's prestartup scripts first. In the service prestartup scripts you also have full access to all environment variables (read the "Environment variables" section for more details about them). 
 
 ## Runnign a service
 
 As for the building, place yourself at the level of the apps_services directory, and issue the following command.
 
 
-    dockerops run:your_service_name[,instance=your_instance_name, instance_type=standard
+    reyns run:your_service_name[,instance=your_instance_name, instance_type=standard
                   published/persistent/master/debug, group=your_service_group_name, persistent_data=True/False,
                   persistent_opt=True/False, persistent_log=True/False, publish_ports=True/False,
                   linked=True/False, seed_command=cusom_seed_command, safemode=True/False,
@@ -106,7 +106,7 @@ All the above arguments are explained in detail in the following sections. There
 
 ## Services properties
 
-When you run a service using DockerOps, there are a few properties already implemented to make the life easier. These are:
+When you run a service using Reyns, there are a few properties already implemented to make the life easier. These are:
 
 * `persistent_data`: if enabled, all the data in /data inside the service is made persistent on the host filesystem (if data is already present, it is preserved).
 * `persistent_opt`: if enabled, all the data in /opt inside the serviceis made persistent on the host filesystem (if data is already present, it is preserved).
@@ -119,9 +119,9 @@ When you run a service using DockerOps, there are a few properties already imple
 * `conf`: the run conf file to use.
 
 ## Instances
-DockerOps introduces the concept of *instances* of the same Docker container (or DockerOps service): this is just a naming convention and does not modify in any way how Docker works, but it is an useful logical separation. For example you can have a service running in two instances (i.e. nodeA and nodeB).
+Reyns introduces the concept of *instances* of the same Docker container (or Reyns service): this is just a naming convention and does not modify in any way how Docker works, but it is an useful logical separation. For example you can have a service running in two instances (i.e. nodeA and nodeB).
 
-A DockerOps instance can be of five `instance_type `: **standard**, **published**, **persistent**, **master** and **debug**. The following table summarize the default propertied for the instances types, but no one prevents you from specifying custom settings (command line arguments have the highest possible priority in DockerOps)
+A Reyns instance can be of five `instance_type `: **standard**, **published**, **persistent**, **master** and **debug**. The following table summarize the default propertied for the instances types, but no one prevents you from specifying custom settings (command line arguments have the highest possible priority in Reyns)
 
 | Instance name | Intance type| linked | publish ports | persistent data | persisten opt | persistent log | interactive | prestartup executed| 
 |---------------|-------------|:------:|:-------------:|:---------------:|:-------------:|:--------------:|:-----------:|:------------------:|
@@ -132,25 +132,25 @@ A DockerOps instance can be of five `instance_type `: **standard**, **published*
 | debug         | debug       | NO     | NO            | NO              | NO            | NO             | YES         | NO                 |
 
 
-*the linking in an instance of type **master** without using the DNS service (dockerops-dns) requires a proper setting of the envvironment 
+*the linking in an instance of type **master** without using the DNS service (reyns-dns) requires a proper setting of the envvironment 
 varibales (as explained in the dedicated section "Linking")
 
 *Note:* basically, a master instance is a instance of both types published and persistent.
 
 Examples for running a standard instance:
 
-    dockerops run:postgres,instance=one
-    dockerops run:postgres,instance=master,instance_type=standard
+    reyns run:postgres,instance=one
+    reyns run:postgres,instance=master,instance_type=standard
 
 Examples for running a published instance:
 
-    dockerops run:postgres,instance=published
-    dockerops run:postgres,instance=one,instance_type=published
+    reyns run:postgres,instance=published
+    reyns run:postgres,instance=one,instance_type=published
 
 Examples for runnign a master instance:
 
-    dockerops run:postgres,instance=master
-    dockerops run:postgres,instance=one,instance_type=master
+    reyns run:postgres,instance=master
+    reyns run:postgres,instance=one,instance_type=master
     
 
 There are also two particular ways of running instances of a given type: *interactive* and in *safe mode*.
@@ -161,7 +161,7 @@ You may also want to siable linking my specifing **linked=False** depending on t
 
 Example:
 
-    dockerops run:postgres,instance=one,safemode=True,interactive=True,linked=False
+    reyns run:postgres,instance=one,safemode=True,interactive=True,linked=False
 
 
 ## Taking control of the services
@@ -194,7 +194,7 @@ The service has full visibiliy on a fixed set of environment varibales, which ar
 **HOST_HOSTNAME**: Host's hostname.
 
 
-*Note:* If a variable starts with "from_", then DockerOps will set the value using the IP of the network interface coming after. In example, "from_eth0" will take the value of the IP address of the host's eth0 network interface.
+*Note:* If a variable starts with "from_", then Reyns will set the value using the IP of the network interface coming after. In example, "from_eth0" will take the value of the IP address of the host's eth0 network interface.
 
 ### Prestartup scripts
 Coming soon...
@@ -207,7 +207,7 @@ Coming soon...
 Coming soon...
 
 ### Linking
-DockerOps supports (and extends) standard style Docker's linking system, but only at project-level trought the run conf setings. Links have to be defined in the run conf file, and can be extended or simple. An extended link works as follows:
+Reyns supports (and extends) standard style Docker's linking system, but only at project-level trought the run conf setings. Links have to be defined in the run conf file, and can be extended or simple. An extended link works as follows:
 
     "links": [
                {
@@ -217,30 +217,30 @@ DockerOps supports (and extends) standard style Docker's linking system, but onl
                 }
               ]
 
-If this method is used, DockerOps set up a link with the linked service by providing an environment  variable named MYAPP_SERVICE_IP in the service linking the MYAPP service.
+If this method is used, Reyns set up a link with the linked service by providing an environment  variable named MYAPP_SERVICE_IP in the service linking the MYAPP service.
 
 The above fields should be self-explanatory. The 'null' value in the instance means "Find any running instance of the service 'myapp_service'" and link against it. If more than one instances are found, the link against the first one and issue a warning. You can of course set a name in the instance filed, as 'master', 'one', or 'myinstance1'.
 
 You can also set up quick and simple links by using the following syntax (with wildcards support):
 
-    "links": ["dockerops-dns-master:dns"],
+    "links": ["reyns-dns-master:dns"],
 
 which correspond to the following syntax:
 
     "links": [
                {
                  "name": "dns",
-                 "service": "dockerops-dns",
+                 "service": "reyns-dns",
                  "instance": "master"
                }
              ]
 
-The suggested way to link services is, anyway, to use DockerOps' Dynamic DNS (see section "DockerOps Dynamic DNS"). See the relevant sections for more informations about how to use the service. The pro of this approach is that you you can shut down and up any service independently and avoid to end up with a broken linking. 
+The suggested way to link services is, anyway, to use Reyns' Dynamic DNS (see section "Reyns Dynamic DNS"). See the relevant sections for more informations about how to use the service. The pro of this approach is that you you can shut down and up any service independently and avoid to end up with a broken linking. 
 
 
-## DockerOps' Dynamic DNS 
+## Reyns' Dynamic DNS 
 
-DockerOps provides a dynamic DNS service. If enabled, Other services running in the same project
+Reyns provides a dynamic DNS service. If enabled, Other services running in the same project
 updates their records so that you can interconnect services just by using the hostname. This method
 is much more powerful that base Docker linking, as it allows to move a service on another host seamlessly.
 
@@ -248,20 +248,20 @@ To use it in your project, just add it to the conf file following this example:
 
     [
      {
-      "service": "dockerops-dns",
+      "service": "reyns-dns",
       "instance": "master",
       "sleep": 0,
       "links": [],
       "env_vars": {"SERVICE_IP":"from_eth0" }
       },
      {
-      "service": "dockerops-base",
+      "service": "reyns-base",
       "instance": "one",
       "sleep": 0,
-      "links": ["dockerops-dns-master:dns"],
+      "links": ["reyns-dns-master:dns"],
       },
      {
-      "service": "dockerops-base",
+      "service": "reyns-base",
       "instance": "two",
       "sleep": 0,
       "links": [],
@@ -274,14 +274,14 @@ To use it in your project, just add it to the conf file following this example:
       "links": [
                  {
                    "name": "BASE",
-                   "service": "dockerops-base",
+                   "service": "reyns-base",
                    "instance": null
                   }
                 ]
       }
      ]
 
-You can see this example in action by just typing 'dockerops install_demo' and following the quickstart.
+You can see this example in action by just typing 'reyns install_demo' and following the quickstart.
 
 After this, you should be able to contact the DNS service and ask it your local zone members (e.g. via `host dns.local.zone.`).
 
@@ -311,32 +311,32 @@ Thanks to Gianfranco Gallizia and eXact Lab (http://www.exact-lab.it/) for this 
 
 To enable the debug mode, just set the "LOG_LEVEL" env var to "DEBUG". for example:
 
-    LOG_LEVEL=DEBUG dockerops run:postgres,instance=master
+    LOG_LEVEL=DEBUG reyns run:postgres,instance=master
     
 If you insance does not run as expect when starting (and since it does not start you cannot ssh in it) you can try few things:
 
 First of all, you can try to run in in an interactive way:
     
-    dockerops run:postgres,instance=master,interactive=True
+    reyns run:postgres,instance=master,interactive=True
 
 This will run the services prestartup scripts and and give you a shell. You can then type 'supervisord' to start the service as normal (but still interactivey).
 
-If you have errors in the execution of the prestartup scripts for some services, you can use the safemode, which just runs  DockerOps's prestartup (that should never fail) and not the service prestarup scripts
+If you have errors in the execution of the prestartup scripts for some services, you can use the safemode, which just runs  Reyns's prestartup (that should never fail) and not the service prestarup scripts
 
-    dockerops run:postgres,instance=master,safemode=True
+    reyns run:postgres,instance=master,safemode=True
         
 
 You can also combine the two, which is probably the most useful approach:
 
-    dockerops run:postgres,instance=master,interactive=True,safemode=True
+    reyns run:postgres,instance=master,interactive=True,safemode=True
 
 ..and you can execute the prestartup scrpts in the interactive mode just by typing /prestartup.sh.        
 
 Note: Sometimes you can get an error similar to "mv: inter-device move failed error". In this case, and in partiucular if you are running with persistent data enabled,  you can try to temporary rename the data dir to understand why the error arise.
 
 # Licensing
-DockerOps is licensed under the Apache License, Version 2.0. See
-[LICENSE](https://raw.githubusercontent.com/sarusso/DockerOps/master/LICENSE) for the full
+Reyns is licensed under the Apache License, Version 2.0. See
+[LICENSE](https://raw.githubusercontent.com/sarusso/Reyns/master/LICENSE) for the full
 license text.
 
 

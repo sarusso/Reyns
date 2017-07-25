@@ -27,10 +27,10 @@ function set_platform_capabilities {
 function install_as_root {
                            echo 'Installing as root...'
                            echo ''
-                           sudo rm -f /usr/local/bin/dockerops
-                           sudo rm -rf /usr/share/DockerOps
-                           sudo cp -a $PWD /usr/share/DockerOps
-                           sudo ln -s /usr/share/DockerOps/dockerops /usr/local/bin/dockerops
+                           sudo rm -f /usr/local/bin/reyns
+                           sudo rm -rf /usr/share/Reyns
+                           sudo cp -a $PWD /usr/share/Reyns
+                           sudo ln -s /usr/share/Reyns/reyns /usr/local/bin/reyns
                            echo 'Done.'
                            echo ""
                          }
@@ -38,21 +38,21 @@ function install_as_root {
 
 function install_as_user {
                            echo "Installing in \"$HOME\"..."
-                           rm -f $HOME/bin/dockerops
-                           rm -rf $HOME/.DockerOps
-                           cp -a $PWD $HOME/.DockerOps
+                           rm -f $HOME/bin/reyns
+                           rm -rf $HOME/.Reyns
+                           cp -a $PWD $HOME/.Reyns
 
                            # Ensure .bash_profile exists for this user
                            if [ ! -f $HOME/.bash_profile ]; then
                                touch $HOME/.bash_profile
                            fi
 
-                           TEST="`cat $HOME/.bash_profile | grep \"/.DockerOps/\"`"
+                           TEST="`cat $HOME/.bash_profile | grep \"/.Reyns/\"`"
                            if [ -z "$TEST" ]; then
-                               echo "PATH=\$PATH:$HOME/.DockerOps/ && export PATH #BsKwKOabGH - Added by DockerOps, do not edit!" >> $HOME/.bash_profile
+                               echo "PATH=\$PATH:$HOME/.Reyns/ && export PATH #Ad9vdX8zB3 - Added by Reyns, do not edit!" >> $HOME/.bash_profile
                            fi
 
-                           echo "Done. Open a new Bash (login) shell for being able to use DockerOps."
+                           echo "Done. Open a new Bash (login) shell for being able to use Reyns."
                            echo ""
                          }
 
@@ -128,7 +128,7 @@ echo ""
 if [ "$ROOT_INSTALL_SUPPORTED" == "False" ]; then
     echo "WARNING: it seems that root install is not possible on this platform."
 else
-    echo "NOTICE: by default, DockerOps is installed in user-space. For root install, use \"./install.sh root\"."
+    echo "NOTICE: by default, Reyns is installed in user-space. For root install, use \"./install.sh root\"."
 fi
 
 

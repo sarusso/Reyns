@@ -1,4 +1,4 @@
-FROM dockerops/dockerops-base-ubuntu14.04
+FROM reyns/reyns-base-ubuntu14.04
 MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 
 #----------------------
@@ -9,7 +9,7 @@ MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 #RUN apt-get install -y somepackage
 
 # Prestartup
-COPY prestartup_dockerops-demo.sh /prestartup/
+COPY prestartup_reyns-demo.sh /prestartup/
 
 
 
