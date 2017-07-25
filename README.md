@@ -2,22 +2,20 @@
 Reyns
 =====
 
-Simple yet powerful Docker operations orchestrator for managing entire platforms. Allows to speed up both Dev (every developer can run its own instance of the platform) and Ops (what is put in production is deterministically tested before).
+Simple yet powerful local (micro) services orchestrator capable of managing entire platforms. Allows to speed up both Dev (every developer can run its own instance of the platform) and Ops (what is put in production is deterministically tested before).
 
 Developed by Stefano Alberto Russo with an important contribution from Gianfranco Gallizia. Thanks also to Enerlife (http://www.enerlife.it) and eXact Lab (http://www.exact-lab.it) for allowing this project to be open source.
 
 
 # Quick start and demo
 
-**Requirements:** Docker > 1.9.0, Bash, Python 2.7 to 3.6, Fabric*
-
-**Either Fabric for Python 2 ("pip install fabric") or Fabric3 for Python 2&3 ("pip install fabric3"). Please note that Fabric3 might be less friendly with dependencies.*
+**Requirements:** Docker > 1.9.0, Bash, Python 2.7 to 3.6.
 
 To install, run the following commands:
 
 	# git clone https://github.com/sarusso/Reyns.git
 	# cd Reyns
-	# ./install.sh (Several minutes needs to fetch Ubuntu base image )
+	# ./install.sh
 
 To install and run the demo, run the following commands:
 

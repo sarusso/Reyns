@@ -19,10 +19,6 @@ import re
 
 import subprocess
 
-from fabric.utils import abort
-from fabric.operations import local
-from fabric.api import task
-from fabric.contrib.console import confirm
 from subprocess import Popen, PIPE
 from collections import namedtuple
 from time import sleep
@@ -64,6 +60,23 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 #--------------------------
 # Utility functions & vars
 #--------------------------
+
+# Abort
+def abort(message):
+    print('\nAborting due to fatal error: {}. \n'.format(message))
+    sys.exit(1)
+
+# Confirm
+def confirm(message):
+    while True:
+        print('{}  [Y/n] '.format(message), end='')
+        confirm = raw_input().lower()
+        if confirm in ('y', ''):
+            return True
+        elif confirm == 'n':
+            return False
+        else:
+            print('I didn\'t understand you. Please specify "(y)es" or "(n)o".')
 
 # Are we running on OSX?
 def running_on_osx():
@@ -477,17 +490,17 @@ def get_service_ip(service, instance):
 # Installation management
 #--------------------------
 
-@task
+#task
 def install(how=''):
     '''Install Reyns (user/root)'''
     shell(os.getcwd()+'/install.sh {}'.format(how), interactive=True)
 
-@task
+#task
 def uninstall(how=''):
     '''Uninstall Reyns (user/root)'''
     shell(os.getcwd()+'/uninstall.sh {}'.format(how), interactive=True)
 
-@task
+#task
 def version():
     '''Get Reyns version'''
     
@@ -509,7 +522,7 @@ def version():
         if python_version.stderr:
             print('Python version: {}'.format(python_version.stderr))
 
-@task
+#task
 def install_demo():
     '''install the Reyns demo in a directory named 'reyns-demo' in the current path'''
     
@@ -538,7 +551,7 @@ def install_demo():
 # Services management
 #--------------------------
 
-@task
+#task
 def init(os_to_init='ubuntu14.04', verbose=False):
     '''Initialize the base services'''
     
@@ -560,7 +573,7 @@ def init(os_to_init='ubuntu14.04', verbose=False):
         shell('docker tag reyns/reyns-dns-{} reyns/reyns-dns'.format(os_to_init))
 
 
-@task
+#task
 def build(service=None, verbose=False, nocache=False):
     '''Build a given service. If service name is set to "all" then builds all the services'''
 
@@ -645,9 +658,9 @@ def build(service=None, verbose=False, nocache=False):
 
                 # If we built a base and no DNS is yet present, buid it as well
                 if image in ['reyns/reyns-base-ubuntu14.04']: #TODO: support 16.04 as well
-                    if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
+                    if shell('docker inspect reyns/reyns-dns', capture=False).exit_code != 0:
                         logger.info('Building DNS as well...')
-                        build(service='reyns-dns-ubuntu14.04', verbose=verbose, nocache=False)
+                        build(service='reyns-dns-ubuntu14.04', verbose=verbose, nocache=True)
                         shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns')
                     else:
                         logger.debgu('DNS alredy present, not building it...')
@@ -693,7 +706,7 @@ def build(service=None, verbose=False, nocache=False):
 
 
 
-@task
+#task
 def start(service,instance):
     '''Start a stopped service. Use only if you know what you are doing.''' 
     if service_exits_but_not_running(service,instance):
@@ -701,7 +714,7 @@ def start(service,instance):
     else:
         abort('Cannot start a service not in exited state. use "run" instead')
 
-@task
+#task
 def rerun(service, instance=None):
     '''Re-run a given service (instance is not mandatory if only one is running)'''
     running_instances = get_running_services_instances_matching(service)
@@ -716,8 +729,9 @@ def rerun(service, instance=None):
     clean(service,instance)
     run(service,instance,from_rerun=True)
 
-@task
+
 # TODO: clarify difference between False and None.
+#task
 def run(service=None, instance=None, group=None, instance_type=None,
         persistent_data=None, persistent_opt=None, persistent_log=None,
         publish_ports=None, linked=None, seed_command=None, conf=None,
@@ -845,7 +859,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
 
         if interactive:
             # Only for instances run in interactive mode we take the right of cleaning
-            shell('fab clean:{},instance=safemode'.format(service), silent=True)
+            shell('reyns clean:{},instance=safemode'.format(service), silent=True)
 
         abort('Service "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking ' \
               'would be end up broken. Use reyns clean:{0},instance={1} to clean it and start over clean, ' \
@@ -1257,7 +1271,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     if interactive:
         run_cmd += ' -i -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)
         shell(run_cmd,interactive=True)
-        shell('fab clean:service={},instance={}'.format(service,instance), silent=True)
+        shell('reyns clean:service={},instance={}'.format(service,instance), silent=True)
         
     else:
         run_cmd += ' -d -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)   
@@ -1275,7 +1289,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
  
     
     
-@task
+#task
 def clean(service=None, instance=None, group=None, force=False, conf=None):
     '''Clean a given service. If service name is set to "all" then clean all the services according 
     to the conf. If service name is set to "reallyall" then all services on the host are cleaned'''
@@ -1406,7 +1420,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
         
     
 
-@task
+#task
 def ssh(service=None, instance=None, command=None):
     '''SSH into a given service'''
 
@@ -1424,12 +1438,16 @@ def ssh(service=None, instance=None, command=None):
     if not shell('ls -l keys/id_rsa',capture=True).stdout.endswith('------'):
         shell('chmod 600 keys/id_rsa', silent=True)
 
+    # Sanitize commnand
+    if command:
+        command = command.replace('+', ' ')
+
+    # Set default port
+    port = 22
+
     # Workaround for bug in OSX
     # See https://github.com/docker/docker/issues/22753
     if running_on_osx():
-        
-        if command:
-            abort('Sorry, SSH commands are not yet supported on this OS')
 
         # Get container ID
         console_out = shell('reyns info:{},{}'.format(service,instance),capture=True)
@@ -1444,32 +1462,31 @@ def ssh(service=None, instance=None, command=None):
 
         # Check that we are operating on the right container
         if not inspect[0]['Id'].startswith(container_id):
-            abort('Reyns intenral error (containers ID do not match)')
+            abort('Reyns internal error (containers ID do not match)')
 
-        # Get host's port for SSH
+        # Get host's port for SSH forwarding
         port = inspect[0]['NetworkSettings']['Ports']['22/tcp'][0]['HostPort']
 
-        # Call SSH on the right (host's) port
-        shell(command='ssh -p {} -oStrictHostKeyChecking=no -i keys/id_rsa reyns@127.0.0.1'.format(port), interactive=True)
+        # Set IP to localhost
+        IP = '127.0.0.1'
 
-    else:
-
-        if command:
-            command = command.replace('+', ' ')
-            out = shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa reyns@' + IP + ' -- "{}"'.format(command), capture=True)
-            if out.stderr:
-                print(format_shell_error(out.stdout, out.stderr, out.exit_code))
-            else:
-                print(out.stdout)
+    # RUN command over SSH or SSH session
+    if command:
+        out = shell(command='ssh -p {} -oStrictHostKeyChecking=no -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
+        if out.stderr:
+            print(format_shell_error(out.stdout, out.stderr, out.exit_code))
         else:
-            shell(command='ssh -oStrictHostKeyChecking=no -i keys/id_rsa reyns@' + IP, interactive=True)
+            print(out.stdout)
+    else:
+        shell(command='ssh -p {} -oStrictHostKeyChecking=no -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True)
 
-@task
-def help():
-    '''Show this help'''
-    shell('fab --list', capture=False)
+#task
+# Deprecated, included in the tasks handling in the main
+#def help():
+#    '''Show this help'''
+#    shell('fab --list', capture=False)
 
-@task
+#task
 def getip(service=None, instance=None):
     '''Get a service IP'''
 
@@ -1484,12 +1501,12 @@ def getip(service=None, instance=None):
 
 # TODO: split in function plus task, allstates goes in the function
 
-@task
+#task
 def info(service=None, instance=None, capture=False):
     '''Obtain info about a given service'''
     return ps(service=service, instance=instance, capture=capture, info=True)
 
-@task
+#task
 def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False, conf=None):
     '''Info on running services. Give a service name to obtain informations only about that specific service.
     Use the magic words 'all' to list also the not running ones, and 'reallyall' to list also the services not managed by
@@ -1745,20 +1762,26 @@ if __name__ == '__main__':
     else:
         raise InputException('Wrong command line arguments format')
 
-    # Sampel sys.argv[1]:
-    #ssh:django,one,command=demo command &>/dev/null,verbose=True
-    
+    # Parse single task or task with args
+
     if ':' in args:
         task, args = sys.argv[1].split(':')
     else:
         task = sys.argv[1]
         args = None
-
+        
+    # Sample sys.argv[1]: ssh:django,one,command=demo command &>/dev/null,verbose=True
+        
+    # Note: the Bash script which inovokes this Python script ensures that
+    # there will never be an empty task, as not having arguments on command line 
+    # lead to defaulting to the "help" task. TODO: this is not robust, improve it. 
 
     argv   = []
     kwargs = {}
 
-    print('args', args)
+    # DEBUG
+    # print('taks', task)
+    # print('args', args)
 
     # Comma is the only forbidden char in SSH commands (for now)
     if args:
@@ -1767,10 +1790,7 @@ if __name__ == '__main__':
         else:
             parts = [args] 
         
-        print ('parts', parts)
-        
         # Create argv and kwargs 
-
         for i, part in enumerate(parts):
             
             if '=' in part:
@@ -1784,25 +1804,39 @@ if __name__ == '__main__':
                 val = part
                 argv.append(val)
     
-    print('argv', argv)
-    print('kwargs', kwargs)
+    # DEBUG
+    # print('argv', argv)
+    # print('kwargs', kwargs)
     
     # Load proper task
-    tasks = {'ssh': ssh,
-             'run': run,
-             'ps':ps}
+    from collections import OrderedDict
+    tasks = OrderedDict()
+    tasks['build']     = [build, '    Build services' ]
+    tasks['run']       = [run, '      Run a given service(s)'] 
+    tasks['rerun']     = [rerun, '    Re-run a given service(s)'] 
+    tasks['ps']        = [ps, '       List running services' ]    
+    tasks['ssh']       = [ssh, '      SSH into a given service']
+    tasks['clean']     = [clean, '    Clean a given service']
+    tasks['getip']     = [getip, '    Get the IP address of a given service']
+    tasks['info']      = [info, '     Obtain info about a given service']    
+    tasks['help']      = [help, '     Print this help']  
+    tasks['uninstall'] = [uninstall, 'Uninstall Reyns' ]
+
+    if (task == 'help') or (not task and not argv and not kwargs):
+        print('\n Available commands:\n')
+        for task in tasks:
+            print('  {}   {}'.format(task, tasks[task][1]))
+    else:
+        try:
+            tasks[task][0](*argv, **kwargs)
+        except KeyError:
+            print('\nUnkwnown command. Type "reyns help" for a list of available commands.')
+    print('')
     
-    tasks[task](*argv, **kwargs)
-    
 
 
-
-
-
-
-
-
-
+# TODO: # If reyns's 'FROM' images does not existe, build them -> change nocache to True
+# TODO: # Do we have to save the value for using it the next time? -> move to confirm()
 
 
 
