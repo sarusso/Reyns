@@ -17,6 +17,8 @@ import struct
 import platform
 import re
 
+import subprocess
+
 from fabric.utils import abort
 from fabric.operations import local
 from fabric.api import task
@@ -24,6 +26,7 @@ from fabric.contrib.console import confirm
 from subprocess import Popen, PIPE
 from collections import namedtuple
 from time import sleep
+
 
 
 #--------------------------
@@ -232,10 +235,11 @@ def shell(command, capture=False, verbose=False, interactive=False, silent=False
     if capture and verbose:
         raise Exception('You cannot ask at the same time for capture and verbose, sorry')
     
-    # If verbose or interactive requested, just use fab's local
     if verbose or interactive:
-        return local(command)
-    
+        subprocess.call(command, shell=True)
+        return
+        #return local(command)
+
     # Log command
     logger.debug('Shell executing command: "%s"', command)
     
@@ -1252,7 +1256,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
 
     if interactive:
         run_cmd += ' -i -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)
-        local(run_cmd)
+        shell(run_cmd,interactive=True)
         shell('fab clean:service={},instance={}'.format(service,instance), silent=True)
         
     else:
@@ -1714,6 +1718,82 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
         
     else:
         return content
+
+
+
+
+
+
+#--------------------
+#   M A I N
+#--------------------
+
+class InputException(Exception):
+    pass
+
+
+
+if __name__ == '__main__':
+    import sys
+    
+    if len(sys.argv) == 1:
+        help()
+        
+    elif len(sys.argv) == 2:
+        args = sys.argv[1]
+        
+    else:
+        raise InputException('Wrong command line arguments format')
+
+    # Sampel sys.argv[1]:
+    #ssh:django,one,command=demo command &>/dev/null,verbose=True
+    
+    if ':' in args:
+        task, args = sys.argv[1].split(':')
+    else:
+        task = sys.argv[1]
+        args = None
+
+
+    argv   = []
+    kwargs = {}
+
+    print('args', args)
+
+    # Comma is the only forbidden char in SSH commands (for now)
+    if args:
+        if ',' in args:
+            parts = args.split(',')
+        else:
+            parts = [args] 
+        
+        print ('parts', parts)
+        
+        # Create argv and kwargs 
+
+        for i, part in enumerate(parts):
+            
+            if '=' in part:
+                arg = part.split('=')[0]
+                val = '='.join(part.split('=')[1:])
+                kwargs[arg] = val
+            else:
+                if kwargs:
+                    raise InputException('non-kwarg after kwarg')
+                arg = i
+                val = part
+                argv.append(val)
+    
+    print('argv', argv)
+    print('kwargs', kwargs)
+    
+    # Load proper task
+    tasks = {'ssh': ssh,
+             'run': run,
+             'ps':ps}
+    
+    tasks[task](*argv, **kwargs)
+    
 
 
 

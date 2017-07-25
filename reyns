@@ -47,10 +47,10 @@ cd $_base
 
 # Execute
 if [[ $# -eq 0 ]] ; then
-    fab help
+    python reyns.py help
 elif [[ "x$1" == "x--version" ]] ; then
-    fab version
+    python reyns.py version
 else
-    fab $@
+    python reyns.py $@
 fi
 
