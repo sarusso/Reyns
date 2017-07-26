@@ -24,6 +24,24 @@ from collections import namedtuple
 from time import sleep
 
 
+#--------------------------
+# Platform detection
+#--------------------------
+
+# Are we running on OSX?
+def running_on_osx():
+    if platform.system().upper() == 'DARWIN':
+        return True
+    else:
+        return False
+
+# Are we running on Windows?
+def running_on_windows():
+    if platform.system().upper() == 'WINDOWS':
+        return True
+    else:
+        return False
+
 
 #--------------------------
 # Conf
@@ -36,6 +54,17 @@ SERVICES_IMAGES_DIR = os.getenv('SERVICES_IMAGES_DIR', os.getcwd() + '/services'
 BASE_IMAGES_DIR     = os.getenv('BASE_IMAGES_DIR', os.getcwd() + '/base')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
 SUPPORTED_OSES      = ['ubuntu14.04']
+REDIRECT            = '&> /dev/null'
+
+# Platform-specific conf tricks
+if running_on_windows():
+    
+    # Don't use redirect as there is no Bash when calling external shell calls
+    REDIRECT = ''
+
+    # Remove c:/ and similar in data dir and replace with Unix-like /c/
+    if len(DATA_DIR) >= 3 and DATA_DIR[1:3] == ':/':
+        DATA_DIR = '/{}/{}'.format(DATA_DIR[0].lower(), DATA_DIR[3:])
 
 # Defaults   
 defaults={}
@@ -77,26 +106,6 @@ def confirm(message):
             return False
         else:
             print('I didn\'t understand you. Please specify "(y)es" or "(n)o".')
-
-# Are we running on OSX?
-def running_on_osx():
-    if platform.system().upper() == 'DARWIN':
-        return True
-    else:
-        return False
-
-# Are we running on Windows?
-def running_on_windows():
-    if platform.system().upper() == 'WINDOWS':
-        return True
-    else:
-        return False
-
-# Set REDIRECT accordignly
-if running_on_windows():
-    REDIRECT = ''
-else:
-    REDIRECT = "&> /dev/null"
 
 # Load host conf
 def load_host_conf():
