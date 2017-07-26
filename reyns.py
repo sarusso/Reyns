@@ -1061,7 +1061,9 @@ def run(service=None, instance=None, group=None, instance_type=None,
         elif service == 'reyns-dns':
             abort('SERVICE_IP env var is required when publishing the reyns-dns service')            
         else:
-            logger.warning('You are publishing the service but you have not set the SERVICE_IP env var. This mean that the service(s) might not be completely accessible outside the Docker network.')
+            pass
+            # TODO: improve the followign warning, decide if show it or not and in which conditions (i.e. MULTIHOST env var?)
+            #logger.warning('You are publishing the service but you have not set the SERVICE_IP env var. This mean that the service(s) might not be completely accessible outside the Docker network.')
 
     # Try to set the env vars from the env (they have always the precedence):
     for requested_ENV_VAR in ENV_VARs.keys():
