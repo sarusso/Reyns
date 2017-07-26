@@ -1442,9 +1442,13 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
     
 
 #task
-def ssh(service=None, instance=None, command=None, capture=False):
+def ssh(service=None, instance=None, command=None, capture=False, jsonout=False):
     '''SSH into a given service'''
-
+    
+    # Sanitize input
+    if capture and jsonout:
+        abort('Sorry, you enabled both capture and jsonout but you can only use one at a time.')
+    
     # Sanitize...
     (service, instance) = sanity_checks(service,instance)
     
@@ -1489,11 +1493,13 @@ def ssh(service=None, instance=None, command=None, capture=False):
 
     # RUN command over SSH or SSH session
     if command:
-        # TODO: this capture switch is not nice at all. Just leave the "interactive" one?
         if capture:
             out = shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
+            return out
+        elif jsonout:
+            out = shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
             out_dict = {'stdout': out.stdout, 'stderr':out.stderr, 'exit_code':out.exit_code}
-            print(json.dumps(out_dict)) # This goes to stdout and is ready to be loaded as json 
+            print(json.dumps(out_dict)) # This goes to stdout and is ready to be loaded as json             
         else:
             shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), interactive=True)
             
@@ -1756,7 +1762,22 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
     else:
         return content
 
-
+def status():
+    running_services = ps(capture=True)
+    one_running = False
+    for running_service in running_services:
+        one_running = True
+        service  = running_service[-1].split(',')[0]
+        instance = running_service[-1].split('=')[1]
+        print ('{} : {}'.format(running_service[-1], running_service[4]))
+        out = ssh(service,instance,command="sudo supervisorctl status",capture=True)
+        if out.exit_code != 0:
+            print(out.stderr)
+        for line in out.stdout.split('\n'):
+            print('  {}'.format(line))
+        print('')
+    if not one_running:
+        print('No running services.')
 
 
 
@@ -1874,6 +1895,7 @@ if __name__ == '__main__':
     tasks['run']       = [run, '      Run a given service(s)'] 
     tasks['rerun']     = [rerun, '    Re-run a given service(s)'] 
     tasks['ps']        = [ps, '       List running services' ]    
+    tasks['status']    = [status, '   Running services status' ] 
     tasks['ssh']       = [ssh, '      SSH into a given service']
     tasks['clean']     = [clean, '    Clean a given service']
     tasks['getip']     = [getip, '    Get the IP address of a given service']
@@ -1887,7 +1909,7 @@ if __name__ == '__main__':
     tasks['_start']    = [start, '   Start a stopped service (if you know what you are doing)' ]
 
     # Output cleareness
-    if ('capture' not in kwargs) or ('capture' in kwargs and kwargs['capture']==False):
+    if ('jsonout' not in kwargs) or ('jsonout' in kwargs and kwargs['jsonout']==False):
         print('')
         
     # Load proper task
@@ -1903,7 +1925,7 @@ if __name__ == '__main__':
             print('Unkwnown command. Type "reyns help" for a list of available commands.')
     
     # Output cleareness
-    if not running_on_windows() and ('capture' not in kwargs) or ('capture' in kwargs and kwargs['capture']==False):
+    if not running_on_windows() and ('jsonout' not in kwargs) or ('jsonout' in kwargs and kwargs['jsonout']==False):
         print('')    
 
 
