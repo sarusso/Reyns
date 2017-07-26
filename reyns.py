@@ -96,7 +96,7 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 
 # Abort
 def abort(message):
-    print('\nAborting due to fatal error: {}. \n'.format(message))
+    print('Aborting due to fatal error: {}. \n'.format(message))
     sys.exit(1)
 
 # Confirm
@@ -471,11 +471,18 @@ def setswitch(**kwargs):
             raise Exception('Internal error')
 
 def format_shell_error(stdout, stderr, exit_code):
-    string  = '\nExit code: {}'.format(exit_code)
-    string += '\n-------- STDOUT ----------\n'
+    
+    string  = '\n#---------------------------------'
+    string += '\n# Shell exited with exit code {}'.format(exit_code)
+    string += '\n#---------------------------------\n'
+    string += '\nStandard output: "'
     string += str(stdout)
-    string += '\n-------- STDERR ----------\n'
-    string += str(stderr) +'\n'
+    string += '"\n\nStandard error: "'
+    string += str(stderr) +'"\n\n'
+    string += '#---------------------------------\n'
+    string += '# End Shell output\n'
+    string += '#---------------------------------\n'
+
     return string
 
 
@@ -541,7 +548,7 @@ def demo():
     
     INSTALL_DIR = PROJECT_DIR
     
-    print('\nInstalling Reyns demo in current directory ({})...'.format(INSTALL_DIR))
+    print('Installing Reyns demo in current directory ({})...'.format(INSTALL_DIR))
     import shutil
 
     try:
@@ -603,7 +610,7 @@ def build(service=None, verbose=False, nocache=False):
     if service.upper()=='ALL':
 
         # Build everything then obtain which services we have to build        
-        print('\nBuilding all services in {}'.format(SERVICES_IMAGES_DIR))
+        print('Building all services in {}\n'.format(SERVICES_IMAGES_DIR))
 
 
         # Find dependencies recursive function
@@ -688,7 +695,7 @@ def build(service=None, verbose=False, nocache=False):
             tag_prefix = 'reyns'
 
         # Ok, print the info about the service being built
-        print('\nBuilding service "{}" as "{}/{}"'.format(service, tag_prefix, service))
+        print('Building service "{}" as "{}/{}"'.format(service, tag_prefix, service))
 
         # Check that only a prestartup script is found:
         prestartup_scripts = [f for f in os.listdir(service_dir) if re.match(r'prestartup_+.*\.sh', f)]
@@ -713,7 +720,7 @@ def build(service=None, verbose=False, nocache=False):
             shell(build_command, verbose=True)
         else:
             if shell(build_command, verbose=False, capture=False, silent=True):
-                print('Build OK')
+                print('Build OK\n')
             else:
                 abort('Something happened')
 
@@ -774,9 +781,8 @@ def run(service=None, instance=None, group=None, instance_type=None,
             host_conf['last_conf'] = conf
             save_host_conf(host_conf)
 
-    print('')
     if not recursive:
-        print('Conf being used: "{}"\n'.format('default' if not conf else conf))
+        print('Conf being used: "{}"'.format('default' if not conf else conf))
     
     #---------------------------
     # Run a group of services
@@ -787,12 +793,10 @@ def run(service=None, instance=None, group=None, instance_type=None,
             #print('WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.')
             group = 'all'
         
-        print('Running services in {} for group {}'.format(SERVICES_IMAGES_DIR,group))
+        print('\nRunning services in {} for group {}'.format(SERVICES_IMAGES_DIR,group))
 
         if safemode or interactive:
             abort('Sorry, you cannot set one of the "safemode" or "interactive" switches if you are running more than one service') 
-
-
 
         # Load run conf             
         try:
@@ -865,7 +869,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     (service, instance) = sanity_checks(service, instance)
 
     # Run a specific service
-    print('Running service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance))
+    print('\nRunning service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance))
 
     # Check if this service is exited
     if service_exits_but_not_running(service,instance):
@@ -1312,9 +1316,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
     # all: list services to clean (check run conf first)
     # reallyall: warn and clean all
     
-    if service == 'reallyall':
-        
-        print('')
+    if service == 'reallyall':        
         if confirm('Clean all services? WARNING: this will stop and remove *really all* Docker services running on this host!'):
             print('Cleaning all Docker services on the host...')
             shell('docker stop $(docker ps -a -q) ' + REDIRECT, silent=True)
@@ -1336,7 +1338,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             else:
                 conf = last_conf
                 
-        print('\nConf being used: "{}"'.format('default' if not conf else conf))
+        print('Conf being used: "{}"'.format('default' if not conf else conf))
 
         if service == 'all':
             #print('WARNING: using the magic keyword "all" is probably going to be deprecated, use group=all instead.')
@@ -1396,6 +1398,8 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             return
         print('')
         if force or confirm('Proceed?'):
+            if not force:
+                print ('')
             for service_conf in services_to_clean_conf:
                 if not service_conf['instance']:
                     print('WARNING: I Cannot clean {}, instance='.format(service_conf['service'], service_conf['instance']))
@@ -1420,7 +1424,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             else:
                 conf = last_conf
                 
-        print('\nConf being used: "{}"'.format('default' if not conf else conf))
+        print('Conf being used: "{}"'.format('default' if not conf else conf))
 
         # Sanitize (and dynamically obtain instance)...
         (service, instance) = sanity_checks(service,instance)
@@ -1695,7 +1699,7 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
     # Print output
     #-------------------
     if not capture:
-        print('')
+
         # Prepare 'stats' 
         fields=['CONTAINER ID', 'NAMES', 'IMAGE', 'STATUS']
         max_lenghts = []
@@ -1880,9 +1884,13 @@ if __name__ == '__main__':
     tasks['_install']  = [install, ' Install Reyns' ]
     tasks['_start']    = [start, '   Start a stopped service (if you know what you are doing)' ]
 
+    # Output cleareness
+    if ('capture' not in kwargs) or ('capture' in kwargs and kwargs['capture']==False):
+        print('')
+        
     # Load proper task
     if (task == 'help') or (not task and not argv and not kwargs):
-        print('\n Available commands:\n')
+        print('Available commands:\n')
         for task in tasks:
             if task[0] != '_':
                 print('  {}   {}'.format(task, tasks[task][1]))
@@ -1890,6 +1898,9 @@ if __name__ == '__main__':
         try:
             tasks[task][0](*argv, **kwargs)
         except KeyError:
-            print('\nUnkwnown command. Type "reyns help" for a list of available commands.')
+            print('Unkwnown command. Type "reyns help" for a list of available commands.')
     
+    # Output cleareness
+    if not running_on_windows() and ('capture' not in kwargs) or ('capture' in kwargs and kwargs['capture']==False):
+        print('')    
 
