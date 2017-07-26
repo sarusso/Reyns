@@ -21,7 +21,7 @@ To install and run the demo, run the following commands:
 
 	# mkdir $HOME/Demo-Reyns
 	# cd $HOME/Demo-Reyns
-	# reyns install_demo
+	# reyns demo
 	Demo installed.
 	Quickstart: enter into $HOME/Demo-Reyns, then:
 	- to build it, type "reyns build:all"
