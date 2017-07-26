@@ -63,21 +63,9 @@ echo ""
 #----------------------------
 
 if hash docker 2>/dev/null; then
-    echo "[OK] Found Docker"
+    echo "[OK] Docker found"
 else
-    echo "[ERROR] Missing Docker" 
-    exit 1
-fi
-
-
-#----------------------------
-# Check Fabric is installed
-#----------------------------
-
-if hash fab 2>/dev/null; then
-    echo "[OK] Found Fabric package (fab command)"
-else
-    echo "[ERROR] Missing Fabric package (fab command)"
+    echo "[ERROR] Docker is missing" 
     exit 1
 fi
 
