@@ -523,7 +523,7 @@ def version():
             print('Python version: {}'.format(python_version.stderr))
 
 #task
-def install_demo():
+def demo():
     '''install the Reyns demo in a directory named 'reyns-demo' in the current path'''
     
     INSTALL_DIR = PROJECT_DIR
@@ -1472,13 +1472,13 @@ def ssh(service=None, instance=None, command=None):
 
     # RUN command over SSH or SSH session
     if command:
-        out = shell(command='ssh -p {} -oStrictHostKeyChecking=no -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
+        out = shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
         if out.stderr:
             print(format_shell_error(out.stdout, out.stderr, out.exit_code))
         else:
             print(out.stdout)
     else:
-        shell(command='ssh -p {} -oStrictHostKeyChecking=no -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True)
+        shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True)
 
 #task
 # Deprecated, included in the tasks handling in the main
@@ -1753,24 +1753,34 @@ class InputException(Exception):
 if __name__ == '__main__':
     import sys
     
+    # Get task and args 
     if len(sys.argv) == 1:
         help()
         
     elif len(sys.argv) == 2:
+        # This happens on some OSes
         args = sys.argv[1]
         
     else:
-        raise InputException('Wrong command line arguments format')
+        # This happens on some other OSes
+        args = ' '.join(sys.argv[1:])
 
     # Parse single task or task with args
-
     if ':' in args:
-        task, args = sys.argv[1].split(':')
+        task, args = args.split(':')
     else:
         task = sys.argv[1]
         args = None
+
+    # Debug
+    logger.debug('Task: %s' % task)
+    logger.debug('Args: %s' % args)
         
-    # Sample sys.argv[1]: ssh:django,one,command=demo command &>/dev/null,verbose=True
+    # Samples:
+    # reyns ssh:demo,one,command="whoami \&>/dev/null",verbose=True
+    # reyns ssh:demo,one,command="echo \$PATH && ps -ef"
+    # reyns ssh:demo,one,command=echo \$PATH \&\& ps -ef
+    # reyns ssh:qaportal,command="whoami \& >/dev/null"
         
     # Note: the Bash script which inovokes this Python script ensures that
     # there will never be an empty task, as not having arguments on command line 
@@ -1778,10 +1788,6 @@ if __name__ == '__main__':
 
     argv   = []
     kwargs = {}
-
-    # DEBUG
-    # print('taks', task)
-    # print('args', args)
 
     # Comma is the only forbidden char in SSH commands (for now)
     if args:
@@ -1792,7 +1798,6 @@ if __name__ == '__main__':
         
         # Create argv and kwargs 
         for i, part in enumerate(parts):
-            
             if '=' in part:
                 arg = part.split('=')[0]
                 val = '='.join(part.split('=')[1:])
@@ -1804,11 +1809,11 @@ if __name__ == '__main__':
                 val = part
                 argv.append(val)
     
-    # DEBUG
-    # print('argv', argv)
-    # print('kwargs', kwargs)
-    
-    # Load proper task
+    # Debug
+    logger.debug('Processed argv: %s' % argv)
+    logger.debug('Processed kwargs: %s' % kwargs)
+
+    # Tasks mapping
     from collections import OrderedDict
     tasks = OrderedDict()
     tasks['build']     = [build, '    Build services' ]
@@ -1819,13 +1824,20 @@ if __name__ == '__main__':
     tasks['clean']     = [clean, '    Clean a given service']
     tasks['getip']     = [getip, '    Get the IP address of a given service']
     tasks['info']      = [info, '     Obtain info about a given service']    
-    tasks['help']      = [help, '     Print this help']  
+    tasks['demo']      = [demo, '     Install demo project in current directory']  
+    tasks['help']      = [help, '     Show this help']  
+    tasks['version']   = [version, '  Get Reyns version']  
     tasks['uninstall'] = [uninstall, 'Uninstall Reyns' ]
+    tasks['_init']     = [init, '    Init base Reyns images' ]
+    tasks['_install']  = [install, ' Install Reyns' ]
+    tasks['_start']    = [start, '   Start a stopped service (if you know what you are doing)' ]
 
+    # Load proper task
     if (task == 'help') or (not task and not argv and not kwargs):
         print('\n Available commands:\n')
         for task in tasks:
-            print('  {}   {}'.format(task, tasks[task][1]))
+            if task[0] != '_':
+                print('  {}   {}'.format(task, tasks[task][1]))
     else:
         try:
             tasks[task][0](*argv, **kwargs)
@@ -1833,15 +1845,4 @@ if __name__ == '__main__':
             print('\nUnkwnown command. Type "reyns help" for a list of available commands.')
     print('')
     
-
-
-# TODO: # If reyns's 'FROM' images does not existe, build them -> change nocache to True
-# TODO: # Do we have to save the value for using it the next time? -> move to confirm()
-
-
-
-
-
-
-
 
