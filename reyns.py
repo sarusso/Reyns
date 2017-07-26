@@ -1421,7 +1421,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
     
 
 #task
-def ssh(service=None, instance=None, command=None):
+def ssh(service=None, instance=None, command=None, capture=False):
     '''SSH into a given service'''
 
     # Sanitize...
@@ -1437,10 +1437,6 @@ def ssh(service=None, instance=None, command=None):
     # Check if the key has proper permissions
     if not shell('ls -l keys/id_rsa',capture=True).stdout.endswith('------'):
         shell('chmod 600 keys/id_rsa', silent=True)
-
-    # Sanitize commnand
-    if command:
-        command = command.replace('+', ' ')
 
     # Set default port
     port = 22
@@ -1472,11 +1468,14 @@ def ssh(service=None, instance=None, command=None):
 
     # RUN command over SSH or SSH session
     if command:
-        out = shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
-        if out.stderr:
-            print(format_shell_error(out.stdout, out.stderr, out.exit_code))
+        # TODO: this capture switch is not nice at all. Just leave the "interactive" one?
+        if capture:
+            out = shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
+            out_dict = {'stdout': out.stdout, 'stderr':out.stderr, 'exit_code':out.exit_code}
+            print(json.dumps(out_dict)) # This goes to stdout and is ready to be loaded as json 
         else:
-            print(out.stdout)
+            shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), interactive=True)
+            
     else:
         shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True)
 
@@ -1748,6 +1747,35 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
 class InputException(Exception):
     pass
 
+def make_it_a_duck(val):
+    # True
+    if val.lower() == 'true':
+        val = True
+        return val
+    
+    # False
+    if val.lower() == 'false':
+        val = False
+        return val
+    
+    # Int
+    try:
+        val =int(val)
+        return val
+    except:
+        pass
+
+    # Float
+    try:
+        val = float(val)
+        return val
+    except:
+        pass
+    
+    # Original
+    return val
+
+
 
 
 if __name__ == '__main__':
@@ -1767,7 +1795,10 @@ if __name__ == '__main__':
 
     # Parse single task or task with args
     if ':' in args:
-        task, args = args.split(':')
+        try:
+            task, args = args.split(':')
+        except ValueError:
+            raise InputException('Forbidden char (":") in args, args="{}"'.format(args))
     else:
         task = sys.argv[1]
         args = None
@@ -1780,7 +1811,9 @@ if __name__ == '__main__':
     # reyns ssh:demo,one,command="whoami \&>/dev/null",verbose=True
     # reyns ssh:demo,one,command="echo \$PATH && ps -ef"
     # reyns ssh:demo,one,command=echo \$PATH \&\& ps -ef
-    # reyns ssh:qaportal,command="whoami \& >/dev/null"
+    # reyns ssh:demo,one,command="whoami \& >/dev/null"
+    # reyns ssh:demo,one,command="cat /etc/resolv.conf"
+    # reyns ssh:demo,one,command="cat \/etc\/resolv.conf"
         
     # Note: the Bash script which inovokes this Python script ensures that
     # there will never be an empty task, as not having arguments on command line 
@@ -1801,13 +1834,13 @@ if __name__ == '__main__':
             if '=' in part:
                 arg = part.split('=')[0]
                 val = '='.join(part.split('=')[1:])
-                kwargs[arg] = val
+                kwargs[arg] = make_it_a_duck(val)
             else:
                 if kwargs:
                     raise InputException('non-kwarg after kwarg')
                 arg = i
                 val = part
-                argv.append(val)
+                argv.append(make_it_a_duck(val))
     
     # Debug
     logger.debug('Processed argv: %s' % argv)
@@ -1843,6 +1876,5 @@ if __name__ == '__main__':
             tasks[task][0](*argv, **kwargs)
         except KeyError:
             print('\nUnkwnown command. Type "reyns help" for a list of available commands.')
-    print('')
     
 
