@@ -66,6 +66,10 @@ if running_on_windows():
     if len(DATA_DIR) >= 3 and DATA_DIR[1:3] == ':/':
         DATA_DIR = '/{}/{}'.format(DATA_DIR[0].lower(), DATA_DIR[3:])
 
+    # Remove c:/ and similar in project dir and replace with Unix-like /c/
+    if len(PROJECT_DIR) >= 3 and PROJECT_DIR[1:3] == ':/':
+        PROJECT_DIR_CROSSPLAT = '/{}/{}'.format(PROJECT_DIR[0].lower(), PROJECT_DIR[3:])
+
 # Defaults   
 defaults={}
 defaults['standard']   = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':False, 'interactive':False}
@@ -1148,6 +1152,8 @@ def run(service=None, instance=None, group=None, instance_type=None,
     if service_conf and 'volumes' in service_conf:
         volumes = service_conf['volumes'].split(',')
         for volume in volumes:
+            if volume.startswith('$PROJECT_DIR'):
+                volume = volume.replace('$PROJECT_DIR', PROJECT_DIR_CROSSPLAT)
             run_cmd += ' -v {}'.format(volume)
 
     # Handle published ports
