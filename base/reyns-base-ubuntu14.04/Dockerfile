@@ -9,13 +9,13 @@ RUN apt-get update
 RUN apt-get -y install dnsutils
 
 
-COPY update-dns.sh /
+COPY common/update-dns.sh /
 RUN chmod 755 /update-dns.sh
 
 #-----------------------
 # Prestartup
 #-----------------------
-COPY prestartup_reyns-base.sh /prestartup/
+COPY common/prestartup_reyns-base.sh /prestartup/
 
 
 

@@ -572,7 +572,7 @@ def demo():
 #--------------------------
 
 #task
-def init(os_to_init='ubuntu14.04', verbose=False):
+def init(os_to_init='ubuntu14.04', verbose=False, update=False):
     '''Initialize the base services'''
     
     # Sanity checks:
@@ -584,17 +584,20 @@ def init(os_to_init='ubuntu14.04', verbose=False):
     verbose     = booleanize(verbose=verbose)
     
     # Build base images
-    build(service='reyns-common-{}'.format(os_to_init), verbose=verbose, nocache=False)
-    build(service='reyns-base-{}'.format(os_to_init), verbose=verbose, nocache=False)
+    build(service='reyns-common-{}'.format(os_to_init), verbose=verbose, nocache=update)
+    build(service='reyns-base-{}'.format(os_to_init), verbose=verbose, nocache=update)
 
     # If Reyns DNS service does not exist, build and use this one
-    if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
-        build(service='reyns-dns-{}'.format(os_to_init), verbose=verbose, nocache=False)
+    if update or shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
+        build(service='reyns-dns-{}'.format(os_to_init), verbose=verbose, nocache=update)
         shell('docker tag reyns/reyns-dns-{} reyns/reyns-dns'.format(os_to_init))
 
+#task
+def update(os='ubuntu14.04'):
+    init(os_to_init=os, verbose=False, update=True)
 
 #task
-def build(service=None, verbose=False, nocache=False):
+def build(service=None, verbose=False, nocache=False, relative=True):
     '''Build a given service. If service name is set to "all" then builds all the services'''
 
     # Sanitize...
@@ -692,7 +695,9 @@ def build(service=None, verbose=False, nocache=False):
         
         # But if we are running a Reyns service, use Reyns image
         if is_base_service(service):
-            tag_prefix = 'reyns'
+            relative    = False
+            tag_prefix  = 'reyns'
+            service_dir = 'base/'+service
 
         # Ok, print the info about the service being built
         print('Building service "{}" as "{}/{}"'.format(service, tag_prefix, service))
@@ -706,13 +711,24 @@ def build(service=None, verbose=False, nocache=False):
         if prestartup_scripts:
             shell('touch {}/{}'.format(service_dir, prestartup_scripts[0]),silent=True)
  
-        # Build command 
-        if nocache:
-            print('Building without cache')
-            build_command = 'cd ' + service_dir + '/.. &&' + 'docker build --no-cache -t ' + tag_prefix +'/' + service + ' ' + service
+        # Build command
+        if relative:
+            if nocache:
+                print('Building without cache')
+                build_command = 'cd ' + service_dir + '/.. &&' + 'docker build --no-cache -t ' + tag_prefix +'/' + service + ' ' + service
+            else:
+                print('Building with cache')
+                build_command = 'cd ' + service_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + service + ' ' + service
         else:
-            print('Building with cache')
-            build_command = 'cd ' + service_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + service + ' ' + service
+            if nocache:
+                print('Building without cache')
+                build_command = 'docker build --no-cache -f '+ service_dir + '/Dockerfile -t ' + tag_prefix +'/' + service + ' .'
+            else:
+                print('Building with cache')
+                build_command = 'docker build -f '+ service_dir + '/Dockerfile -t ' + tag_prefix +'/' + service + ' .'
+                
+                           
+        logger.debug('Build command: "{}"'.format(build_command))    
         
         # Build
         print('Building...')
@@ -1924,7 +1940,8 @@ if __name__ == '__main__':
     tasks['info']      = [info, '     Obtain info about a given service']    
     tasks['demo']      = [demo, '     Install demo project in current directory']  
     tasks['help']      = [help, '     Show this help']  
-    tasks['version']   = [version, '  Get Reyns version']  
+    tasks['update']    = [update, '   Update (rebuild) Reyns images']
+    tasks['version']   = [version, '  Get Reyns version']
     tasks['uninstall'] = [uninstall, 'Uninstall Reyns' ]
     tasks['_init']     = [init, '    Init base Reyns images' ]
     tasks['_install']  = [install, ' Install Reyns' ]

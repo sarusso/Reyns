@@ -21,7 +21,7 @@ RUN install -m 640 -o root -g bind /etc/rndc.key /etc/bind/rndc.key
 #-----------------------
 # Copy the db zone files
 #-----------------------
-COPY db.* /etc/bind/
+COPY common/db.* /etc/bind/
 RUN chown root:bind /etc/bind/db.local.zone /etc/bind/db.rev.local.zone && \
     chmod 640 /etc/bind/db.local.zone /etc/bind/db.rev.local.zone && \
     ln -s /etc/bind/db.local.zone /var/cache/bind/db.local.zone && \
@@ -30,19 +30,19 @@ RUN chown root:bind /etc/bind/db.local.zone /etc/bind/db.rev.local.zone && \
 #-----------------------
 # Copy named.conf.local
 #-----------------------
-COPY named.conf.local /etc/bind/
+COPY common/named.conf.local /etc/bind/
 
 #-----------------------
 # supervisord - bind
 #-----------------------
-COPY supervisord_bind.conf /etc/supervisor/conf.d/
-COPY runbind.sh /
+COPY common/supervisord_bind.conf /etc/supervisor/conf.d/
+COPY common/runbind.sh /
 RUN chmod 755 /runbind.sh
 
 #-----------------------
 # Prestartup
 #-----------------------
-COPY prestartup_reyns-dns.sh /prestartup/
+COPY common/prestartup_reyns-dns.sh /prestartup/
 
 #-----------------------
 # Expose ports

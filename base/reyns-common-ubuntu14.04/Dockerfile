@@ -49,7 +49,7 @@ COPY keys/id_rsa.pub /home/reyns/.ssh/
 RUN chown -R reyns:reyns /home/reyns/.ssh
 
 # No pass sudo (for everyone, actually)
-COPY sudoers /etc/sudoers
+COPY common/sudoers /etc/sudoers
 
 # bash_profile for loading correct env (/env.sh created by entrypoint.sh)
 RUN echo "source /env.sh" > /home/reyns/.bash_profile
@@ -73,7 +73,7 @@ RUN chown -R reyns:reyns /var/log/reyns
 #  Supervisord conf
 #----------------------
 
-COPY supervisord.conf /etc/supervisor/
+COPY common/supervisord.conf /etc/supervisor/
 
 
 #----------------------
@@ -83,7 +83,7 @@ COPY supervisord.conf /etc/supervisor/
 RUN apt-get install -y openssh-server
 RUN mkdir /var/run/sshd
 RUN chmod 0755 /var/run/sshd
-COPY supervisord_sshd.conf /etc/supervisor/conf.d/
+COPY common/supervisord_sshd.conf /etc/supervisor/conf.d/
 
 
 #----------------------
@@ -105,7 +105,7 @@ RUN apt-get -y install bind9utils && \
 #----------------------
 
 # Copy entrypoint
-COPY entrypoint.sh /
+COPY common/entrypoint.sh /
 
 # Give right permissions
 RUN chmod 755 /entrypoint.sh
