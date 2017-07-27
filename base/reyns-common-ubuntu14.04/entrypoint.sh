@@ -7,6 +7,19 @@ echo "[INFO] Executing Reyns  entrypoint script..."
 #---------------------
 #   Persistency
 #---------------------
+
+echo "[INFO] Handling safe persistency"
+if [ "x$SAFE_PERSISTENCY" == "xTrue" ]; then
+    echo "[INFO] Safe persistency set"
+    if [ ! -f /safe_persistent/persistent.img ]; then
+        truncate -s 10G /safe_persistent/persistent.img
+        mkfs.ext4 -F /safe_persistent/persistent.img
+    fi
+    mkdir /persistent
+    mount -oloop /safe_persistent/persistent.img /persistent
+fi
+
+
 echo "[INFO] Handling persistency"
 
 # If persistent data:

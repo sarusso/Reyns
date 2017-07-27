@@ -407,7 +407,7 @@ def get_services_run_conf(conf_file=None):
     
     # Validate vars
     valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt','persistent_log',
-                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost']
+                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency']
     
     for service_description in registered_services:
         for key in service_description:
@@ -874,10 +874,6 @@ def run(service=None, instance=None, group=None, instance_type=None,
     # Check if this service is exited
     if service_exits_but_not_running(service,instance):
 
-        if interactive:
-            # Only for instances run in interactive mode we take the right of cleaning
-            shell('reyns clean:{},instance=safemode'.format(service), silent=True)
-
         abort('Service "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking ' \
               'would be end up broken. Use reyns clean:{0},instance={1} to clean it and start over clean, ' \
               'or reyns start:{0},instance={1} if you know what you are doing.'.format(service,instance))
@@ -888,9 +884,10 @@ def run(service=None, instance=None, group=None, instance_type=None,
         # Exit
         return    
 
-    # Init service conf and requested env vars
+    # Init service conf, requested env vars and privileged switch
     service_conf = None
-    ENV_VARs       = {}
+    ENV_VARs     = {}
+    privileged   = False
 
     # Add to the ENV_VARs the ones specified in the required.env_vars.json file
     for env_var in get_required_env_vars(service):
@@ -1135,6 +1132,12 @@ def run(service=None, instance=None, group=None, instance_type=None,
     if found_function:
         logger.debug('Done applying functions to ENV vars. New summary: %s', ENV_VARs)
 
+
+    # Handle safe persistency
+    if service_conf and 'safe_persistency' in service_conf:
+        ENV_VARs['SAFE_PERSISTENCY'] = True
+        privileged = True
+
     # Handle persistency
     if persistent_data or persistent_log or persistent_opt:
 
@@ -1152,7 +1155,10 @@ def run(service=None, instance=None, group=None, instance_type=None,
         
         # Now mount the dir in /persistent in the Docker: here we just provide a persistent storage in the Docker service.
         # the handling of data, opt and log is done in the Dockerfile.
-        run_cmd += ' -v {}:/persistent'.format(service_instance_dir)    
+        if service_conf and 'safe_persistency' in service_conf:
+            run_cmd += ' -v {}:/safe_persistent'.format(service_instance_dir)
+        else:
+            run_cmd += ' -v {}:/persistent'.format(service_instance_dir)    
 
     # Handle extra volumes
     if service_conf and 'volumes' in service_conf:
@@ -1162,6 +1168,10 @@ def run(service=None, instance=None, group=None, instance_type=None,
                 volume = volume.replace('$PROJECT_DIR', PROJECT_DIR_CROSSPLAT)
             run_cmd += ' -v {}'.format(volume)
 
+    # Handle privileged mode
+    if privileged:
+        run_cmd += ' --privileged'
+    
     # Handle published ports
     if publish_ports:
 
@@ -1290,9 +1300,8 @@ def run(service=None, instance=None, group=None, instance_type=None,
         tag_prefix = 'reyns'
 
     if interactive:
-        run_cmd += ' -i -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)
+        run_cmd += ' --rm  -i -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)
         shell(run_cmd,interactive=True)
-        shell('reyns clean:service={},instance={}'.format(service,instance), silent=True)
         
     else:
         run_cmd += ' -d -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)   
@@ -1767,15 +1776,28 @@ def status():
     one_running = False
     for running_service in running_services:
         one_running = True
+        
+        # GEt basic service info
+        fullname = running_service[-1]
         service  = running_service[-1].split(',')[0]
         instance = running_service[-1].split('=')[1]
-        print ('{} : {}'.format(running_service[-1], running_service[4]))
-        out = ssh(service,instance,command="sudo supervisorctl status",capture=True)
-        if out.exit_code != 0:
-            print(out.stderr)
-        for line in out.stdout.split('\n'):
-            print('  {}'.format(line))
-        print('')
+        status   = running_service[4]
+        id       = running_service[0]
+        
+        print ('{} : {}'.format(fullname, status ))
+        
+        # Get supervisorctl status info
+        if status.lower().startswith('up'):
+            #out = ssh(service,instance,command="sudo supervisorctl status",capture=True)
+            out = shell('docker exec -it {} supervisorctl status'.format(id), capture=True)
+            if out.exit_code != 0:
+                if out.stderr: print(out.stderr)
+                if out.stdout: print(out.stdout)
+            else:
+                for line in out.stdout.split('\n'):
+                    print('  {}'.format(line))
+                print('')
+        
     if not one_running:
         print('No running services.')
 
