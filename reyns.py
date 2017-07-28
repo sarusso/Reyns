@@ -53,7 +53,7 @@ DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/data_' + PROJECT_NAM
 SERVICES_IMAGES_DIR = os.getenv('SERVICES_IMAGES_DIR', os.getcwd() + '/services')
 BASE_IMAGES_DIR     = os.getenv('BASE_IMAGES_DIR', os.getcwd() + '/base')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
-SUPPORTED_OSES      = ['ubuntu14.04']
+SUPPORTED_OSES      = ['ubuntu14.04','centos7.2']
 REDIRECT            = '&> /dev/null'
 
 # Platform-specific conf tricks
@@ -205,7 +205,7 @@ def sanity_checks(service, instance=None):
         
         service_dir = get_service_dir(service)
         if not os.path.exists(service_dir):
-            abort('I cannot find this service ("{}") source directory. Are you in the project\'s root? I was looking for "{}".'.format(service, service_dir))
+            abort('I cannot find source directory for this service ("{}"). Are you in the project\'s root? I was looking for "{}".'.format(service, service_dir))
             
     return (service, instance)
 
@@ -262,9 +262,11 @@ def shell(command, capture=False, verbose=False, interactive=False, silent=False
         raise Exception('You cannot ask at the same time for capture and verbose, sorry')
     
     if verbose or interactive:
-        subprocess.call(command, shell=True)
-        return
-        #return local(command)
+        exit_code = subprocess.call(command, shell=True)
+        if exit_code == 0:
+            return True
+        else:
+            return False
 
     # Log command
     logger.debug('Shell executing command: "%s"', command)
@@ -587,10 +589,10 @@ def init(os_to_init='ubuntu14.04', verbose=False, update=False):
     build(service='reyns-common-{}'.format(os_to_init), verbose=verbose, nocache=update)
     build(service='reyns-base-{}'.format(os_to_init), verbose=verbose, nocache=update)
 
-    # If Reyns DNS service does not exist, build and use this one
-    if update or shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
-        build(service='reyns-dns-{}'.format(os_to_init), verbose=verbose, nocache=update)
-        shell('docker tag reyns/reyns-dns-{} reyns/reyns-dns'.format(os_to_init))
+    # DEPRECATED: If Reyns DNS service does not exist, build and use this one
+    #if update or shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
+    #    build(service='reyns-dns-{}'.format(os_to_init), verbose=verbose, nocache=update)
+    #    shell('docker tag reyns/reyns-dns-{} reyns/reyns-dns'.format(os_to_init))
 
 #task
 def update(os='ubuntu14.04'):
@@ -672,23 +674,24 @@ def build(service=None, verbose=False, nocache=False, relative=True):
         if not image:
             abort('Missing "FROM" in Dockerfile?!')
 
-        # If reyns's 'FROM' images does not existe, build them
+        # If reyns's 'FROM' images doe not existe, build them
         if image.startswith('reyns/'):
             logger.debug('Checking image "{}"...'.format(image))
             if shell('docker inspect {}'.format(image), capture=True).exit_code != 0:
-                logger.info('Could not find image "{}", now building it...'.format(image))
+                print('Could not find Reyns base image "{}", will build it.\n'.format(image))
                 build(service=image.split('/')[1], verbose=verbose, nocache=False)
 
-                # If we built a base and no DNS is yet present, buid it as well
-                if image in ['reyns/reyns-base-ubuntu14.04']: #TODO: support 16.04 as well
-                    if shell('docker inspect reyns/reyns-dns', capture=False).exit_code != 0:
-                        logger.info('Building DNS as well...')
-                        build(service='reyns-dns-ubuntu14.04', verbose=verbose, nocache=True)
-                        shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns')
-                    else:
-                        logger.debgu('DNS alredy present, not building it...')
+                # DEPRECATED:  If we built a base and no DNS is yet present, buid it as well
+                #if image in ['reyns/reyns-base-ubuntu14.04']: #TODO: support 16.04 as well
+                #    if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
+                #        logger.info('Building DNS as well...')
+                #        build(service='reyns-dns-ubuntu14.04', verbose=verbose, nocache=True)
+                #        shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns')
+                #    else:
+                #        logger.debug('DNS alredy present, not building it...')
+                
             else:
-                logger.debug('Found image "{}"'.format(image))
+                logger.debug('Found Reyns base image "{}", will not build it.'.format(image))
 
         # Default tag prefix to PROJECT_NAME    
         tag_prefix = PROJECT_NAME
@@ -733,12 +736,16 @@ def build(service=None, verbose=False, nocache=False, relative=True):
         # Build
         print('Building...')
         if verbose:
-            shell(build_command, verbose=True)
+            if shell(build_command, verbose=True):
+                print('Build OK\n')
+            else:
+                print('')
+                abort('Something wrong happened, see output above')
         else:
             if shell(build_command, verbose=False, capture=False, silent=True):
                 print('Build OK\n')
             else:
-                abort('Something happened')
+                abort('Something wrong happened, see output above')
 
 
 
@@ -883,6 +890,18 @@ def run(service=None, instance=None, group=None, instance_type=None,
     
     # Sanitize...
     (service, instance) = sanity_checks(service, instance)
+
+    # Chek if we have to build a Reyns a missing service, and specifically the DNS 
+    if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
+        print('Missing DNS service, now building it...')
+        build(service='reyns-dns-ubuntu14.04')
+        out = shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
+        if out.exit_code != 0:
+            print(out.stderr)
+            print('')
+            abort('Something wrong happened, see output above')
+
+
 
     # Run a specific service
     print('\nRunning service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance))
