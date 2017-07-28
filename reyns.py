@@ -69,6 +69,8 @@ if running_on_windows():
     # Remove c:/ and similar in project dir and replace with Unix-like /c/
     if len(PROJECT_DIR) >= 3 and PROJECT_DIR[1:3] == ':/':
         PROJECT_DIR_CROSSPLAT = '/{}/{}'.format(PROJECT_DIR[0].lower(), PROJECT_DIR[3:])
+else:
+    PROJECT_DIR_CROSSPLAT = PROJECT_DIR
 
 # Defaults   
 defaults={}
