@@ -153,7 +153,7 @@ def get_ip_address(ifname):
 #json.decoder.errmsg = json_errmsg_plus_verbose
 
 
-def sanity_checks(service, instance=None):
+def sanity_checks(service, instance=None, notrunning_ok=False):
     
     caller = inspect.stack()[1][3]
     clean = True if 'clean' in caller else False
@@ -184,6 +184,8 @@ def sanity_checks(service, instance=None):
         if ssh or (clean and not service in ['all', 'reallyall']):
             running_instances = get_running_services_instances_matching(service)
             if len(running_instances) == 0:
+                if notrunning_ok:
+                    return (None,None)
                 abort('Could not find any running instance of service matching "{}"'.format(service))                
             if len(running_instances) > 1:
                 if clean:
@@ -893,15 +895,16 @@ def run(service=None, instance=None, group=None, instance_type=None,
     # Sanitize...
     (service, instance) = sanity_checks(service, instance)
 
-    # Chek if we have to build a Reyns a missing service, and specifically the DNS 
-    if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
-        print('Missing DNS service, now building it...')
-        build(service='reyns-dns-ubuntu14.04')
-        out = shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
-        if out.exit_code != 0:
-            print(out.stderr)
-            print('')
-            abort('Something wrong happened, see output above')
+    # Chek if we have to build a Reyns a missing service, and specifically the DNS
+    if service == 'reyns-dns' :
+        if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
+            print('Missing DNS service, now building it...')
+            build(service='reyns-dns-ubuntu14.04')
+            out = shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
+            if out.exit_code != 0:
+                print(out.stderr)
+                print('')
+                abort('Something wrong happened, see output above')
 
 
 
@@ -1475,7 +1478,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
         print('Conf being used: "{}"'.format('default' if not conf else conf))
 
         # Sanitize (and dynamically obtain instance)...
-        (service, instance) = sanity_checks(service,instance)
+        (service, instance) = sanity_checks(service,instance, notrunning_ok=force)
         
         if not instance:
             print('I did not find any running instance to clean, exiting. Please note that if the instance is not running, you have to specify the instance name to let it be clened')
