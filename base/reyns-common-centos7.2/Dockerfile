@@ -5,21 +5,18 @@ MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 # Basic packages
 #----------------------
 
-# Update
+# Install yum overlay plugin for supporting docker and update
+RUN yum install yum-plugin-ovl -y 
 RUN yum update -y
 
 # Utilities
-RUN yum install -y nano
-RUN yum install -y telnet
-RUN yum install -y unzip
-RUN yum install -y wget
+RUN yum install -y nano telnet unzip wget
 RUN yum install -y epel-release # https://gist.github.com/tanksuzuki/cbef7abfa70888895534
 RUN yum install -y supervisor
 
 # Devel
 RUN yum groupinstall -y 'Development Tools'
-RUN yum install -y python-devel
-RUN yum install -y git-core
+RUN yum install -y python-devel git-core
 
 # Java
 RUN yum install -y java-1.7.0-openjdk # https://www.digitalocean.com/community/tutorials/how-to-install-java-on-centos-and-fedora
