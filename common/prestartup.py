@@ -1,5 +1,6 @@
 
 import os
+import datetime
 import subprocess
 from collections import namedtuple
 
@@ -40,24 +41,29 @@ for item in sorted_ls(prestartup_scripts_path):
         # Execute this startup script
         print('[INFO] Executing prestartup script "{}"...'.format(item))
         script = prestartup_scripts_path+'/'+item
-        out = shell(script)
+        out = shell('chmod 755 {} && {} '.format(script,script))
+
+        # Set date
+        date_str = str(datetime.datetime.now()).split('.')[0]
 
         # Print and log stdout and stderr
         for line in out.stdout.strip().split('\n'):
             print(' out: {}'.format(line))
         try:
             with open('/var/log/reyns/{}.stdout.log'.format(item), 'a') as stdout_file:
+                stdout_file.write('\n ======== {} ========\n'.format(date_str))
                 stdout_file.write(out.stdout)
         except Exception as e:
-            print('[ERROR] Cannot write stdout to file ({}: {}).'.format(e.__class__.__name, e))
+            print('[ERROR] Cannot write stdout to file ({}: {}).'.format(e.__class__.__name__, e))
 
         for line in out.stderr.strip().split('\n'):
             print(' err: {}'.format(line))
         try:
             with open('/var/log/reyns/{}.stderr.log'.format(item), 'a') as stderr_file:
+                stderr_file.write('\n ======== {} ========\n'.format(date_str))
                 stderr_file.write(out.stderr)
         except Exception as e:
-            print('[ERROR] Cannot write stderr to file ({}: {}).'.format(e.__class__.__name, e))
+            print('[ERROR] Cannot write stderr to file ({}: {}).'.format(e.__class__.__name__, e))
         
         # Handle error in the startup script
         if out.exit_code:

@@ -71,11 +71,11 @@ else:
 
 # Defaults   
 defaults={}
-defaults['standard']   = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':False, 'interactive':False}
-defaults['published']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':True,  'safemode':False, 'interactive':False}
-defaults['persistent'] = {'linked':True,  'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'publish_ports':False, 'safemode':False, 'interactive':False}
-defaults['master']     = {'linked':True,  'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'publish_ports':True,  'safemode':False, 'interactive':False}
-defaults['debug']      = {'linked':False, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'publish_ports':False, 'safemode':True,  'interactive':True }
+defaults['standard']   = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'persistent_home':False, 'publish_ports':False, 'safemode':False, 'interactive':False}
+defaults['published']  = {'linked':True,  'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'persistent_home':False, 'publish_ports':True,  'safemode':False, 'interactive':False}
+defaults['persistent'] = {'linked':True,  'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'persistent_home':True,  'publish_ports':False, 'safemode':False, 'interactive':False}
+defaults['master']     = {'linked':True,  'persistent_data':True,  'persistent_opt': False, 'persistent_log':True,  'persistent_home':False, 'publish_ports':True,  'safemode':False, 'interactive':False}
+defaults['debug']      = {'linked':False, 'persistent_data':False, 'persistent_opt': False, 'persistent_log':False, 'persistent_home':False, 'publish_ports':False, 'safemode':True,  'interactive':True }
 
 
 #--------------------------
@@ -423,8 +423,8 @@ def get_services_run_conf(conf_file=None):
     
     
     # Validate vars
-    valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt','persistent_log', 'include_in_run_all',
-                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group']
+    valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt', 'persistent_log', 'persistent_home',
+                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group', 'include_in_run_all']
     
     for service_description in registered_services:
         for key in service_description:
@@ -506,7 +506,6 @@ def format_shell_error(stdout, stderr, exit_code):
 def get_service_ip(service, instance):
     ''' Get the IP address of a given service'''
     
-
     inspect_json = json.loads(shell('docker inspect ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout)
     IP = inspect_json[0]['NetworkSettings']['IPAddress']    
 
@@ -518,7 +517,7 @@ def get_service_ip(service, instance):
         try:
             socket.inet_aton(IP)
         except socket.error:
-            raise Exception('Error, I could not find a valid IP address for service "{}", instance "{}"'.format(service, instance))
+            raise Exception('Error, I could not find a valid IP address for service "{}", instance "{}". If the service is running in nethost mode, this is normal'.format(service, instance))
             
     return IP
 
@@ -589,7 +588,7 @@ def demo():
 #--------------------------
 
 #task
-def init(os_to_init='ubuntu14.04', verbose=False, nocache=True):
+def init(os_to_init='ubuntu14.04', verbose=False, cache=False):
     '''Initialize the base services'''
     
     # Sanity checks:
@@ -601,13 +600,13 @@ def init(os_to_init='ubuntu14.04', verbose=False, nocache=True):
     verbose     = booleanize(verbose=verbose)
     
     # Build base images
-    build(service='reyns-common-{}'.format(os_to_init), verbose=verbose, nocache=nocache)
-    build(service='reyns-base-{}'.format(os_to_init), verbose=verbose, nocache=nocache)
+    build(service='reyns-common-{}'.format(os_to_init), verbose=verbose, cache=cache)
+    build(service='reyns-base-{}'.format(os_to_init), verbose=verbose, cache=cache)
 
     if os_to_init=='ubuntu14.04':
         if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 1:
             print('Updating DNS service as well...')
-            build(service='reyns-dns-ubuntu14.04', nocache=nocache)
+            build(service='reyns-dns-ubuntu14.04', cache=cache)
             out = shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
             if out.exit_code != 0:
                 print(out.stderr)
@@ -617,7 +616,7 @@ def init(os_to_init='ubuntu14.04', verbose=False, nocache=True):
 
 
 #task
-def build(service=None, verbose=False, nocache=False, relative=True):
+def build(service=None, verbose=False, cache=True, relative=True):
     '''Build a given service. If service name is set to "all" then builds all the services'''
 
     # Sanitize...
@@ -669,9 +668,9 @@ def build(service=None, verbose=False, nocache=False, relative=True):
                     for service in dependencies:
                         if service not in built:
                             # Build by recursively call myself
-                            build(service=service, verbose=verbose, nocache=nocache)
+                            build(service=service, verbose=verbose, cache=cache)
                             built.append(service)
-                build(service=service_dir, verbose=verbose, nocache=nocache)
+                build(service=service_dir, verbose=verbose, cache=cache)
                     
             except IOError:
                 pass
@@ -697,7 +696,7 @@ def build(service=None, verbose=False, nocache=False, relative=True):
             logger.debug('Checking image "{}"...'.format(image))
             if shell('docker inspect {}'.format(image), capture=True).exit_code != 0:
                 print('Could not find Reyns base image "{}", will build it.\n'.format(image))
-                build(service=image.split('/')[1], verbose=verbose, nocache=nocache)
+                build(service=image.split('/')[1], verbose=verbose, cache=cache)
 
             else:
                 logger.debug('Found Reyns base image "{}", will not build it.'.format(image))
@@ -725,14 +724,14 @@ def build(service=None, verbose=False, nocache=False, relative=True):
  
         # Build command
         if relative:
-            if nocache:
+            if not cache:
                 print('Building without cache')
                 build_command = 'cd ' + service_dir + '/.. &&' + 'docker build --no-cache -t ' + tag_prefix +'/' + service + ' ' + service
             else:
                 print('Building with cache')
                 build_command = 'cd ' + service_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + service + ' ' + service
         else:
-            if nocache:
+            if not cache:
                 print('Building without cache')
                 build_command = 'docker build --no-cache -f '+ service_dir + '/Dockerfile -t ' + tag_prefix +'/' + service + ' .'
             else:
@@ -784,10 +783,10 @@ def rerun(service, instance=None):
 
 # TODO: clarify difference between False and None.
 #task
-def run(service=None, instance=None, group=None, instance_type=None,
-        persistent_data=None, persistent_opt=None, persistent_log=None,
-        publish_ports=None, linked=None, seed_command=None, conf=None,
-        safemode=None,  interactive=None, recursive=False, from_rerun=False, nethost=None):
+def run(service=None, instance=None, group=None, instance_type=None, interactive=None, 
+        persistent_data=None, persistent_opt=None, persistent_log=None, persistent_home=None,
+        publish_ports=None, linked=None, seed_command=None, conf=None, safemode=None,
+        recursive=False, from_rerun=False, nethost=None):
     '''Run a given service with a given instance. If no instance name is set,
     a standard instance with a random name is run. If service name is set to "all"
     then all the services are run, according to the conf.'''
@@ -887,6 +886,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
                 persistent_data = persistent_data if persistent_data is not None else (service_conf['persistent_data'] if 'persistent_data' in service_conf else None),
                 persistent_log  = persistent_log  if persistent_log  is not None else (service_conf['persistent_log']  if 'persistent_log'  in service_conf else None),
                 persistent_opt  = persistent_opt  if persistent_opt  is not None else (service_conf['persistent_opt']  if 'persistent_opt'  in service_conf else None),
+                persistent_home = persistent_home if persistent_home is not None else (service_conf['persistent_home'] if 'persistent_home' in service_conf else None),
                 publish_ports   = publish_ports   if publish_ports   is not None else (service_conf['publish_ports']   if 'publish_ports'   in service_conf else None),
                 linked          = linked          if linked          is not None else (service_conf['linked']          if 'linked'          in service_conf else None),
                 interactive     = interactive,
@@ -907,7 +907,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     # Chek if we have to build a Reyns a missing service, and specifically the DNS
     if service == 'reyns-dns' :
         if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
-            print('Missing DNS service, now building it...')
+            print('\nMissing DNS service, now building it...')
             build(service='reyns-dns-ubuntu14.04')
             out = shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
             if out.exit_code != 0:
@@ -996,6 +996,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     persistent_data = persistent_data if persistent_data is not None else (service_conf['persistent_data'] if 'persistent_data' in service_conf else None)
     persistent_log  = persistent_log  if persistent_log  is not None else (service_conf['persistent_log']  if 'persistent_log'  in service_conf else None)
     persistent_opt  = persistent_opt  if persistent_opt  is not None else (service_conf['persistent_opt']  if 'persistent_opt'  in service_conf else None)
+    persistent_home = persistent_home if persistent_home is not None else (service_conf['persistent_home'] if 'persistent_home'  in service_conf else None)
     publish_ports   = publish_ports   if publish_ports   is not None else (service_conf['publish_ports']   if 'publish_ports'   in service_conf else None)
     linked          = linked          if linked          is not None else (service_conf['linked']          if 'linked'          in service_conf else None)               
     nethost         = nethost         if nethost         is not None else (service_conf['nethost']         if 'nethost'         in service_conf else None)
@@ -1016,6 +1017,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     persistent_data = setswitch(persistent_data=persistent_data, instance_type=instance_type)
     persistent_log  = setswitch(persistent_log=persistent_log, instance_type=instance_type)
     persistent_opt  = setswitch(persistent_opt=persistent_opt, instance_type=instance_type)
+    persistent_home = setswitch(persistent_home=persistent_home, instance_type=instance_type)    
     publish_ports   = setswitch(publish_ports=publish_ports, instance_type=instance_type)
     interactive     = setswitch(interactive=interactive, instance_type=instance_type)
     safemode        = setswitch(safemode=safemode, instance_type=instance_type)
@@ -1027,6 +1029,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
     ENV_VARs['PERSISTENT_DATA'] = persistent_data
     ENV_VARs['PERSISTENT_LOG']  = persistent_log
     ENV_VARs['PERSISTENT_OPT']  = persistent_opt
+    ENV_VARs['PERSISTENT_HOME'] = persistent_home
     ENV_VARs['SAFEMODE']        = safemode
     ENV_VARs['HOST_HOSTNAME']   = socket.gethostname()
             
@@ -1188,7 +1191,7 @@ def run(service=None, instance=None, group=None, instance_type=None,
         privileged = True
 
     # Handle persistency
-    if persistent_data or persistent_log or persistent_opt:
+    if persistent_data or persistent_log or persistent_opt or persistent_home:
 
         # Check project data dir exists:
         if not os.path.exists(DATA_DIR):

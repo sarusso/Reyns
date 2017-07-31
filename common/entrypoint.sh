@@ -49,6 +49,21 @@ if [ "x$PERSISTENT_LOG" == "xTrue" ]; then
     fi
 fi
 
+# If persistent home:
+if [ "x$PERSISTENT_HOME" == "xTrue" ]; then
+    echo "[INFO] Persistent home set"
+    if [ ! -f /persistent/home/.persistent_initialized ]; then
+        mv /home /persistent/home
+        ln -s /persistent/home /home
+        touch /home/.persistent_initialized
+    else
+       mkdir -p /trash
+       mv /home /trash
+       ln -s /persistent/home /home
+    fi
+fi
+
+
 # If persistent opt:
 if [ "x$PERSISTENT_OPT" == "xTrue" ]; then
     echo "[INFO] Persistent opt set"
