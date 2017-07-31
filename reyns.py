@@ -16,10 +16,7 @@ except ImportError:
 import struct
 import platform
 import re
-
 import subprocess
-
-from subprocess import Popen, PIPE
 from collections import namedtuple
 from time import sleep
 
@@ -96,6 +93,19 @@ logger.setLevel(getattr(logging, LOG_LEVEL))
 # Utility functions & vars
 #--------------------------
 
+def safeprint(s):
+    try:
+        print(s)
+    except UnicodeEncodeError:
+        if sys.version_info >= (3,):
+            print(s.encode('utf8').decode(sys.stdout.encoding))
+        else:
+            print(s.encode('utf8'))
+
+# Sanitize encoding
+def sanitize_encoding(text):
+    return text.encode("utf-8", errors="ignore")
+    
 # Abort
 def abort(message):
     print('Aborting due to fatal error: {}. \n'.format(message))
@@ -264,7 +274,11 @@ def shell(command, capture=False, verbose=False, interactive=False, silent=False
     
     if capture and verbose:
         raise Exception('You cannot ask at the same time for capture and verbose, sorry')
-    
+
+    # Log command
+    logger.debug('Shell executing command: "%s"', command)
+
+    # Execute command in interactive mode    
     if verbose or interactive:
         exit_code = subprocess.call(command, shell=True)
         if exit_code == 0:
@@ -272,13 +286,10 @@ def shell(command, capture=False, verbose=False, interactive=False, silent=False
         else:
             return False
 
-    # Log command
-    logger.debug('Shell executing command: "%s"', command)
-    
     # Execute command getting stdout and stderr
     # http://www.saltycrane.com/blog/2008/09/how-get-stdout-and-stderr-using-python-subprocess-module/
     
-    process          = Popen(command, stdout=PIPE, stderr=PIPE, shell=True)
+    process          = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     (stdout, stderr) = process.communicate()
     exit_code        = process.wait()
 
@@ -412,8 +423,8 @@ def get_services_run_conf(conf_file=None):
     
     
     # Validate vars
-    valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt','persistent_log',
-                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency']
+    valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt','persistent_log', 'include_in_run_all',
+                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group']
     
     for service_description in registered_services:
         for key in service_description:
@@ -482,9 +493,9 @@ def format_shell_error(stdout, stderr, exit_code):
     string += '\n# Shell exited with exit code {}'.format(exit_code)
     string += '\n#---------------------------------\n'
     string += '\nStandard output: "'
-    string += str(stdout)
+    string += sanitize_encoding(stdout)
     string += '"\n\nStandard error: "'
-    string += str(stderr) +'"\n\n'
+    string += sanitize_encoding(stderr) +'"\n\n'
     string += '#---------------------------------\n'
     string += '# End Shell output\n'
     string += '#---------------------------------\n'
@@ -578,7 +589,7 @@ def demo():
 #--------------------------
 
 #task
-def init(os_to_init='ubuntu14.04', verbose=False, update=False):
+def init(os_to_init='ubuntu14.04', verbose=False, nocache=True):
     '''Initialize the base services'''
     
     # Sanity checks:
@@ -590,17 +601,20 @@ def init(os_to_init='ubuntu14.04', verbose=False, update=False):
     verbose     = booleanize(verbose=verbose)
     
     # Build base images
-    build(service='reyns-common-{}'.format(os_to_init), verbose=verbose, nocache=update)
-    build(service='reyns-base-{}'.format(os_to_init), verbose=verbose, nocache=update)
+    build(service='reyns-common-{}'.format(os_to_init), verbose=verbose, nocache=nocache)
+    build(service='reyns-base-{}'.format(os_to_init), verbose=verbose, nocache=nocache)
 
-    # DEPRECATED: If Reyns DNS service does not exist, build and use this one
-    #if update or shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
-    #    build(service='reyns-dns-{}'.format(os_to_init), verbose=verbose, nocache=update)
-    #    shell('docker tag reyns/reyns-dns-{} reyns/reyns-dns'.format(os_to_init))
+    if os_to_init=='ubuntu14.04':
+        if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 1:
+            print('Updating DNS service as well...')
+            build(service='reyns-dns-ubuntu14.04', nocache=nocache)
+            out = shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
+            if out.exit_code != 0:
+                print(out.stderr)
+                print('')
+                abort('Something wrong happened, see output above')
 
-#task
-def update(os='ubuntu14.04'):
-    init(os_to_init=os, verbose=False, update=True)
+
 
 #task
 def build(service=None, verbose=False, nocache=False, relative=True):
@@ -655,9 +669,9 @@ def build(service=None, verbose=False, nocache=False, relative=True):
                     for service in dependencies:
                         if service not in built:
                             # Build by recursively call myself
-                            build(service=service, verbose=verbose)
+                            build(service=service, verbose=verbose, nocache=nocache)
                             built.append(service)
-                build(service=service_dir, verbose=verbose)
+                build(service=service_dir, verbose=verbose, nocache=nocache)
                     
             except IOError:
                 pass
@@ -683,17 +697,8 @@ def build(service=None, verbose=False, nocache=False, relative=True):
             logger.debug('Checking image "{}"...'.format(image))
             if shell('docker inspect {}'.format(image), capture=True).exit_code != 0:
                 print('Could not find Reyns base image "{}", will build it.\n'.format(image))
-                build(service=image.split('/')[1], verbose=verbose, nocache=False)
+                build(service=image.split('/')[1], verbose=verbose, nocache=nocache)
 
-                # DEPRECATED:  If we built a base and no DNS is yet present, buid it as well
-                #if image in ['reyns/reyns-base-ubuntu14.04']: #TODO: support 16.04 as well
-                #    if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
-                #        logger.info('Building DNS as well...')
-                #        build(service='reyns-dns-ubuntu14.04', verbose=verbose, nocache=True)
-                #        shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns')
-                #    else:
-                #        logger.debug('DNS alredy present, not building it...')
-                
             else:
                 logger.debug('Found Reyns base image "{}", will not build it.'.format(image))
 
@@ -852,6 +857,10 @@ def run(service=None, instance=None, group=None, instance_type=None,
                         continue
                 else:
                     continue
+            else:
+                if 'include_in_run_all' in service_conf:
+                    if not service_conf['include_in_run_all']:
+                        continue
                 
             # Check for service name
             if 'service' not in service_conf:
@@ -1964,10 +1973,9 @@ if __name__ == '__main__':
     tasks['info']      = [info, '     Obtain info about a given service']    
     tasks['demo']      = [demo, '     Install demo project in current directory']  
     tasks['help']      = [help, '     Show this help']  
-    tasks['update']    = [update, '   Update (rebuild) Reyns images']
     tasks['version']   = [version, '  Get Reyns version']
     tasks['uninstall'] = [uninstall, 'Uninstall Reyns' ]
-    tasks['_init']     = [init, '    Init base Reyns images' ]
+    tasks['init']      = [init, '    Init base Reyns images' ]
     tasks['_install']  = [install, ' Install Reyns' ]
     tasks['_start']    = [start, '   Start a stopped service (if you know what you are doing)' ]
 

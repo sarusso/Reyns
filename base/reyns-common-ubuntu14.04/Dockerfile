@@ -9,16 +9,10 @@ MAINTAINER Stefano Alberto Russo <stefano.russo@gmail.com>
 RUN apt-get update
 
 # Utilities
-RUN apt-get install -y nano
-RUN apt-get install -y telnet
-RUN apt-get install -y unzip
-RUN apt-get install -y wget
-RUN apt-get install -y supervisor
+RUN apt-get install -y nano telnet unzip wget supervisor openssh-server
 
 # Devel
-RUN apt-get install -y build-essential
-RUN apt-get install -y python-dev
-RUN apt-get install -y git-core
+RUN apt-get install -y build-essential python-dev git-core
 
 # Java
 RUN apt-get install -y openjdk-7-jre
@@ -35,38 +29,34 @@ RUN locale-gen en_US en_US.UTF-8
 RUN groupadd -g 65527 reyns
 
 # Add user. We chose UID 65527 to try avoiding conflicts.
-RUN useradd reyns -u 65527 -g 65527 -m -s /bin/bash
+RUN useradd reyns -d /reyns -u 65527 -g 65527 -m -s /bin/bash
 
 # Add reyns user to sudoers
 RUN adduser reyns sudo
 
 # Keys
-RUN mkdir /home/reyns/.ssh
-COPY keys/authorized_keys /home/reyns/.ssh/
-COPY keys/id_rsa /home/reyns/.ssh/
-RUN chmod 0600 /home/reyns/.ssh/id_rsa
-COPY keys/id_rsa.pub /home/reyns/.ssh/
-RUN chown -R reyns:reyns /home/reyns/.ssh
+RUN mkdir /reyns/.ssh
+COPY keys/authorized_keys /reyns/.ssh/
+COPY keys/id_rsa /reyns/.ssh/
+RUN chmod 0600 /reyns/.ssh/id_rsa
+COPY keys/id_rsa.pub /reyns/.ssh/
+RUN chown -R reyns:reyns /reyns/.ssh
 
 # No pass sudo (for everyone, actually)
 COPY common/sudoers /etc/sudoers
 
 # bash_profile for loading correct env (/env.sh created by entrypoint.sh)
-RUN echo "source /env.sh" > /home/reyns/.bash_profile
+RUN echo "source /env.sh" > /reyns/.bash_profile
 
 #------------------------
 # Data, Logs and opt dirs
 #------------------------
 
 # Create dirs
-RUN mkdir /data
-RUN mkdir /opt/reyns
-RUN mkdir /var/log/reyns 
+RUN mkdir /data && mkdir /opt/reyns && mkdir /var/log/reyns 
 
 # Give right permissions
-RUN chown -R reyns:reyns /data
-RUN chown -R reyns:reyns /opt/reyns
-RUN chown -R reyns:reyns /var/log/reyns
+RUN chown -R reyns:reyns /data && chown -R reyns:reyns /opt/reyns && chown -R reyns:reyns /var/log/reyns
 
 
 #----------------------
@@ -77,21 +67,20 @@ COPY common/supervisord.conf /etc/supervisor/
 
 
 #----------------------
-# SSH service
+# SSH conf
 #----------------------
 
-RUN apt-get install -y openssh-server
-RUN mkdir /var/run/sshd
-RUN chmod 0755 /var/run/sshd
+RUN mkdir /var/run/sshd && chmod 0755 /var/run/sshd
 COPY common/supervisord_sshd.conf /etc/supervisor/conf.d/
 
 
 #----------------------
-# Startup scripts
+# Prestartup scripts
 #----------------------
 
-# Create directory for startup scripts
-RUN mkdir /startup
+# Create dir for prestartup scripts and copy main script
+RUN mkdir /prestartup
+COPY common/prestartup.py /
 
 #----------------------------
 # Generate DNS key

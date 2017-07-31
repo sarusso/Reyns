@@ -1,8 +1,7 @@
 #!/bin/bash
-set -e
 
 echo ""
-echo "[INFO] Executing Reyns  entrypoint script..."
+echo "[INFO] Executing Reyns entrypoint..."
 
 #---------------------
 #   Persistency
@@ -69,18 +68,9 @@ fi
 #  Prestartup scripts
 #---------------------
 
-# Create single script from all the prestartup scripts, ordering by creation time
-ls -tr /prestartup/*.sh | xargs cat > /prestartup.sh
-chmod 755 /prestartup.sh
-
 if [ "x$SAFEMODE" == "xFalse" ]; then
-    echo "[INFO] Executing  prestartup scripts (current + parents)..."
-    echo "" >> /var/log/prestartup.log
-    echo "-----------------------------------" >> /var/log/prestartup.log
-    date >> /var/log/prestartup.log
-    echo "-----------------------------------" >> /var/log/prestartup.log
-    echo ""  >> /var/log/prestartup.log
-    /prestartup.sh 2>&1 | tee -a /var/log/prestartup.log
+    echo "[INFO] Executing  prestartup scripts (current + parents):"
+    python /prestartup.py
 else
     echo "[INFO] Not executing prestartup scripts as we are in safemode"
 fi

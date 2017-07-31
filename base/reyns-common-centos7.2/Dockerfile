@@ -33,24 +33,24 @@ RUN yum install -y java-1.7.0-openjdk # https://www.digitalocean.com/community/t
 RUN groupadd -g 65527 reyns
 
 # Add user. We chose UID 65527 to try avoiding conflicts.
-RUN useradd reyns -u 65527 -g 65527 -m -s /bin/bash
+RUN useradd reyns -d /reyns -u 65527 -g 65527 -m -s /bin/bash
 
 # Install sudo for allowing reyns to do sudo
 RUN yum install -y sudo 
 
 # Keys
-RUN mkdir /home/reyns/.ssh
-COPY keys/authorized_keys /home/reyns/.ssh/
-COPY keys/id_rsa /home/reyns/.ssh/
-RUN chmod 0600 /home/reyns/.ssh/id_rsa
-COPY keys/id_rsa.pub /home/reyns/.ssh/
-RUN chown -R reyns:reyns /home/reyns/.ssh
+RUN mkdir /reyns/.ssh
+COPY keys/authorized_keys /reyns/.ssh/
+COPY keys/id_rsa /reyns/.ssh/
+RUN chmod 0600 /reyns/.ssh/id_rsa
+COPY keys/id_rsa.pub /reyns/.ssh/
+RUN chown -R reyns:reyns /reyns/.ssh
 
 # No pass sudo (for everyone, actually)
 COPY common/sudoers-centos /etc/sudoers
 
 # bash_profile for loading correct env (/env.sh created by entrypoint.sh)
-RUN echo "source /env.sh" > /home/reyns/.bash_profile
+RUN echo "source /env.sh" > /reyns/.bash_profile
 
 #------------------------
 # Data, Logs and opt dirs
@@ -87,11 +87,12 @@ RUN ssh-keygen -A # https://bbs.archlinux.org/viewtopic.php?id=165382
 
 
 #----------------------
-# Startup scripts
+# Prestartup scripts
 #----------------------
 
-# Create directory for startup scripts
-RUN mkdir /startup
+# Create dir for prestartup scripts and copy main script
+RUN mkdir /prestartup
+COPY common/prestartup.py /
 
 #----------------------------
 # Generate DNS key
