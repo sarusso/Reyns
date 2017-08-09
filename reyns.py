@@ -424,7 +424,7 @@ def get_services_run_conf(conf_file=None):
     
     # Validate vars
     valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt', 'persistent_log', 'persistent_home',
-                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group', 'include_in_run_all']
+                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group', 'autorun']
     
     for service_description in registered_services:
         for key in service_description:
@@ -758,19 +758,57 @@ def build(service=None, verbose=False, cache=True, relative=True):
 
 
 #task
-def start(service,instance):
-    '''Start a stopped service. Use only if you know what you are doing.''' 
+def start(service,instance=None):
+    '''Start a stopped service. Use only if you know what you are doing.'''
+    
+    # Default tag prefix to PROJECT_NAME    
+    tag_prefix = PROJECT_NAME
+
+    # But if we are running a Reyns service, use Reyns image
+    if is_base_service(service):
+        tag_prefix = 'reyns'
+    
     if service_exits_but_not_running(service,instance):
-        shell('docker start {}-{}'.format(service,instance), silent=True)
+        shell('docker start {}-{}-{}'.format(tag_prefix,service,instance), silent=True)
     else:
         abort('Cannot start a service not in exited state. use "run" instead')
 
 #task
+def stop(service,instance=None):
+    '''Stop a stopped service. Use only if you know what you are doing.'''
+    running_instances = get_running_services_instances_matching(service,instance)
+    if len(running_instances) == 0:
+        if instance:
+            abort('Could not find any instance named "{}" for service "{}"'.format(instance, service))   
+        else:
+            abort('Could not find any running instance of service matching "{}"'.format(service))                
+    if len(running_instances) > 1:
+        abort('Found more than one running instance for service "{}": {}, please specity wich one.'.format(service, running_instances))            
+    service = running_instances[0][0]
+    instance  = running_instances[0][1]
+
+    # Default tag prefix to PROJECT_NAME    
+    tag_prefix = PROJECT_NAME
+
+    # But if we are running a Reyns service, use Reyns image
+    if is_base_service(service):
+        tag_prefix = 'reyns'
+    
+    if is_service_running(service,instance):
+        shell('docker stop {}-{}-{}'.format(tag_prefix,service,instance), silent=True)
+    else:
+        abort('Service is not in runnign state, cannot stop.')
+
+
+#task
 def rerun(service, instance=None):
     '''Re-run a given service (instance is not mandatory if only one is running)'''
-    running_instances = get_running_services_instances_matching(service)
+    running_instances = get_running_services_instances_matching(service,instance)
     if len(running_instances) == 0:
-        abort('Could not find any running instance of service matching "{}"'.format(service))                
+        if instance:
+            abort('Could not find any instance named "{}" for service "{}"'.format(instance, service))   
+        else:
+            abort('Could not find any running instance of service matching "{}"'.format(service))                
     if len(running_instances) > 1:
         abort('Found more than one running instance for service "{}": {}, please specity wich one.'.format(service, running_instances))            
     service = running_instances[0][0]
@@ -857,8 +895,8 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
                 else:
                     continue
             else:
-                if 'include_in_run_all' in service_conf:
-                    if not service_conf['include_in_run_all']:
+                if 'autorun' in service_conf:
+                    if not service_conf['autorun']:
                         continue
                 
             # Check for service name
@@ -925,7 +963,7 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
 
         abort('Service "{0}", instance "{1}" exists but it is not running, I cannot start it since the linking ' \
               'would be end up broken. Use reyns clean:{0},instance={1} to clean it and start over clean, ' \
-              'or reyns start:{0},instance={1} if you know what you are doing.'.format(service,instance))
+              'or reyns _start:{0},instance={1} if you know what you are doing.'.format(service,instance))
 
     # Check if this service is already running
     if is_service_running(service,instance):
@@ -1981,6 +2019,7 @@ if __name__ == '__main__':
     tasks['init']      = [init, '    Init base Reyns images' ]
     tasks['_install']  = [install, ' Install Reyns' ]
     tasks['_start']    = [start, '   Start a stopped service (if you know what you are doing)' ]
+    tasks['_stop']     = [stop, '    Stop a running service (if you know what you are doing)' ]
 
     # Output cleareness
     if ('jsonout' not in kwargs) or ('jsonout' in kwargs and kwargs['jsonout']==False):
