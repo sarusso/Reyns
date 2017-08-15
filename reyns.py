@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 import os
+import sys
 import inspect
 import uuid
 import logging
@@ -53,6 +54,26 @@ LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
 SUPPORTED_OSES      = ['ubuntu14.04','centos7.2']
 REDIRECT            = '&> /dev/null'
 
+# Sanitize conf
+def earlyabort(message):
+    print('Aborting due to fatal error at startup: {}.'.format(message))
+    sys.exit(1)
+
+if not PROJECT_NAME.strip():
+    earlyabort('Got empty "PROJECT_NAME"')
+if not PROJECT_DIR.strip():
+    earlyabort('Got empty "PROJECT_DIR"')
+if not DATA_DIR.strip():
+    earlyabort('Got empty "DATA_DIR"')
+if not SERVICES_IMAGES_DIR.strip():
+    earlyabort('Got empty "SERVICES_IMAGES_DIR"')
+if not BASE_IMAGES_DIR.strip():
+    earlyabort('Got empty "BASE_IMAGES_DIR"')
+if not LOG_LEVEL.strip():
+    earlyabort('Got empty "LOG_LEVEL"')
+if LOG_LEVEL not in ['DEBUG', 'INFO', 'ERROR', 'CRITICAL']:
+    earlyabort('Got unsupported value "{}" for "LOG_LEVEL"'.format(LOG_LEVEL))
+
 # Platform-specific conf tricks
 if running_on_windows():
     
@@ -86,7 +107,6 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s: %(message)s'
 #logger = logging.getLogger(__name__)
 logger = logging.getLogger('Reyns')
 logger.setLevel(getattr(logging, LOG_LEVEL))
-
 
 
 #--------------------------
@@ -1593,17 +1613,17 @@ def ssh(service=None, instance=None, command=None, capture=False, jsonout=False)
     # RUN command over SSH or SSH session
     if command:
         if capture:
-            out = shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
+            out = shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
             return out
         elif jsonout:
-            out = shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
+            out = shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
             out_dict = {'stdout': out.stdout, 'stderr':out.stderr, 'exit_code':out.exit_code}
             print(json.dumps(out_dict)) # This goes to stdout and is ready to be loaded as json             
         else:
-            shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), interactive=True)
+            shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), interactive=True)
             
     else:
-        shell(command='ssh -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True)
+        shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True)
 
 #task
 # Deprecated, included in the tasks handling in the main
@@ -1646,8 +1666,9 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
         service = 'project'
 
     if not info and service not in ['all', 'platform', 'project', 'reallyall']:
-        abort('Sorry, I do not understand the command "{}"'.format(service))
+        abort('Sorry, I do not understand the argument "{}"'.format(service))
 
+    # TODO: The following is a leftover from project/platform division and prbably does nto even work
     if service == 'platform':
         known_services_fullnames = [conf['service']+'-'+conf['instancef'] for conf in get_services_run_conf(conf)]
         
@@ -1933,7 +1954,6 @@ def make_it_a_duck(val):
 
 
 if __name__ == '__main__':
-    import sys
     
     # Get task and args 
     if len(sys.argv) == 1:
