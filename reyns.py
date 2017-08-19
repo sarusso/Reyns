@@ -750,12 +750,34 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False)
  
         # Set USER UID and GID vars
         import pwd, grp
-        building_uid   = os.getuid()
-        building_gid   = pwd.getpwuid(building_uid).pw_gid
-        building_user  = pwd.getpwuid(building_uid).pw_name
-        building_group = grp.getgrgid(building_gid).gr_name
+        user_group_info = {}
+        user_group_info['BUILDING_UID'] = os.getuid()
+        user_group_info['BUILDING_GID'] = pwd.getpwuid(user_group_info['BUILDING_UID']).pw_gid
+        user_group_info['BUILDING_USER'] = pwd.getpwuid(user_group_info['BUILDING_UID']).pw_name
+        user_group_info['BUILDING_GROUP'] = grp.getgrgid(user_group_info['BUILDING_GID']).gr_name
 
-        set_user_uid_gid_args = '--build-arg BUILDING_USER={} --build-arg BUILDING_UID={} --build-arg BUILDING_GROUP={} --build-arg BUILDING_GID={}'.format(building_user, building_uid, building_group, building_gid)
+        # Obtain the arguments from the Dockerfile
+        set_user_uid_gid_args = ''
+        try:
+            with open(get_service_dir(service)+'/Dockerfile') as f:
+                dockerfile = f.readlines()
+        except IOError:
+            abort('No Dockerfile found (?!) I was looking in {}'.format(get_service_dir(service)+'/Dockerfile'))
+
+        for i,line in enumerate(dockerfile):
+            if line.startswith('ARG'):
+                try:
+                    build_arg =  line.replace('\n','').strip().split(' ')[1]
+                except IndexError:
+                    abort('Error in parsing building args, Dockerfile line #{} ("{}")'.format(i,line.strip()))
+
+                try:
+                    set_user_uid_gid_args += '--build-arg {}={} '.format(build_arg, user_group_info[build_arg])
+                except KeyError:
+                    pass
+
+        # Strip trailing space
+        set_user_uid_gid_args = set_user_uid_gid_args.strip()
 
         # Build command
         if relative:
@@ -1310,13 +1332,13 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
         # Obtain the ports to publish from the Dockerfile
         try:
             with open(get_service_dir(service)+'/Dockerfile') as f:
-                content = f.readlines()
+                dockerfile = f.readlines()
         except IOError:
             abort('No Dockerfile found (?!) I was looking in {}'.format(get_service_dir(service)+'/Dockerfile'))
         
         ports =[]
         udp_ports = []
-        for line in content:
+        for line in dockerfile:
             
             # Standard EXPOSE
             if line.startswith('EXPOSE'):
