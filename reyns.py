@@ -444,7 +444,8 @@ def get_services_run_conf(conf_file=None):
     
     # Validate vars
     valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt', 'persistent_log', 'persistent_home',
-                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group', 'autorun']
+                                      'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group', 'autorun',
+                                      'shared_data']
     
     for service_description in registered_services:
         for key in service_description:
@@ -636,7 +637,7 @@ def init(os_to_init='ubuntu14.04', verbose=False, cache=False):
 
 
 #task
-def build(service=None, verbose=False, cache=True, relative=True):
+def build(service=None, verbose=False, cache=True, relative=True, fromall=False):
     '''Build a given service. If service name is set to "all" then builds all the services'''
 
     # Sanitize...
@@ -688,9 +689,9 @@ def build(service=None, verbose=False, cache=True, relative=True):
                     for service in dependencies:
                         if service not in built:
                             # Build by recursively call myself
-                            build(service=service, verbose=verbose, cache=cache)
+                            build(service=service, verbose=verbose, cache=cache, fromall=True)
                             built.append(service)
-                build(service=service_dir, verbose=verbose, cache=cache)
+                build(service=service_dir, verbose=verbose, cache=cache, fromall=True)
                     
             except IOError:
                 pass
@@ -698,6 +699,11 @@ def build(service=None, verbose=False, cache=True, relative=True):
     else:
         # Build a given service
         service_dir = get_service_dir(service)
+
+        # Check if we have to exclude this service from autobuild
+        if fromall and os.path.isfile(service_dir+'/no_autobuild'):
+            logger.debug('Not building service "{}" as "no_autobuild" file present.'.format(service))
+            return
 
         # Obtain the base image
         with open('{}/Dockerfile'.format(service_dir)) as f:
@@ -742,21 +748,30 @@ def build(service=None, verbose=False, cache=True, relative=True):
         if prestartup_scripts:
             shell('touch {}/{}'.format(service_dir, prestartup_scripts[0]),silent=True)
  
+        # Set USER UID and GID vars
+        import pwd, grp
+        building_uid   = os.getuid()
+        building_gid   = pwd.getpwuid(building_uid).pw_gid
+        building_user  = pwd.getpwuid(building_uid).pw_name
+        building_group = grp.getgrgid(building_gid).gr_name
+
+        set_user_uid_gid_args = '--build-arg BUILDING_USER={} --build-arg BUILDING_UID={} --build-arg BUILDING_GROUP={} --build-arg BUILDING_GID={}'.format(building_user, building_uid, building_group, building_gid)
+
         # Build command
         if relative:
             if not cache:
                 print('Building without cache')
-                build_command = 'cd ' + service_dir + '/.. &&' + 'docker build --no-cache -t ' + tag_prefix +'/' + service + ' ' + service
+                build_command = 'cd ' + service_dir + '/.. &&' + 'docker build ' + set_user_uid_gid_args + ' --no-cache -t ' + tag_prefix +'/' + service + ' ' + service
             else:
                 print('Building with cache')
-                build_command = 'cd ' + service_dir + '/.. &&' + 'docker build -t ' + tag_prefix +'/' + service + ' ' + service
+                build_command = 'cd ' + service_dir + '/.. &&' + 'docker build ' + set_user_uid_gid_args + ' -t ' + tag_prefix +'/' + service + ' ' + service
         else:
             if not cache:
                 print('Building without cache')
-                build_command = 'docker build --no-cache -f '+ service_dir + '/Dockerfile -t ' + tag_prefix +'/' + service + ' .'
+                build_command = 'docker build  ' + set_user_uid_gid_args + ' --no-cache -f '+ service_dir + '/Dockerfile -t ' + tag_prefix +'/' + service + ' .'
             else:
                 print('Building with cache')
-                build_command = 'docker build -f '+ service_dir + '/Dockerfile -t ' + tag_prefix +'/' + service + ' .'
+                build_command = 'docker build ' + set_user_uid_gid_args + ' -f '+ service_dir + '/Dockerfile -t ' + tag_prefix +'/' + service + ' .'
                 
                            
         logger.debug('Build command: "{}"'.format(build_command))    
@@ -1244,7 +1259,7 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
 
 
     # Handle safe persistency
-    if service_conf and 'safe_persistency' in service_conf:
+    if service_conf and 'safe_persistency' in service_conf and service_conf['safe_persistency']:
         ENV_VARs['SAFE_PERSISTENCY'] = True
         privileged = True
 
@@ -1268,7 +1283,14 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
         if service_conf and 'safe_persistency' in service_conf:
             run_cmd += ' -v {}:/safe_persistent'.format(service_instance_dir)
         else:
-            run_cmd += ' -v {}:/persistent'.format(service_instance_dir)    
+            run_cmd += ' -v {}:/persistent'.format(service_instance_dir)
+
+    # Handle shared data between all instances
+    if service_conf and 'shared_data' in service_conf and service_conf['shared_data']:
+        if not os.path.exists(DATA_DIR+'/shared'):
+            os.makedirs(DATA_DIR+'/shared')
+        run_cmd += ' -v {}/shared:/shared'.format(DATA_DIR)
+    # TODO: reading service conf like above is wrong, conf should be loaded at beginning and now we should have only variables.
 
     # Handle extra volumes
     if service_conf and 'volumes' in service_conf:
@@ -2052,11 +2074,12 @@ if __name__ == '__main__':
             if task[0] != '_':
                 print('  {}   {}'.format(task, tasks[task][1]))
     else:
-        try:
+        # D not refactor with an "except KeyError" here, or you will end up in hiding errors
+        if task not in tasks:
+            abort('Unknown command "{}". Type "reyns help" for a list of available commands'.format(task))
+        else:
             tasks[task][0](*argv, **kwargs)
-        except KeyError:
-            print('Unkwnown command. Type "reyns help" for a list of available commands.')
-    
+
     # Output cleareness
     if not running_on_windows() and ('jsonout' not in kwargs) or ('jsonout' in kwargs and kwargs['jsonout']==False):
         print('')    
