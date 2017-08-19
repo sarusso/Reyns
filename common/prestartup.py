@@ -41,7 +41,9 @@ for item in sorted_ls(prestartup_scripts_path):
         # Execute this startup script
         print('[INFO] Executing prestartup script "{}"...'.format(item))
         script = prestartup_scripts_path+'/'+item
-        out = shell('chmod 755 {} && {} '.format(script,script))
+
+        # Use bash and not chmod + execute, see https://github.com/moby/moby/issues/9547
+        out = shell('bash {}'.format(script))
 
         # Set date
         date_str = str(datetime.datetime.now()).split('.')[0]
