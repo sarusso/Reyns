@@ -1615,12 +1615,13 @@ def ssh(service=None, instance=None, command=None, capture=False, jsonout=False)
     # Sanitize...
     (service, instance) = sanity_checks(service,instance)
     
-    try:
-        IP = get_service_ip(service, instance)
-    except Exception as e:
-        abort('Got error when obtaining IP address for service "{}", instance "{}": "{}"'.format(service,instance, e))
-    if not IP:
-        abort('Got no IP address for service "{}", instance "{}"'.format(service,instance))
+    if not running_on_osx():
+        try:
+            IP = get_service_ip(service, instance)
+        except Exception as e:
+            abort('Got error when obtaining IP address for service "{}", instance "{}": "{}"'.format(service,instance, e))
+        if not IP:
+            abort('Got no IP address for service "{}", instance "{}"'.format(service,instance))
 
     # Check if the key has proper permissions
     if not shell('ls -l keys/id_rsa',capture=True).stdout.endswith('------'):
@@ -1649,7 +1650,13 @@ def ssh(service=None, instance=None, command=None, capture=False, jsonout=False)
             abort('Reyns internal error (containers ID do not match)')
 
         # Get host's port for SSH forwarding
-        port = inspect[0]['NetworkSettings']['Ports']['22/tcp'][0]['HostPort']
+        try:
+            port = inspect[0]['NetworkSettings']['Ports']['22/tcp'][0]['HostPort']
+        except KeyError:
+            try:
+                port = inspect[0][u'HostConfig']['PortBindings']['22/tcp'][0]['HostPort']
+            except KeyError as e:
+                abort('Cannot find ssh port, is the service correctly configured? (KeyError: {})'.format(e))
 
         # Set IP to localhost
         IP = '127.0.0.1'
