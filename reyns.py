@@ -1696,17 +1696,6 @@ def shell(service=None, instance=None, command=None, capture=False, jsonout=Fals
     
     # Sanitize...
     (service, instance) = sanity_checks(service,instance)
-    
-    if not running_on_osx():
-        try:
-            IP = get_service_ip(service, instance)
-        except Exception as e:
-            abort('Got error when obtaining IP address for service "{}", instance "{}": "{}"'.format(service,instance, e))
-        if not IP:
-            abort('Got no IP address for service "{}", instance "{}"'.format(service,instance))
-
-    # out = os_shell('docker exec -it {} supervisorctl status'.format(id), capture=True)
-    # container_id
 
     container_id = os_shell('docker ps -a | grep "{}-{}"'.format(service,instance), capture=True).stdout.split(' ')[0]
 
