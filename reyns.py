@@ -41,6 +41,10 @@ def running_on_windows():
         return False
 
 
+def running_on_unix():
+    if not running_on_windows() and not running_on_osx():
+        return True
+
 #--------------------------
 # Conf
 #--------------------------
@@ -552,6 +556,20 @@ def get_service_ip(service, instance):
             
     return IP
 
+# Find dependencies recursive function
+def find_dependencies(service_dir):
+    with open(SERVICES_IMAGES_DIR+'/'+service_dir+'/Dockerfile') as f:
+        content = f.read()
+        for line in content.split('\n'):
+            if line.startswith('FROM '):
+                from_service = line.split(' ')[1]
+                if '/' in from_service:   
+                    from_service_project = from_service.split('/')[0]
+                    from_service_app = from_service.split('/')[1]
+                    if from_service_project.lower() == PROJECT_NAME:                  
+                        return [from_service_app] + find_dependencies(from_service_app)                            
+                    else:
+                        return []
 
 #--------------------------
 # Installation management
@@ -647,7 +665,7 @@ def init(os_to_init='ubuntu14.04', verbose=False, cache=False):
 
 
 #task
-def build(service=None, verbose=False, cache=True, relative=True, fromall=False):
+def build(service=None, verbose=False, cache=True, relative=True, fromall=False, built=[]):
     '''Build a given service. If service name is set to "all" then builds all the services'''
 
     # Sanitize...
@@ -665,43 +683,26 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False)
         # Build everything then obtain which services we have to build        
         print('Building all services in {}\n'.format(SERVICES_IMAGES_DIR))
 
-
-        # Find dependencies recursive function
-        def find_dependencies(service_dir):
-            with open(SERVICES_IMAGES_DIR+'/'+service_dir+'/Dockerfile') as f:
-                content = f.read()
-                for line in content.split('\n'):
-                    if line.startswith('FROM '):
-                        from_service = line.split(' ')[1]
-                        if '/' in from_service:   
-                            from_service_project = from_service.split('/')[0]
-                            from_service_app = from_service.split('/')[1]
-                            if from_service_project.lower() == PROJECT_NAME:                  
-                                return [from_service_app] + find_dependencies(from_service_app)                            
-                            else:
-                                return []
-
         # Find build hierarchy
-        built = []
-        for service_dir in os.listdir(SERVICES_IMAGES_DIR):
-            if not os.path.isdir(SERVICES_IMAGES_DIR+'/'+service_dir):
+        for dependent_service in os.listdir(SERVICES_IMAGES_DIR):
+            if not os.path.isdir(SERVICES_IMAGES_DIR+'/'+dependent_service):
                 continue
-            if service_dir in built:
-                logger.debug('%s already built',service_dir)
+            if dependent_service in built:
+                logger.debug('%s already built',dependent_service)
                 continue
-            logger.debug('Processing %s',service_dir)
+            logger.debug('Processing %s',dependent_service)
             try:
-                dependencies = find_dependencies(service_dir)
+                dependencies = find_dependencies(dependent_service)
                 if dependencies:
-                    logger.debug('Service %s depends on: %s',service_dir, dependencies)
+                    logger.debug('Service %s depends on: %s',dependent_service, dependencies)
                     dependencies.reverse()
                     logger.debug('Dependencies build order: %s', dependencies) 
-                    for service in dependencies:
-                        if service not in built:
-                            # Build by recursively call myself
-                            build(service=service, verbose=verbose, cache=cache, fromall=True)
-                            built.append(service)
-                build(service=service_dir, verbose=verbose, cache=cache, fromall=True)
+                    for dependent_service in dependencies:
+                        if dependent_service not in built:
+                            # Build by recursively calling myself
+                            build(dependent_service=dependent_service, verbose=verbose, cache=cache, fromall=True)
+                            built.append(dependent_service)
+                build(service=dependent_service, verbose=verbose, cache=cache, fromall=True)
                     
             except IOError:
                 pass
@@ -714,6 +715,18 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False)
         if fromall and os.path.isfile(service_dir+'/no_autobuild'):
             logger.debug('Not building service "{}" as "no_autobuild" file present.'.format(service))
             return
+
+        # Build dependencies
+        dependencies = find_dependencies(service)
+        if dependencies:
+            logger.debug('Service %s depends on: %s',service_dir, dependencies)
+            dependencies.reverse()
+            logger.debug('Dependencies build order: %s', dependencies) 
+            for dependent_service in dependencies:
+                if dependent_service not in built:
+                    # Build by recursively calling myself
+                    build(service=dependent_service, verbose=verbose, cache=cache, fromall=True, built=built)
+                    built.append(dependent_service)
 
         # Obtain the base image
         with open('{}/Dockerfile'.format(service_dir)) as f:
@@ -758,36 +771,38 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False)
         if prestartup_scripts:
             os_shell('touch {}/{}'.format(service_dir, prestartup_scripts[0]),silent=True)
  
-        # Set USER UID and GID vars
-        import pwd, grp
-        user_group_info = {}
-        user_group_info['BUILDING_UID'] = os.getuid()
-        user_group_info['BUILDING_GID'] = pwd.getpwuid(user_group_info['BUILDING_UID']).pw_gid
-        user_group_info['BUILDING_USER'] = pwd.getpwuid(user_group_info['BUILDING_UID']).pw_name
-        user_group_info['BUILDING_GROUP'] = grp.getgrgid(user_group_info['BUILDING_GID']).gr_name
-
-        # Obtain the arguments from the Dockerfile
+        # Automatically set buildinguser/group args. This is experimental and only for Linux, since
+        # Mac remaps everything on the user running Docker and Windows has no uid/gid support in Python.
+        # Moreover, this is useless with safe persistency on. TODO: Do we want to keep this?
         set_user_uid_gid_args = ''
-        try:
-            with open(get_service_dir(service)+'/Dockerfile') as f:
-                dockerfile = f.readlines()
-        except IOError:
-            abort('No Dockerfile found (?!) I was looking in {}'.format(get_service_dir(service)+'/Dockerfile'))
+        if running_on_unix():
+            import pwd, grp
+            user_group_info = {}
+            user_group_info['BUILDING_UID'] = os.getuid()
+            user_group_info['BUILDING_GID'] = pwd.getpwuid(user_group_info['BUILDING_UID']).pw_gid
+            user_group_info['BUILDING_USER'] = pwd.getpwuid(user_group_info['BUILDING_UID']).pw_name
+            user_group_info['BUILDING_GROUP'] = grp.getgrgid(user_group_info['BUILDING_GID']).gr_name
 
-        for i,line in enumerate(dockerfile):
-            if line.startswith('ARG'):
-                try:
-                    build_arg =  line.replace('\n','').strip().split(' ')[1]
-                except IndexError:
-                    abort('Error in parsing building args, Dockerfile line #{} ("{}")'.format(i,line.strip()))
+            # Obtain the arguments from the Dockerfile
+            try:
+                with open(get_service_dir(service)+'/Dockerfile') as f:
+                    dockerfile = f.readlines()
+            except IOError:
+                abort('No Dockerfile found (?!) I was looking in {}'.format(get_service_dir(service)+'/Dockerfile'))
+    
+            for i,line in enumerate(dockerfile):
+                if line.startswith('ARG'):
+                    try:
+                        build_arg =  line.replace('\n','').strip().split(' ')[1]
+                    except IndexError:
+                        abort('Error in parsing building args, Dockerfile line #{} ("{}")'.format(i,line.strip()))
+                    try:
+                        set_user_uid_gid_args += '--build-arg {}={} '.format(build_arg, user_group_info[build_arg])
+                    except KeyError:
+                        pass
 
-                try:
-                    set_user_uid_gid_args += '--build-arg {}={} '.format(build_arg, user_group_info[build_arg])
-                except KeyError:
-                    pass
-
-        # Strip trailing space
-        set_user_uid_gid_args = set_user_uid_gid_args.strip()
+            # Strip trailing space
+            set_user_uid_gid_args = set_user_uid_gid_args.strip()
 
         # Build command
         if relative:
