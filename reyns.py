@@ -77,7 +77,7 @@ if LOG_LEVEL not in ['DEBUG', 'INFO', 'ERROR', 'CRITICAL']:
 # Platform-specific conf tricks
 if running_on_windows():
     
-    # Don't use redirect as there is no Bash when calling external shell calls
+    # Don't use redirect as there is no Bash when calling external os_shell calls
     REDIRECT = ''
 
     # Remove c:/ and similar in data dir and replace with Unix-like /c/
@@ -191,6 +191,11 @@ def sanity_checks(service, instance=None, notrunning_ok=False):
     run   = True if 'run' in caller else False
     ssh   = True if 'ssh' in caller else False
     ip    = True if 'ip' in caller else False
+    shell   = True if 'shell' in caller else False
+    
+    # Shell has same behaviour as ssh for sanity checks
+    if shell:
+        ssh=True
     
     if not clean and not build and not run and not ssh and not ip:
         raise Exception('Unknown caller (got "{}")'.format(caller))
@@ -240,6 +245,11 @@ def sanity_checks(service, instance=None, notrunning_ok=False):
         service_dir = get_service_dir(service)
         if not os.path.exists(service_dir):
             abort('I cannot find source directory for this service ("{}"). Are you in the project\'s root? I was looking for "{}".'.format(service, service_dir))
+  
+    # Check instance running if ssh and fixed instance
+    if ssh and instance:
+        if not get_running_services_instances_matching(service,instance):
+            abort('I cannot find any running services for service "{}", instance "{}"'.format(service,instance))
             
     return (service, instance)
 
@@ -288,8 +298,8 @@ def get_service_dir(service=None):
         return SERVICES_IMAGES_DIR + '/' + service
 
 
-def shell(command, capture=False, verbose=False, interactive=False, silent=False):
-    '''Execute a command in the shell. By default prints everything. If the capture switch is set,
+def os_shell(command, capture=False, verbose=False, interactive=False, silent=False):
+    '''Execute a command in the os_shell. By default prints everything. If the capture switch is set,
     then it returns a namedtuple with stdout, stderr, and exit code.'''
     
     if capture and verbose:
@@ -527,12 +537,12 @@ def format_shell_error(stdout, stderr, exit_code):
 def get_service_ip(service, instance):
     ''' Get the IP address of a given service'''
     
-    inspect_json = json.loads(shell('docker inspect ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout)
+    inspect_json = json.loads(os_shell('docker inspect ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout)
     IP = inspect_json[0]['NetworkSettings']['IPAddress']    
 
     # The following does not work on WIndows
     # Do not use .format as there are too many graph brackets    
-    #IP = shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout
+    #IP = os_shell('docker inspect --format \'{{ .NetworkSettings.IPAddress }}\' ' + PROJECT_NAME + '-' + service + '-' +instance, capture=True).stdout
 
     if IP:
         try:
@@ -550,18 +560,18 @@ def get_service_ip(service, instance):
 #task
 def install(how=''):
     '''Install Reyns (user/root)'''
-    shell(os.getcwd()+'/install.sh {}'.format(how), interactive=True)
+    os_shell(os.getcwd()+'/install.sh {}'.format(how), interactive=True)
 
 #task
 def uninstall(how=''):
     '''Uninstall Reyns (user/root)'''
-    shell(os.getcwd()+'/uninstall.sh {}'.format(how), interactive=True)
+    os_shell(os.getcwd()+'/uninstall.sh {}'.format(how), interactive=True)
 
 #task
 def version():
     '''Get Reyns version'''
     
-    last_commit_info = shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
+    last_commit_info = os_shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
         print('Reyns v0.8.0')
     else:
@@ -572,7 +582,7 @@ def version():
         print('Current repository commit: {}'.format(commit_shorthash))
         print(commit_date)
     
-        python_version = shell('python -V', capture=True)
+        python_version = os_shell('python -V', capture=True)
         
         if python_version.stdout:
             print('Python version: {}'.format(python_version.stdout))
@@ -625,10 +635,10 @@ def init(os_to_init='ubuntu14.04', verbose=False, cache=False):
     build(service='reyns-base-{}'.format(os_to_init), verbose=verbose, cache=cache)
 
     if os_to_init=='ubuntu14.04':
-        if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 1:
+        if os_shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 1:
             print('Updating DNS service as well...')
             build(service='reyns-dns-ubuntu14.04', cache=cache)
-            out = shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
+            out = os_shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
             if out.exit_code != 0:
                 print(out.stderr)
                 print('')
@@ -720,7 +730,7 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False)
         # If reyns's 'FROM' images doe not existe, build them
         if image.startswith('reyns/'):
             logger.debug('Checking image "{}"...'.format(image))
-            if shell('docker inspect {}'.format(image), capture=True).exit_code != 0:
+            if os_shell('docker inspect {}'.format(image), capture=True).exit_code != 0:
                 print('Could not find Reyns base image "{}", will build it.\n'.format(image))
                 build(service=image.split('/')[1], verbose=verbose, cache=cache)
 
@@ -746,7 +756,7 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False)
 
         # Update prestartup script date to allow ordered execution
         if prestartup_scripts:
-            shell('touch {}/{}'.format(service_dir, prestartup_scripts[0]),silent=True)
+            os_shell('touch {}/{}'.format(service_dir, prestartup_scripts[0]),silent=True)
  
         # Set USER UID and GID vars
         import pwd, grp
@@ -801,13 +811,13 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False)
         # Build
         print('Building...')
         if verbose:
-            if shell(build_command, verbose=True):
+            if os_shell(build_command, verbose=True):
                 print('Build OK\n')
             else:
                 print('')
                 abort('Something wrong happened, see output above')
         else:
-            if shell(build_command, verbose=False, capture=False, silent=True):
+            if os_shell(build_command, verbose=False, capture=False, silent=True):
                 print('Build OK\n')
             else:
                 abort('Something wrong happened, see output above')
@@ -826,7 +836,7 @@ def start(service,instance=None):
         tag_prefix = 'reyns'
     
     if service_exits_but_not_running(service,instance):
-        shell('docker start {}-{}-{}'.format(tag_prefix,service,instance), silent=True)
+        os_shell('docker start {}-{}-{}'.format(tag_prefix,service,instance), silent=True)
     else:
         abort('Cannot start a service not in exited state. use "run" instead')
 
@@ -852,7 +862,7 @@ def stop(service,instance=None):
         tag_prefix = 'reyns'
     
     if is_service_running(service,instance):
-        shell('docker stop {}-{}-{}'.format(tag_prefix,service,instance), silent=True)
+        os_shell('docker stop {}-{}-{}'.format(tag_prefix,service,instance), silent=True)
     else:
         abort('Service is not in runnign state, cannot stop.')
 
@@ -1001,10 +1011,10 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
 
     # Chek if we have to build a Reyns a missing service, and specifically the DNS
     if service == 'reyns-dns' :
-        if shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
+        if os_shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
             print('\nMissing DNS service, now building it...')
             build(service='reyns-dns-ubuntu14.04')
-            out = shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
+            out = os_shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
             if out.exit_code != 0:
                 print(out.stderr)
                 print('')
@@ -1455,11 +1465,11 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
 
     if interactive:
         run_cmd += ' --rm  -i -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)
-        shell(run_cmd,interactive=True)
+        os_shell(run_cmd,interactive=True)
         
     else:
         run_cmd += ' -d -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)   
-        if not shell(run_cmd, silent=True):
+        if not os_shell(run_cmd, silent=True):
             abort('Something failed')
         print('Done.')
    
@@ -1484,8 +1494,8 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
     if service == 'reallyall':        
         if confirm('Clean all services? WARNING: this will stop and remove *really all* Docker services running on this host!'):
             print('Cleaning all Docker services on the host...')
-            shell('docker stop $(docker ps -a -q) ' + REDIRECT, silent=True)
-            shell('docker rm $(docker ps -a -q) ' + REDIRECT, silent=True)
+            os_shell('docker stop $(docker ps -a -q) ' + REDIRECT, silent=True)
+            os_shell('docker rm $(docker ps -a -q) ' + REDIRECT, silent=True)
 
     elif service == 'all' or group:
         
@@ -1570,8 +1580,8 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
                     print('WARNING: I Cannot clean {}, instance='.format(service_conf['service'], service_conf['instance']))
                 else:
                     print('Cleaning service "{}", instance "{}"..'.format(service_conf['service'], service_conf['instance']))          
-                    shell("docker stop "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" " + REDIRECT, silent=True)
-                    shell("docker rm "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" " + REDIRECT, silent=True)
+                    os_shell("docker stop "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" " + REDIRECT, silent=True)
+                    os_shell("docker rm "+PROJECT_NAME+"-"+service_conf['service']+"-"+service_conf['instance']+" " + REDIRECT, silent=True)
                             
     else:
         
@@ -1598,8 +1608,8 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             print('I did not find any running instance to clean, exiting. Please note that if the instance is not running, you have to specify the instance name to let it be clened')
         else:
             print('Cleaning service "{}", instance "{}"..'.format(service,instance))   
-            shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
-            shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
+            os_shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
+            os_shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
                             
         
     
@@ -1624,8 +1634,8 @@ def ssh(service=None, instance=None, command=None, capture=False, jsonout=False)
             abort('Got no IP address for service "{}", instance "{}"'.format(service,instance))
 
     # Check if the key has proper permissions
-    if not shell('ls -l keys/id_rsa',capture=True).stdout.endswith('------'):
-        shell('chmod 600 keys/id_rsa', silent=True)
+    if not os_shell('ls -l keys/id_rsa',capture=True).stdout.endswith('------'):
+        os_shell('chmod 600 keys/id_rsa', silent=True)
 
     # Set default port
     port = 22
@@ -1635,13 +1645,13 @@ def ssh(service=None, instance=None, command=None, capture=False, jsonout=False)
     if running_on_osx():
 
         # Get container ID
-        console_out = shell('reyns info:{},{}'.format(service,instance),capture=True)
+        console_out = os_shell('reyns info:{},{}'.format(service,instance),capture=True)
         #DEBUG print(console_out)            
         info = console_out.stdout.split('\n')
         container_id = info[2].strip().split(' ')[0]
 
         # Get inspect data
-        console_out = shell('docker inspect {}'.format(container_id),capture=True)
+        console_out = os_shell('docker inspect {}'.format(container_id),capture=True)
         #DEBUG print(console_out)
         inspect = json.loads(console_out.stdout)
 
@@ -1664,23 +1674,62 @@ def ssh(service=None, instance=None, command=None, capture=False, jsonout=False)
     # RUN command over SSH or SSH session
     if command:
         if capture:
-            out = shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
+            out = os_shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
             return out
         elif jsonout:
-            out = shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
+            out = os_shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), capture=True)
             out_dict = {'stdout': out.stdout, 'stderr':out.stderr, 'exit_code':out.exit_code}
             print(json.dumps(out_dict)) # This goes to stdout and is ready to be loaded as json             
         else:
-            shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), interactive=True)
+            os_shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), interactive=True)
             
     else:
-        shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True)
+        os_shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True)
+
+#task
+def shell(service=None, instance=None, command=None, capture=False, jsonout=False):
+    '''Open a shell into a given service (via Docker exec)'''
+    
+    # Sanitize input
+    if capture and jsonout:
+        abort('Sorry, you enabled both capture and jsonout but you can only use one at a time.')
+    
+    # Sanitize...
+    (service, instance) = sanity_checks(service,instance)
+    
+    if not running_on_osx():
+        try:
+            IP = get_service_ip(service, instance)
+        except Exception as e:
+            abort('Got error when obtaining IP address for service "{}", instance "{}": "{}"'.format(service,instance, e))
+        if not IP:
+            abort('Got no IP address for service "{}", instance "{}"'.format(service,instance))
+
+    # out = os_shell('docker exec -it {} supervisorctl status'.format(id), capture=True)
+    # container_id
+
+    container_id = os_shell('docker ps -a | grep "{}-{}"'.format(service,instance), capture=True).stdout.split(' ')[0]
+
+    # RUN command over SSH or SSH session
+    if command:
+        if capture:
+            out = os_shell(command='docker exec -it {} sudo -i -u reyns bash -c "{}"'.format(container_id, command), capture=True)
+            return out
+        elif jsonout:
+            out = os_shell(command='docker exec -it {} sudo -i -u reyns bash -c "{}"'.format(container_id, command), capture=True)
+            out_dict = {'stdout': out.stdout, 'stderr':out.stderr, 'exit_code':out.exit_code}
+            print(json.dumps(out_dict)) # This goes to stdout and is ready to be loaded as json             
+        else:
+            os_shell(command='docker exec -it {} sudo -i -u reyns bash -c "{}"'.format(container_id, command), interactive=True)
+            
+    else:
+        os_shell(command='docker exec -it {} sudo -i -u reyns bash '.format(container_id), interactive=True)
 
 #task
 # Deprecated, included in the tasks handling in the main
 #def help():
 #    '''Show this help'''
-#    shell('fab --list', capture=False)
+#    os_shell('fab --list', capture=False)
 
 #task
 def getip(service=None, instance=None):
@@ -1725,10 +1774,10 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
         
     # Handle magic words all and reallyall
     if onlyrunning: # in ['all', 'reallyall']:
-        out = shell('docker ps', capture=True)
+        out = os_shell('docker ps', capture=True)
         
     else:
-        out = shell('docker ps -a', capture=True)
+        out = os_shell('docker ps -a', capture=True)
     
     # If error:
     if out.exit_code != 0:
@@ -1951,7 +2000,7 @@ def status():
         # Get supervisorctl status info
         if status.lower().startswith('up'):
             #out = ssh(service,instance,command="sudo supervisorctl status",capture=True)
-            out = shell('docker exec -it {} supervisorctl status'.format(id), capture=True)
+            out = os_shell('docker exec -it {} supervisorctl status'.format(id), capture=True)
             if out.exit_code != 0:
                 if out.stderr: print(out.stderr)
                 if out.stdout: print(out.stdout)
@@ -1962,6 +2011,9 @@ def status():
         
     if not one_running:
         print('No running services.')
+
+
+
 
 
 
@@ -2080,6 +2132,7 @@ if __name__ == '__main__':
     tasks['ps']        = [ps, '       List running services' ]    
     tasks['status']    = [status, '   Running services status' ] 
     tasks['ssh']       = [ssh, '      SSH into a given service']
+    tasks['shell']     = [shell, '    Open a shell into a given service']
     tasks['clean']     = [clean, '    Clean a given service']
     tasks['getip']     = [getip, '    Get the IP address of a given service']
     tasks['info']      = [info, '     Obtain info about a given service']    
