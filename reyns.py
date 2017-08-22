@@ -1347,60 +1347,144 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
                 volume = volume.replace('$PROJECT_DIR', PROJECT_DIR_CROSSPLAT)
             run_cmd += ' -v {}'.format(volume)
 
-    # Handle privileged mode
-    if privileged:
-        run_cmd += ' --privileged'
+    # Init ports lists
+    ports =     []
+    udp_ports = []
     
-    # Handle published ports
-    if publish_ports:
-
-        # Obtain the ports to publish from the Dockerfile
+    # Handle Reyn's annotations
+    if not is_base_service(service):
         try:
             with open(get_service_dir(service)+'/Dockerfile') as f:
                 dockerfile = f.readlines()
         except IOError:
             abort('No Dockerfile found (?!) I was looking in {}'.format(get_service_dir(service)+'/Dockerfile'))
         
-        ports =[]
-        udp_ports = []
+    
         for line in dockerfile:
             
-            # Standard EXPOSE
-            if line.startswith('EXPOSE'):
-                # Clean up the line
-                line_clean =  line.replace('\n','').replace(' ',',').replace('EXPOSE','')
-                
-                for port in line_clean.split(','):
-                    if port:
-                        try:
-                            # Append while validating
-                            ports.append(int(port))
-                        except ValueError:
-                            abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
+            # Clean up text
+            line = line.strip()
+            
+            # Check if comment line
+            if line.startswith('#'):
+    
+                # Re-clean text
+                comment = line[1:].strip()
+    
+                # Look for a Reyns' annotation
+                if comment.startswith('reyns:'):
+    
+                    # Re-re clean text
+                    reyns_annotation = comment[6:].strip()
+    
+                    # Init avalid annotation commands
+                    annotation_commands= ['expose', 'privileged']
+                    found_valid_annotation_command = False
+                    
+                    # Look if we have a valid annotation command
+                    for annotation_command in annotation_commands:
+    
+                        if reyns_annotation.startswith(annotation_command):
+    
+                            # Set annotation command and annotation command arg
+                            annotation_command_arg = reyns_annotation.replace(annotation_command,'').strip()
+    
+                            # Handle the annotation command. This part will need to be refacotered/decoupled
+    
+                            #--------------------------------
+                            # Expose annotation command
+                            #--------------------------------
+                            if annotation_command == 'expose':
+                                
+                                # Handle exposing (publishing) ports as other ports 
+                                if 'as' in annotation_command_arg:
+                                    # Obtain container and host ports
+                                    try:
+                                        (container_port, host_port) = annotation_command_arg.split('as')
+                                    except ValueError:
+                                        abort('Too many sub-arguments in annotation command argument "{}"'.format(annotation_command_arg))
+                                    container_port = container_port.strip()
+                                    host_port      = host_port.strip() 
+                                else:
+                                    container_port = host_port = annotation_command_arg
+        
+    
+                                # Do we have a specific protocol in source or dest port?
+                                if '/' in container_port:
+                                    try:
+                                        container_port_number, container_port_protocol = container_port.split('/')
+                                    except ValueError:
+                                        abort('Too many slashes in port definiton ("{}")'.format(container_port))
+                                else:
+                                    container_port_number  = container_port
+                                    container_port_protocol = 'tcp'
+                                
+                                if '/' in host_port:
+                                    try:
+                                        host_port_number, host_port_protocol = host_port.split('/')
+                                    except ValueError:
+                                        abort('Too many slashes in port definiton ("{}")'.format(host_port))
+                                else:
+                                    host_port_number   = host_port
+                                    host_port_protocol = 'tcp'
+    
+                                # Check taht we have valid port numbers
+                                try:
+                                    container_port_number = int(container_port_number)
+                                except ValueError:
+                                    abort('Port value "{}" is not valid'.format(container_port_number))
+                                try:
+                                    host_port_number = int(host_port_number)
+                                except ValueError:
+                                    abort('Port value "{}" is not valid'.format(host_port_number))
+            
+                                # Check we have a valid protocolol and that it is the same between source and dest ports
+                                if container_port_protocol not in ['tcp', 'udp']:
+                                    abort('Unknown expose protocol "{}"'.format(container_port_protocol))
+                                if host_port_protocol not in ['tcp', 'udp']:
+                                    abort('Unknown expose protocol "{}"'.format(host_port_protocol))
+                                if container_port_protocol != host_port_protocol:
+                                    abort('Expose container port protocol "{}" and host port protocol "{}" are not the same.'.format(container_port_protocol,host_port_protocol))
+                                else:
+                                    ports_protocol = container_port_protocol
+    
+                                # Ok, add this port mapping to the container (if we have to publish it)
+                                if publish_ports:
+                                    if ports_protocol == 'tcp':
+                                        ports.append([container_port_number,host_port_number])
+                                    elif ports_protocol == 'udp':
+                                        udp_ports.append([container_port_number,host_port_number])
+    
+    
+                            #--------------------------------
+                            # Privileged annotation command
+                            #--------------------------------
+                            elif annotation_command == 'privileged':
+                                privileged=True
+    
+    
+                            #--------------------------------
+                            # Inconsistent annotation command
+                            #--------------------------------                       
+                            else:                            
+                                abort('Inconsistent annotation command "{}"'.format(annotation_command))
+                        
+                            # We validated this command, noo net to go trought the others
+                            found_valid_annotation_command = True
+                            # Also we can stop here, no need to go trought the rest
+                            break
+    
+                    # If no valid annotation command found abort
+                    if not found_valid_annotation_command:
+                        abort('Got Reyns annotation with unknown command (annotation="{}")'.format(reyns_annotation))
+                   
 
-            # Reyns' syntax for exposing UDP
-            if line.startswith('#UDP_EXPOSE'):
-                # Clean up the line
-                line_clean =  line.replace('\n','').replace(' ',',').replace('#UDP_EXPOSE','')
-                for port in line_clean.split(','):
-                    if port:
-                        try:
-                            # Append while validating
-                            udp_ports.append(int(port))
-                        except ValueError:
-                            abort('Got unknown port from service\'s dockerfile: "{}"'.format(port))
-
-            # Reyns' syntax for EXPOSE AS
-            if line.startswith('#EXPOSE_AS'):
-                # Clean up the line
-                line_clean =  line.replace('\n','').replace(' ','').replace('#EXPOSE_AS','') 
-                try:
-                    internal_port = int(line_clean.split(',')[0])
-                    external_port = int(line_clean.split(',')[1])
-                    ports.append([internal_port,external_port])  
-                except Exception as e:
-                    abort('Got error on service\'s dockerfile when parsing EXPOSE_AS: "{}"'.format(e))
-                  
+    # Handle privileged mode
+    if privileged:
+        run_cmd += ' --privileged'
+               
+    # Handle published ports
+    if publish_ports:
 
         # Handle forcing of an IP where to publish the ports
         if 'PUBLISH_ON_IP' in ENV_VARs:
@@ -1413,18 +1497,22 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
         # TCP ports publishing
         for port in ports:
             if isinstance(port, list):
-                internal_port = port[0]
-                external_port = port[1]
+                container_port = port[0]
+                host_port = port[1]
             else: 
-                internal_port = port
-                external_port = port
-            run_cmd += ' -p {}{}:{}'.format(pubish_on_ip, external_port, internal_port)
+                container_port = port
+                host_port = port
+            run_cmd += ' -p {}{}:{}'.format(pubish_on_ip, host_port, container_port)
 
         # UDP ports publishing
         for port in udp_ports:
-            internal_port = port
-            external_port = port
-            run_cmd += ' -p {}{}:{}/udp'.format(pubish_on_ip, internal_port, external_port)
+            if isinstance(port, list):
+                container_port = port[0]
+                host_port = port[1]
+            else: 
+                container_port = port
+                host_port = port
+            run_cmd += ' -p {}{}:{}/udp'.format(pubish_on_ip, container_port, host_port)
 
     # If OSX, expose ssh on a different port
     if running_on_osx():
