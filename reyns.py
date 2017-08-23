@@ -459,7 +459,7 @@ def get_services_run_conf(conf_file=None):
     # Validate vars
     valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt', 'persistent_log', 'persistent_home',
                                       'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group', 'autorun',
-                                      'shared_data']
+                                      'persistent_shared']
     
     for service_description in registered_services:
         for key in service_description:
@@ -1339,10 +1339,14 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
             run_cmd += ' -v {}:/persistent'.format(service_instance_dir)
 
     # Handle shared data between all instances
-    if service_conf and 'shared_data' in service_conf and service_conf['shared_data']:
+    if service_conf and 'persistent_shared' in service_conf and service_conf['persistent_shared']:
         if not os.path.exists(DATA_DIR+'/shared'):
             os.makedirs(DATA_DIR+'/shared')
         run_cmd += ' -v {}/shared:/shared'.format(DATA_DIR)
+    else:
+        # The following is a Doker Volume, not to be confused with a path
+        run_cmd += ' -v {}-shared:/shared'.format(PROJECT_NAME)
+
     # TODO: reading service conf like above is wrong, conf should be loaded at beginning and now we should have only variables.
 
     # Handle extra volumes
@@ -1719,6 +1723,9 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             print('Cleaning service "{}", instance "{}"..'.format(service,instance))   
             os_shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
             os_shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
+
+    # Also, remove shared volume i (and ignore any error which means it is still in use):
+    os_shell('docker volume rm '+PROJECT_NAME+'-shared ' + REDIRECT, capture=True)
                             
         
     
