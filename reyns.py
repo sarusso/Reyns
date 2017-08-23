@@ -684,25 +684,26 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False,
         print('Building all services in {}\n'.format(SERVICES_IMAGES_DIR))
 
         # Find build hierarchy
-        for dependent_service in os.listdir(SERVICES_IMAGES_DIR):
-            if not os.path.isdir(SERVICES_IMAGES_DIR+'/'+dependent_service):
+        for service in os.listdir(SERVICES_IMAGES_DIR):
+            if not os.path.isdir(SERVICES_IMAGES_DIR+'/'+service):
                 continue
-            if dependent_service in built:
-                logger.debug('%s already built',dependent_service)
+            if service in built:
+                logger.debug('%s already built',service)
                 continue
-            logger.debug('Processing %s',dependent_service)
+            logger.debug('Processing %s',service)
             try:
-                dependencies = find_dependencies(dependent_service)
+                dependencies = find_dependencies(service)
                 if dependencies:
-                    logger.debug('Service %s depends on: %s',dependent_service, dependencies)
+                    logger.debug('Service %s depends on: %s',service, dependencies)
                     dependencies.reverse()
                     logger.debug('Dependencies build order: %s', dependencies) 
                     for dependent_service in dependencies:
                         if dependent_service not in built:
                             # Build by recursively calling myself
-                            build(dependent_service=dependent_service, verbose=verbose, cache=cache, fromall=True)
+                            build(service=dependent_service, verbose=verbose, cache=cache, fromall=True, built=built)
                             built.append(dependent_service)
-                build(service=dependent_service, verbose=verbose, cache=cache, fromall=True)
+                build(service=service, verbose=verbose, cache=cache, fromall=True)
+                built.append(service)
                     
             except IOError:
                 pass
@@ -716,17 +717,22 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False,
             logger.debug('Not building service "{}" as "no_autobuild" file present.'.format(service))
             return
 
-        # Build dependencies
-        dependencies = find_dependencies(service)
-        if dependencies:
-            logger.debug('Service %s depends on: %s',service_dir, dependencies)
-            dependencies.reverse()
-            logger.debug('Dependencies build order: %s', dependencies) 
-            for dependent_service in dependencies:
-                if dependent_service not in built:
-                    # Build by recursively calling myself
-                    build(service=dependent_service, verbose=verbose, cache=cache, fromall=True, built=built)
-                    built.append(dependent_service)
+        # Build dependencies if not from all
+        if not is_base_service(service) and not fromall:
+            dependencies = find_dependencies(service)
+            if dependencies:
+                logger.debug('Service %s depends on: %s',service_dir, dependencies)
+                dependencies.reverse()
+                logger.debug('Dependencies build order: %s', dependencies)
+                print ('This service depends on: {}'.format(dependencies))
+                print ('Building dependencies as well (with cache) to avoid inconsistencies:\n')
+                for dependent_service in dependencies:
+                    if dependent_service not in built:
+                        # Build by recursively calling myself
+                        build(service=dependent_service, verbose=verbose, cache=True, fromall=True, built=built)
+                        built.append(dependent_service)
+                print ('Done, now building the service:\n')
+                        
 
         # Obtain the base image
         with open('{}/Dockerfile'.format(service_dir)) as f:
