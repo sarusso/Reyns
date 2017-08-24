@@ -725,11 +725,11 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False,
                 dependencies.reverse()
                 logger.debug('Dependencies build order: %s', dependencies)
                 print ('This service depends on: {}'.format(dependencies))
-                print ('Building dependencies as well (with cache) to avoid inconsistencies:\n')
+                print ('Building dependencies as well to avoid inconsistencies:\n')
                 for dependent_service in dependencies:
                     if dependent_service not in built:
                         # Build by recursively calling myself
-                        build(service=dependent_service, verbose=verbose, cache=True, fromall=True, built=built)
+                        build(service=dependent_service, verbose=verbose, cache=cache, fromall=True, built=built)
                         built.append(dependent_service)
                 print ('Done, now building the service:\n')
                         
