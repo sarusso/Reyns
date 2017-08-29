@@ -246,7 +246,7 @@ def sanity_checks(service, instance=None, notrunning_ok=False):
     # Check service source if build:
     if build and service != 'all':
         
-        service_dir = get_service_dir(service)
+        service_dir = get_service_dir(service, onlychecking=True)
         if not os.path.exists(service_dir):
             abort('I cannot find source directory for this service ("{}"). Are you in the project\'s root? I was looking for "{}".'.format(service, service_dir))
   
@@ -289,18 +289,35 @@ def get_running_services_instances_matching(service,instance=None):
             
     return instances
 
+# Check if a customized version of the service exists
+def is_customized(service):
+    if os.path.isdir('{}/{}_custom'.format(SERVICES_IMAGES_DIR,service)):
+        return True
+    else:
+        return False
 
-def get_service_dir(service=None):
+# Get service dir for a given service
+def get_service_dir(service=None, onlychecking=False):
     if not service:
         raise Exception('get_service_dir: service is required, got "{}"'.format(service))
     
-    # Handle the case for base services
-    
+    # Handle the case for base services 
     if is_base_service(service):
-        return BASE_IMAGES_DIR + '/' + service
+        service_dir = BASE_IMAGES_DIR + '/' + service
     else:
-        return SERVICES_IMAGES_DIR + '/' + service
+        service_dir = SERVICES_IMAGES_DIR + '/' + service
 
+    # Check if customized version for service exists
+    if is_customized(service):
+        service_dir = service_dir + '_custom'
+        if not onlychecking:
+            print('Found customized version for this service and using it')
+
+    if not onlychecking:
+        logger.debug('Service dir: "{}"'.format(service_dir))
+
+    # Return
+    return service_dir
 
 def os_shell(command, capture=False, verbose=False, interactive=False, silent=False):
     '''Execute a command in the os_shell. By default prints everything. If the capture switch is set,
@@ -571,6 +588,7 @@ def find_dependencies(service_dir):
                     else:
                         return []
 
+
 #--------------------------
 # Installation management
 #--------------------------
@@ -791,10 +809,10 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False,
 
             # Obtain the arguments from the Dockerfile
             try:
-                with open(get_service_dir(service)+'/Dockerfile') as f:
+                with open(service_dir+'/Dockerfile') as f:
                     dockerfile = f.readlines()
             except IOError:
-                abort('No Dockerfile found (?!) I was looking in {}'.format(get_service_dir(service)+'/Dockerfile'))
+                abort('No Dockerfile found (?!) I was looking in {}'.format(service_dir+'/Dockerfile'))
     
             for i,line in enumerate(dockerfile):
                 if line.startswith('ARG'):
@@ -814,10 +832,10 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False,
         if relative:
             if not cache:
                 print('Building without cache')
-                build_command = 'cd ' + service_dir + '/.. &&' + 'docker build ' + set_user_uid_gid_args + ' --no-cache -t ' + tag_prefix +'/' + service + ' ' + service
+                build_command = 'cd ' + service_dir + '/.. &&' + ' docker build ' + set_user_uid_gid_args + ' --no-cache -t ' + tag_prefix +'/' + service + ' ' + service_dir
             else:
                 print('Building with cache')
-                build_command = 'cd ' + service_dir + '/.. &&' + 'docker build ' + set_user_uid_gid_args + ' -t ' + tag_prefix +'/' + service + ' ' + service
+                build_command = 'cd ' + service_dir + '/.. &&' + ' docker build ' + set_user_uid_gid_args + ' -t ' + tag_prefix +'/' + service + ' ' + service_dir
         else:
             if not cache:
                 print('Building without cache')
@@ -1030,6 +1048,12 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
     # Sanitize...
     (service, instance) = sanity_checks(service, instance)
 
+    # Layout
+    print('')
+
+    # Set service dir
+    service_dir = get_service_dir(service)
+
     # Chek if we have to build a Reyns a missing service, and specifically the DNS
     if service == 'reyns-dns' :
         if os_shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 0:
@@ -1044,7 +1068,7 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
 
 
     # Run a specific service
-    print('\nRunning service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance))
+    print('Running service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance))
 
     # Check if this service is exited
     if service_exits_but_not_running(service,instance):
@@ -1364,7 +1388,7 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
     # Handle Reyn's annotations
     if not is_base_service(service):
         try:
-            with open(get_service_dir(service)+'/Dockerfile') as f:
+            with open(service_dir+'/Dockerfile') as f:
                 dockerfile = f.readlines()
         except IOError:
             abort('No Dockerfile found (?!) I was looking in {}'.format(get_service_dir(service)+'/Dockerfile'))
