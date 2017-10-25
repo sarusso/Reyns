@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Exit on any error. More complex thing could be done in future
+# (see https://stackoverflow.com/questions/4381618/exit-a-script-on-error)
+set -e
+
 echo ""
 echo "[INFO] Executing Reyns entrypoint..."
 

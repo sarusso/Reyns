@@ -1,5 +1,6 @@
 
 import os
+import sys
 import datetime
 import subprocess
 from collections import namedtuple
@@ -71,6 +72,8 @@ for item in sorted_ls(prestartup_scripts_path):
         if out.exit_code:
             print('[ERROR] Exit code "{}" for "{}", check log in /var/log/reyns/{}.stderr.log'.format(out.exit_code, item, item))            
 
+            # Exit with error code 1
+            sys.exit(1)
 
 
         
