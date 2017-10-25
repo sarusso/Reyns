@@ -1606,8 +1606,46 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
         
     else:
         run_cmd += ' -d -t {}/{}:latest {}'.format(tag_prefix, service, seed_command)   
-        if not os_shell(run_cmd, silent=True):
-            abort('Something failed')
+        
+        out = os_shell(run_cmd, capture=True)
+        if out.exit_code:
+            abort('Something failed when executing "docker run"')
+        
+        container_id = out.stdout
+        
+        # Chech logs and wait untill prestartup scripts are executed (both correctly and incorrectly)
+        # TODO: this check is weak, improve it!
+        ok_string    = '[INFO] Executing Docker entrypoint command'
+        error_string = '[ERROR] Exit code'
+        
+        print('Waiting for pre-startup scripts to be executed...')
+        while True:
+            
+            # Check for ok or error strings in container output
+            check_cmd = 'docker logs {}'.format(container_id)
+            out = os_shell(check_cmd, capture=True)
+            
+            # Docker logs command merge container stdout and stderr into stdout
+            out_lines = out.stdout.split('\n')
+            
+            # Check if we have ok or error string in output lines
+            passed = None
+            for line in out_lines:
+                if ok_string in line:
+                    passed = True             
+                if error_string in line:
+                    passed = False
+
+            # Handle passed / not passed / unknown
+            if passed == True:
+                break
+            elif passed == False:
+                for line in out_lines:
+                    print(line)
+                abort('Error in service prestartup phase. Check output above') 
+            else:
+                sleep(1)
+            
         print('Done.')
    
     # In the end, the sleep..
