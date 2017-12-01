@@ -316,8 +316,9 @@ To configure a multi-node setup, you can start from the demo, using the "default
 You will be asked for the DNS_SERVICE_IP env var: here you need to put the external IP address of the external network interface.
 
 Test with:
+
     $ reyns ssh:demo,onenode2
-    $ reyns@demo-onenode2:~$ ping demo-onenode1
+    reyns@demo-onenode2:~$ ping demo-onenode1
 
 **Note:** the  "default-multinode.conf" file shipped with the demo assume the network interface "eth0" as the external interface (the "from_eth0" placeholder). You can change (i..e on en0 for macOS) or just replace it with the external IP address instead of the "" 
  
