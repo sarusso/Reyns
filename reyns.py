@@ -640,7 +640,7 @@ def demo():
         abort('Could not copy demo data into {}: {}'.format(INSTALL_DIR + '/services', e))
         
     print('\nDemo installed.')
-    print('\nQuickstart: enter into "{}", then:'.format(INSTALL_DIR))
+    print('\nQuickstart: enter into "{}/reyns-demo", then:'.format(INSTALL_DIR))
     print('  - to build it, type "reyns build:all";')
     print('  - to run it, type "reyns run:all";')
     print('  - to see running services, type "reyns ps";')
@@ -854,12 +854,13 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False,
                 print('Build OK\n')
             else:
                 print('')
-                abort('Something wrong happened, see output above')
+                abort('Something wrong happened, see output above. Reminder: in case of remote repositories errors (i.e. 404 Not Found) try to build without cache to refresh remote repositories lists (i.e. build:all,cache=False).')
         else:
             if os_shell(build_command, verbose=False, capture=False, silent=True):
                 print('Build OK\n')
             else:
-                abort('Something wrong happened, see output above')
+                abort('Something wrong happened, see output above. Reminder: in case of remote repositories errors (i.e. 404 Not Found) try to build without cache to refresh remote repositories lists (i.e. build:all,cache=False).')
+
 
 
 
@@ -1235,7 +1236,10 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
                 running_instances = get_running_services_instances_matching(link_service, link_instance)         
                 
                 if len(running_instances) == 0:
-                    logger.info('Could not find any running instance of service matching "{}" which is required for linking by service "{}", instance "{}". I will expect an env var for proper linking setup'.format(link_service, service, instance))             
+                    if link_instance:
+                        logger.info('Could not find a running instance named "{}" of service "{}" which is required for linking by service "{}", instance "{}". I will expect an env var for proper linking setup'.format(link_instance, link_service, service, instance))
+                    else:
+                        logger.info('Could not find any running instance of service matching "{}" which is required for linking by service "{}", instance "{}". I will expect an env var for proper linking setup'.format(link_service, service, instance))
                     ENV_VARs[link_name.upper()+'_SERVICE_IP'] = None
                     
                 else:
