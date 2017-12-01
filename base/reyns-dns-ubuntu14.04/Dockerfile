@@ -47,6 +47,7 @@ COPY common/prestartup_reyns-dns.sh /prestartup/
 #-----------------------
 # Expose ports
 #-----------------------
-EXPOSE 53
-#UDP_EXPOSE 53
+
+# reyns: expose 53/tcp
+# reyns: expose 53/udp
 
