@@ -44,10 +44,3 @@ RUN chmod 755 /runbind.sh
 #-----------------------
 COPY common/prestartup_reyns-dns.sh /prestartup/
 
-#-----------------------
-# Expose ports
-#-----------------------
-
-# reyns: expose 53/tcp
-# reyns: expose 53/udp
-

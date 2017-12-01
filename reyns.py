@@ -168,16 +168,25 @@ def save_host_conf(host_conf):
 
 # Get IP address of an interface              
 def get_ip_address(ifname):
-    if fcntl:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        return socket.inet_ntoa(fcntl.ioctl(
-            s.fileno(),
-            0x8915,  # SIOCGIFADDR
-            struct.pack('256s', ifname[:15])
-        )[20:24])
+    logger.debug('Getting IP address for interface "{}"'.format(ifname))
+    if running_on_osx():
+        ip_address = os_shell("ifconfig | grep {} -C1 | grep -v inet6 | grep inet | cut -d' ' -f2".format(ifname),capture=True).stdout
+        try:
+            socket.inet_aton(ip_address)
+        except socket.error:
+            raise Exception('Error, I could not find a valid IP address for network interface "{}"'.format(ifname))
     else:
-        raise Exception('Sorry not supported on this OS (missing fcntl module)') 
-
+        if fcntl:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            ip_address = socket.inet_ntoa(fcntl.ioctl(
+                s.fileno(),
+                0x8915,  # SIOCGIFADDR
+                struct.pack('256s', ifname[:15])
+            )[20:24])
+        else:
+            raise Exception('Sorry not supported on this OS (missing fcntl module)') 
+    logger.debug('Got IP address for interface "{}": "{}"'.format(ifname,ip_address))
+    return ip_address
 
 # More verbose json error message [Removed as does not work anymore in Python 3.6]
 #json_original_errmsg = json.decoder.errmsg
@@ -626,7 +635,7 @@ def version():
             print('Python version: {}'.format(python_version.stderr))
 
 #task
-def demo():
+def install_demo():
     '''install the Reyns demo in a directory named 'reyns-demo' in the current path'''
     
     INSTALL_DIR = PROJECT_DIR
@@ -1389,6 +1398,11 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
     ports =     []
     udp_ports = []
     
+    # If is dns service:
+    if service == 'reyns-dns' :
+        ports.append('53')
+        udp_ports.append('53')
+        
     # Handle Reyn's annotations
     if not is_base_service(service):
         try:
@@ -2297,24 +2311,24 @@ if __name__ == '__main__':
     # Tasks mapping
     from collections import OrderedDict
     tasks = OrderedDict()
-    tasks['build']     = [build, '    Build services' ]
-    tasks['run']       = [run, '      Run a given service(s)'] 
-    tasks['rerun']     = [rerun, '    Re-run a given service(s)'] 
-    tasks['ps']        = [ps, '       List running services' ]    
-    tasks['status']    = [status, '   Running services status' ] 
-    tasks['ssh']       = [ssh, '      SSH into a given service']
-    tasks['shell']     = [shell, '    Open a shell into a given service']
-    tasks['clean']     = [clean, '    Clean a given service']
-    tasks['getip']     = [getip, '    Get the IP address of a given service']
-    tasks['info']      = [info, '     Obtain info about a given service']    
-    tasks['demo']      = [demo, '     Install demo project in current directory']  
-    tasks['help']      = [help, '     Show this help']  
-    tasks['version']   = [version, '  Get Reyns version']
-    tasks['uninstall'] = [uninstall, 'Uninstall Reyns' ]
-    tasks['init']      = [init, '    Init base Reyns images' ]
-    tasks['_install']  = [install, ' Install Reyns' ]
-    tasks['_start']    = [start, '   Start a stopped service (if you know what you are doing)' ]
-    tasks['_stop']     = [stop, '    Stop a running service (if you know what you are doing)' ]
+    tasks['build']        = [build, '    Build services' ]
+    tasks['run']          = [run, '      Run a given service(s)'] 
+    tasks['rerun']        = [rerun, '    Re-run a given service(s)'] 
+    tasks['ps']           = [ps, '       List running services' ]    
+    tasks['status']       = [status, '   Running services status' ] 
+    tasks['ssh']          = [ssh, '      SSH into a given service']
+    tasks['shell']        = [shell, '    Open a shell into a given service']
+    tasks['clean']        = [clean, '    Clean a given service']
+    tasks['getip']        = [getip, '    Get the IP address of a given service']
+    tasks['info']         = [info, '     Obtain info about a given service']    
+    tasks['install_demo'] = [install_demo, '     Install demo project in current directory']  
+    tasks['help']         = [help, '     Show this help']  
+    tasks['version']      = [version, '  Get Reyns version']
+    tasks['uninstall']    = [uninstall, 'Uninstall Reyns' ]
+    tasks['init']         = [init, '    Init base Reyns images' ]
+    tasks['_install']     = [install, ' Install Reyns' ]
+    tasks['_start']       = [start, '   Start a stopped service (if you know what you are doing)' ]
+    tasks['_stop']        = [stop, '    Stop a running service (if you know what you are doing)' ]
 
     # Output cleareness
     if ('jsonout' not in kwargs) or ('jsonout' in kwargs and kwargs['jsonout']==False):

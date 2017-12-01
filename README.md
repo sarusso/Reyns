@@ -13,17 +13,15 @@ Developed by Stefano Alberto Russo with an important contribution from Gianfranc
 
 To install, run the following commands:
 
-	# git clone https://github.com/sarusso/Reyns.git
-	# cd Reyns
-	# ./install.sh
+	$ git clone https://github.com/sarusso/Reyns.git
+	$ cd Reyns
+	$ ./install.sh
 
 To install and run the demo, run the following commands:
 
-	# mkdir $HOME/Demo-Reyns
-	# cd $HOME/Demo-Reyns
-	# reyns demo
+	$ reyns install_demo
 	Demo installed.
-	Quickstart: enter into $HOME/Demo-Reyns, then:
+	Quickstart: enter into "reyns-demo", then:
 	- to build it, type "reyns build:all"
 	- to run it, type "reyns run:all"
 	- to see running services, type "reyns ps"
@@ -37,11 +35,11 @@ To install and run the demo, run the following commands:
 
 ## Introduction and basics
 
-Reyns allow you to manage a set of *services* (defined trought Docker images and run as Docker containers) by defining how to build, run and interconnect them in a *project*.
+Reyns allow you to manage a set of *services* (defined through Docker images and run as Docker containers) by defining how to build, run and interconnect them in a *project*.
 
-Reyns comes with a base Docker image which you should build all your services, where Supervisor and SSH are installed and configured by default. The default user is named "reyns" and it has the SSH keys for accessing every other service you create on top of the base image. Please note that in production you may want to change or remove the SSH keys.
+Reyns comes with a base Docker image which you should build all your services, where Supervisor and SSH are installed and configured by default. The default user is named "reyns" and it has the SSH keys for accessing every other service you create on top of the base image. Please note that in production you may want to change the SSH keys and/or the rndc (DNS) key in the "keys" folder.
 
-A project is organized in folders: each service must have its own folder and by default they have to be contained in a top-level folder named "services". Inside the folder of a service, you have to place a Dockerfile wich starts with the line: 
+A project is organised in folders: each service must have its own folder and by default they have to be contained in a top-level folder named "services". Inside the folder of a service, you have to place a Dockerfile which starts with the line: 
 
 	FROM reyns/reyns-base-ubuntu14.04
 	
@@ -50,13 +48,13 @@ A project is organized in folders: each service must have its own folder and by 
 The basic usage of Reyns relies on four very simple commands.
 
 - First, you have to build your service using `reyns build:your_service_name`.
-- Then, you can run an instance of it by simply typing `reyns run:your_service_name`. In this case a the name choosen for the instance is randomly generated.
+- Then, you can run an instance of it by simply typing `reyns run:your_service_name`. In this case a the name chosen for the instance is randomly generated.
 -  Once the service is started, you can ssh into is using `reyns ssh:your_service_name`.
 -  To turn it off, just use `reyns clean:your_service_name`.
 
 ## Building a service
 
-To build a sevice you also have to actually sun some application in it. To do so the sugested way is to use Supervisord. The following Example is taken from Reyns' internal DNS:
+The first thing you probably want to do in your services is to run some applications (or daemons). The suggested way is to use Supervisord. The following Example is taken from Reyns' internal DNS:
 
     [program:bind]
     
@@ -77,7 +75,7 @@ To build a sevice you also have to actually sun some application in it. To do so
     stderr_logfile_maxbytes = 100MB
     stderr_logfile_backups  = 5
 
-..and this configuration file (which is named "supervisord_bind.conf") should be palces in supervisor/conf.d/. In your Dockerfile:
+..and this configuration file (which is named "supervisord_bind.conf") should be placed in supervisor/conf.d/. In your Dockerfile:
 
     COPY supervisord_bind.conf /etc/supervisor/conf.d/
 
@@ -87,15 +85,15 @@ This approach allows you also to hierarchically extend services. There is also s
 
 The Reyns' entrypoint script will execute every script inside the /prestartup/ directory of the service, and it will execute parent's prestartup scripts first. In the service prestartup scripts you also have full access to all environment variables (read the "Environment variables" section for more details about them). 
 
-## Runnign a service
+## Running a service
 
 As for the building, place yourself at the level of the apps_services directory, and issue the following command.
 
 
-    reyns run:your_service_name[,instance=your_instance_name, instance_type=standard
+    $ reyns run:your_service_name[,instance=your_instance_name, instance_type=standard
                   published/persistent/master/debug, group=your_service_group_name, persistent_data=True/False,
                   persistent_opt=True/False, persistent_log=True/False, publish_ports=True/False,
-                  linked=True/False, seed_command=cusom_seed_command, safemode=True/False,
+                  linked=True/False, seed_command=custom_seed_command, safemode=True/False,
                   interactive=True/False, conf=conf_file(default:default.conf)]
 
 All the above arguments are explained in detail in the following sections. There are also some env variables
@@ -107,14 +105,15 @@ All the above arguments are explained in detail in the following sections. There
 When you run a service using Reyns, there are a few properties already implemented to make the life easier. These are:
 
 * `persistent_data`: if enabled, all the data in /data inside the service is made persistent on the host filesystem (if data is already present, it is preserved).
-* `persistent_opt`: if enabled, all the data in /opt inside the serviceis made persistent on the host filesystem (if data is already present, it is preserved).
+* `persistent_opt`: if enabled, all the data in /opt inside the services made persistent on the host filesystem (if data is already present, it is preserved).
 * `persistent_log`: if enabled, all the data in /var/log inside the service is made persistent on the host filesystem (if data is already present, it is preserved).
-* `publish_ports`: if set to true, publish the ports on the host according to the EXPOSE instruction in the Dockerfile (note: you can also use the "#UDPEXPOSE" command in the Dockerfile to expose and publish UPD ports).
+* `publish_ports`: if set to true, publish the ports on the host according to Reyns comment-annotations in the Dockerfile (i.e. "# reyns: expose 53/tcp" or "# reyns: expose 53/udp").
 * `linked`: linking enabled or not (according to the conf file being used, see later).
-* `seed_command`: specify here a custom seed comamnd to execute at the service startup. The default is 'supervisord'.
+* `seed_command`: specify here a custom seed command to execute at the service startup. The default is 'supervisord'.
 * `safemode`: if enabled services prestartup scripts will not be executed. See the "Logging and debugging" section for more info.
 * `interactive`: provides you an interactive shell. See the "Logging and debugging" section for more info.
-* `conf`: the run conf file to use.
+* `conf`: the configuration file to use (with or without the ".conf" extension).
+
 
 ## Instances
 Reyns introduces the concept of *instances* of the same Docker container (or Reyns service): this is just a naming convention and does not modify in any way how Docker works, but it is an useful logical separation. For example you can have a service running in two instances (i.e. nodeA and nodeB).
@@ -130,36 +129,36 @@ A Reyns instance can be of five `instance_type `: **standard**, **published**, *
 | debug         | debug       | NO     | NO            | NO              | NO            | NO             | YES         | NO                 |
 
 
-*the linking in an instance of type **master** without using the DNS service (reyns-dns) requires a proper setting of the envvironment 
-varibales (as explained in the dedicated section "Linking")
+*the linking in an instance of type **master** without using the DNS service (reyns-dns) requires a proper setting of the environment 
+variables (as explained in the dedicated section "Linking")
 
 *Note:* basically, a master instance is a instance of both types published and persistent.
 
 Examples for running a standard instance:
 
-    reyns run:postgres,instance=one
-    reyns run:postgres,instance=master,instance_type=standard
+    $ reyns run:postgres,instance=one
+    $ reyns run:postgres,instance=master,instance_type=standard
 
 Examples for running a published instance:
 
-    reyns run:postgres,instance=published
-    reyns run:postgres,instance=one,instance_type=published
+    $ reyns run:postgres,instance=published
+    $ reyns run:postgres,instance=one,instance_type=published
 
 Examples for runnign a master instance:
 
-    reyns run:postgres,instance=master
-    reyns run:postgres,instance=one,instance_type=master
+    $ reyns run:postgres,instance=master
+    $ reyns run:postgres,instance=one,instance_type=master
     
 
 There are also two particular ways of running instances of a given type: *interactive* and in *safe mode*.
 
-An instance which run in  **interactive** mode has the particularity tha it does not start supervisord, but it start a shell and gives you acces to in in the terminal. In an instance which run in **safemode** the the prestartup scripts are not executed, to allow debugging in cases where the instance cannot even start.
+An instance which run in  **interactive** mode has the particularity that it does not start supervisord, but it start a shell and gives you access to in in the terminal. In an instance which run in **safemode** the the prestartup scripts are not executed, to allow debugging in cases where the instance cannot even start.
 
-You may also want to siable linking my specifing **linked=False** depending on the use case. You can also have an instance which runs both in safemode and interactively
+You may also want to disable linking by using **linked=False** depending on the use case. You can also have an instance which runs both in safemode and interactively
 
 Example:
 
-    reyns run:postgres,instance=one,safemode=True,interactive=True,linked=False
+    $ reyns run:postgres,instance=one,safemode=True,interactive=True,linked=False
 
 
 ## Taking control of the services
@@ -171,7 +170,7 @@ The resolution of the environment variables follow the priority order reported b
 2. Environment variable specified in the host.conf file
 3. Environment variable set int he run conf file being used (i.e. run.cof, or run_published.conf, or...)
 
-The service has full visibiliy on a fixed set of environment varibales, which are:
+The service has full visibility on a fixed set of environment variables, which are:
 
 **SERVICE_IP**: where the service(s) is expected to respond. In particular, the IP used to register the service on the Dynamic DNS, and the IP on which the DNS itself will respond. If not set, docker network IP addresses are used. Mandatory if the instance type is 'master'.
 
@@ -205,7 +204,7 @@ Coming soon...
 Coming soon...
 
 ### Linking
-Reyns supports (and extends) standard style Docker's linking system, but only at project-level trought the run conf setings. Links have to be defined in the run conf file, and can be extended or simple. An extended link works as follows:
+**Linking is going to be deprecated in Docker soon**. Reyns supports (and extends) standard style Docker's linking system, but only at project-level thought the run conf settings. Links have to be defined in the run conf file, and can be extended or simple. An extended link works as follows:
 
     "links": [
                {
@@ -285,13 +284,13 @@ After this, you should be able to contact the DNS service and ask it your local 
 
 Note that for enabling the DNS service the connection can both be established using the standard linking and just by setting the DNS_SERVICE_IP env var.
 
-Services register themselves on the DNS both as their hostanme (i.e. "demo-one") and as their service name (i.e. "demo"). The behaviour on how to handle the service name (i.e. "demo") in case of multiple instances (i.e. "demo-one" and "demo-two") depends on the update policy, which is defined trought the environment variable DNS_UPDATE_POLICY and can follow three different approaches:
+Services register themselves on the DNS both as their hostname (i.e. "demo-one") and as their service name (i.e. "demo"). The behaviour on how to handle the service name (i.e. "demo") in case of multiple instances (i.e. "demo-one" and "demo-two") depends on the update policy, which is defined thought the environment variable DNS_UPDATE_POLICY and can follow three different approaches:
 
 - **DNS_UPDATE_POLICY="HIDE"**: The service is not published to the DNS at all, but the DNS service is queryable. Useful for testing purposes as an "observer".
 
 - **DNS_UPDATE_POLICY="REPLACE"** *(default)*: the DNS record corresponding to the service name, if already present, is replaced. In other words, if there are two instances of the same service running and you query the DNS for the service name, only the IP address of the last instance will be provided. Useful for hot-updating servers.
 
-- **DNS_UPDATE_POLICY="APPEND"**: In this case the DNS record corresponding to the service name is appended, so if there are thwo instances of the same service running and you query the DNS for the service name, both the IPs of the instances will be provided (in Round Robin). Particluary useful for scaling up. Please note that scaling down and re-runnign services is not supported for now, as removing records from the DNS is not yet supported.
+- **DNS_UPDATE_POLICY="APPEND"**: In this case the DNS record corresponding to the service name is appended, so if there are two instances of the same service running and you query the DNS for the service name, both the IPs of the instances will be provided (in Round Robin). Particularly useful for scaling up. Please note that scaling down and re-running services is not supported for now, as removing records from the DNS is not yet supported.
 
 
 **Notes:**
@@ -305,32 +304,54 @@ Also, you might want to increase the sleep timer to allow bind to set up in the 
 Thanks to Gianfranco Gallizia and eXact Lab (http://www.exact-lab.it/) for this contribution.
 
 
+## Multi-node setup
+While not one of its core features, Reyns support to deploy project across multiple nodes. This requires publishing all necessary ports for inter-node communications as well as the DNS service. please not that this setup is suited for private networks _only_. Never publish Reyns' dynamic DNS on a public IP.
+
+To configure a multi-node setup, you can start from the demo, using the "default-multinode.conf" file as a guide. To test on a single node before going multi-node, just install the demo somewhere (with "reyns install_demo") but instead of following the quick start run the following commands:
+
+    $ reyns run:group=master,conf=default-multinode
+    $ reyns run:group=node1,conf=default-multinode
+    $ reyns run:group=node2,conf=default-multinode
+
+You will be asked for the DNS_SERVICE_IP env var: here you need to put the external IP address of the external network interface.
+
+Test with:
+    $ reyns ssh:demo,onenode2
+    $ reyns@demo-onenode2:~$ ping demo-onenode1
+
+**Note:** the  "default-multinode.conf" file shipped with the demo assume the network interface "eth0" as the external interface (the "from_eth0" placeholder). You can change (i..e on en0 for macOS) or just replace it with the external IP address instead of the "" 
+ 
+
 ## Logging and debugging
 
 To enable the debug mode, just set the "LOG_LEVEL" env var to "DEBUG". for example:
 
-    LOG_LEVEL=DEBUG reyns run:postgres,instance=master
+    $ LOG_LEVEL=DEBUG reyns run:postgres,instance=master
     
-If you insance does not run as expect when starting (and since it does not start you cannot ssh in it) you can try few things:
+If you instance does not run as expect when starting (and since it does not start you cannot ssh in it) you can try few things:
 
 First of all, you can try to run in in an interactive way:
     
-    reyns run:postgres,instance=master,interactive=True
+    $ reyns run:postgres,instance=master,interactive=True
 
-This will run the services prestartup scripts and and give you a shell. You can then type 'supervisord' to start the service as normal (but still interactivey).
+This will run the services prestartup scripts and and give you a shell. You can then type 'supervisord' to start the service as normal (but still interactively).
 
 If you have errors in the execution of the prestartup scripts for some services, you can use the safemode, which just runs  Reyns's prestartup (that should never fail) and not the service prestarup scripts
 
-    reyns run:postgres,instance=master,safemode=True
+    $ reyns run:postgres,instance=master,safemode=True
         
 
 You can also combine the two, which is probably the most useful approach:
 
-    reyns run:postgres,instance=master,interactive=True,safemode=True
+    $ reyns run:postgres,instance=master,interactive=True,safemode=True
 
-..and you can execute the prestartup scrpts in the interactive mode just by typing /prestartup.sh.        
+..and you can execute the prestartup scripts in the interactive mode just by typing /prestartup.sh.        
 
 Note: Sometimes you can get an error similar to "mv: inter-device move failed error". In this case, and in partiucular if you are running with persistent data enabled,  you can try to temporary rename the data dir to understand why the error arise.
+
+
+## Troubleshooting
+In case of a failure in the building process: first of all, retry building (maybe temporary network problem). If error persist, try building without cache (i.e. reyns build:all,cache=False), fis till no errors, try to re-init base containers (reyns init). Also check disk space both on local filesystem and in the virtual machine filesystem if on Windows or Mac.
 
 # Licensing
 Reyns is licensed under the Apache License, Version 2.0. See
