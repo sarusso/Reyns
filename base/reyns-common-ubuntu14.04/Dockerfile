@@ -83,11 +83,13 @@ RUN mkdir /prestartup
 COPY common/prestartup.py /
 
 #----------------------------
-# Generate DNS key
+#  DNS key
 #----------------------------
-RUN apt-get -y install bind9utils && \
-    rndc-confgen | head -n 5 > /etc/rndc.key && \
-    chmod 600 /etc/rndc.key
+#RUN apt-get -y install bind9utils && \
+#    rndc-confgen | head -n 5 > /etc/rndc.key && \
+#    chmod 600 /etc/rndc.key
+COPY keys/rndc.key /etc/rndc.key
+RUN chmod 600 /etc/rndc.key
 
 #----------------------
 # Entrypoint

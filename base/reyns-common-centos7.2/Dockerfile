@@ -95,12 +95,15 @@ RUN mkdir /prestartup
 COPY common/prestartup.py /
 
 #----------------------------
-# Generate DNS key
+# DNS key
 #----------------------------
 # http://rhel-7.blogspot.co.uk/2014/10/dns-installation-and-configuration-for.html
-RUN yum -y install bind* && \ 
-    rndc-confgen | head -n 5 > /etc/rndc.key && \
-    chmod 600 /etc/rndc.key
+#RUN yum -y install bind* && \ 
+#    rndc-confgen | head -n 5 > /etc/rndc.key && \
+#    chmod 600 /etc/rndc.key
+COPY keys/rndc.key /etc/rndc.key
+RUN chmod 600 /etc/rndc.key
+
 
 #----------------------
 # Entrypoint
