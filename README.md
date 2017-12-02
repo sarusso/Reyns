@@ -94,7 +94,7 @@ As for the building, place yourself at the level of the apps_services directory,
                   published/persistent/master/debug, group=your_service_group_name, persistent_data=True/False,
                   persistent_opt=True/False, persistent_log=True/False, publish_ports=True/False,
                   linked=True/False, seed_command=custom_seed_command, safemode=True/False,
-                  interactive=True/False, conf=conf_file(default:default.conf)]
+                  interactive=True/False, conf=conf_file(default:default.conf),extra_args=None]
 
 All the above arguments are explained in detail in the following sections. There are also some env variables
 

@@ -485,7 +485,7 @@ def get_services_run_conf(conf_file=None):
     # Validate vars
     valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt', 'persistent_log', 'persistent_home',
                                       'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group', 'autorun',
-                                      'persistent_shared']
+                                      'persistent_shared', 'extra_args']
     
     for service_description in registered_services:
         for key in service_description:
@@ -940,7 +940,7 @@ def rerun(service, instance=None):
 def run(service=None, instance=None, group=None, instance_type=None, interactive=None, 
         persistent_data=None, persistent_opt=None, persistent_log=None, persistent_home=None,
         publish_ports=None, linked=None, seed_command=None, conf=None, safemode=None,
-        recursive=False, from_rerun=False, nethost=None):
+        recursive=False, from_rerun=False, nethost=None, extra_args=None):
     '''Run a given service with a given instance. If no instance name is set,
     a standard instance with a random name is run. If service name is set to "all"
     then all the services are run, according to the conf.'''
@@ -1046,6 +1046,7 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
                 interactive     = interactive,
                 safemode        = safemode,
                 conf            = conf,
+                extra_args      = extra_args,
                 recursive       = True)
                 
         # Exit
@@ -1393,6 +1394,12 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
             if volume.startswith('$PROJECT_DIR'):
                 volume = volume.replace('$PROJECT_DIR', PROJECT_DIR_CROSSPLAT)
             run_cmd += ' -v {}'.format(volume)
+    
+    # Handle extra (Docker) args
+    if not extra_args and service_conf and 'extra_args' in service_conf:
+        extra_args = service_conf['extra_args']
+    if extra_args:
+        run_cmd += ' {}'.format(extra_args)
 
     # Init ports lists
     ports =     []
@@ -2255,12 +2262,15 @@ if __name__ == '__main__':
         # This happens on some other OSes
         args = ' '.join(sys.argv[1:])
 
-    # Parse single task or task with args
+    # Get task from args
     if ':' in args:
+        task=None
         try:
-            task, args = args.split(':')
-        except ValueError:
-            raise InputException('Forbidden char (":") in args, args="{}"'.format(args))
+            args_pieces  = args.split(':')
+            task = args_pieces[0]
+            args = ':'.join(args_pieces[1:])
+        except (ValueError, IndexError):
+            raise InputException('Erro in parsing command arguments: task={} args="{}"'.format(task,args))
     else:
         task = sys.argv[1]
         args = None
@@ -2269,7 +2279,7 @@ if __name__ == '__main__':
     logger.debug('Task: %s' % task)
     logger.debug('Args: %s' % args)
         
-    # Samples:
+    # Examples:
     # reyns ssh:demo,one,command="whoami \&>/dev/null",verbose=True
     # reyns ssh:demo,one,command="echo \$PATH && ps -ef"
     # reyns ssh:demo,one,command=echo \$PATH \&\& ps -ef
