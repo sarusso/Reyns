@@ -485,7 +485,7 @@ def get_services_run_conf(conf_file=None):
     # Validate vars
     valid_service_description_keys = ['service','instance','publish_ports','persistent_data','persistent_opt', 'persistent_log', 'persistent_home',
                                       'links', 'sleep', 'env_vars', 'instance_type', 'volumes', 'nethost', 'safe_persistency','group', 'autorun',
-                                      'persistent_shared', 'extra_args']
+                                      'persistent_shared', 'extra_args', 'publish_ssh_on']
     
     for service_description in registered_services:
         for key in service_description:
@@ -940,7 +940,7 @@ def rerun(service, instance=None):
 def run(service=None, instance=None, group=None, instance_type=None, interactive=None, 
         persistent_data=None, persistent_opt=None, persistent_log=None, persistent_home=None,
         publish_ports=None, linked=None, seed_command=None, conf=None, safemode=None,
-        recursive=False, from_rerun=False, nethost=None, extra_args=None):
+        recursive=False, from_rerun=False, nethost=None, extra_args=None, publish_ssh_on=None):
     '''Run a given service with a given instance. If no instance name is set,
     a standard instance with a random name is run. If service name is set to "all"
     then all the services are run, according to the conf.'''
@@ -1400,6 +1400,12 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
         extra_args = service_conf['extra_args']
     if extra_args:
         run_cmd += ' {}'.format(extra_args)
+
+    # Handle publish ssh port
+    if not publish_ssh_on and service_conf and 'publish_ssh_on' in service_conf:
+        publish_ssh_on = service_conf['publish_ssh_on']
+    if publish_ssh_on:
+        run_cmd += ' -p{}:22'.format(publish_ssh_on)
 
     # Init ports lists
     ports =     []
