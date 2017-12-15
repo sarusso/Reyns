@@ -685,8 +685,7 @@ def init(os_to_init='ubuntu14.04', verbose=False, cache=False):
             build(service='reyns-dns-ubuntu14.04', cache=cache)
             out = os_shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
             if out.exit_code != 0:
-                print(out.stderr)
-                print('')
+                print(format_shell_error(out.stdout, out.stderr, out.exit_code))
                 abort('Something wrong happened, see output above')
 
 
@@ -863,12 +862,12 @@ def build(service=None, verbose=False, cache=True, relative=True, fromall=False,
                 print('Build OK\n')
             else:
                 print('')
-                abort('Something wrong happened, see output above. Reminder: in case of remote repositories errors (i.e. 404 Not Found) try to build without cache to refresh remote repositories lists (i.e. build:all,cache=False).')
+                abort('Something wrong happened, see output above. Reminder: in case of remote repositories errors (i.e. 404 Not Found) try to build without cache to refresh remote repositories lists (i.e. build:all,cache=False)')
         else:
             if os_shell(build_command, verbose=False, capture=False, silent=True):
                 print('Build OK\n')
             else:
-                abort('Something wrong happened, see output above. Reminder: in case of remote repositories errors (i.e. 404 Not Found) try to build without cache to refresh remote repositories lists (i.e. build:all,cache=False).')
+                abort('Something wrong happened, see output above. Reminder: in case of remote repositories errors (i.e. 404 Not Found) try to build without cache to refresh remote repositories lists (i.e. build:all,cache=False)')
 
 
 
@@ -1072,8 +1071,7 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
             build(service='reyns-dns-ubuntu14.04')
             out = os_shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
             if out.exit_code != 0:
-                print(out.stderr)
-                print('')
+                print(format_shell_error(out.stdout, out.stderr, out.exit_code))
                 abort('Something wrong happened, see output above')
 
 
@@ -1385,15 +1383,27 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
         # The following is a Doker Volume, not to be confused with a path
         run_cmd += ' -v {}-shared:/shared'.format(PROJECT_NAME)
 
-    # TODO: reading service conf like above is wrong, conf should be loaded at beginning and now we should have only variables.
+    # Clean temp volume for this service/instance if any was lefted over from previous half-successful runs...
+    os_shell('docker volume rm {}-{}-{}-tmp {}'.format(PROJECT_NAME, service,instance, REDIRECT), capture=True)
 
+    # TODO: reading service conf like above is wrong, conf should be loaded at beginning and now we should have only variables.
     # Handle extra volumes
     if service_conf and 'volumes' in service_conf:
         volumes = service_conf['volumes'].split(',')
         for volume in volumes:
             if volume.startswith('$PROJECT_DIR'):
+                # Project dir wildard. This is beacuse Docker does not allow relitive paths, basically.
                 volume = volume.replace('$PROJECT_DIR', PROJECT_DIR_CROSSPLAT)
-            run_cmd += ' -v {}'.format(volume)
+                run_cmd += ' -v {}'.format(volume)
+            elif volume.startswith('$TEMP_VOLUME'):
+                # Temp volume
+                if volume.split(':')[0] in ['$TEMP_VOLUME', '$TEMP_VOLUME/']:
+                    run_cmd += ' -v {}-{}-{}-tmp:{}'.format(PROJECT_NAME,service,instance,volume.split(':')[1])
+                else:
+                    abort('You cannot use any path in the temp volume')
+            else:
+                # Standard (folder) volume
+                run_cmd += ' -v {}'.format(volume)
     
     # Handle extra (Docker) args
     if not extra_args and service_conf and 'extra_args' in service_conf:
@@ -1640,6 +1650,7 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
         
         out = os_shell(run_cmd, capture=True)
         if out.exit_code:
+            print(format_shell_error(out.stdout, out.stderr, out.exit_code))
             abort('Something failed when executing "docker run"')
         
         container_id = out.stdout
@@ -1817,11 +1828,11 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
             os_shell("docker stop "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
             os_shell("docker rm "+PROJECT_NAME+"-"+service+"-"+instance+" " + REDIRECT, silent=True)
 
-    # Also, remove shared volume i (and ignore any error which means it is still in use):
-    os_shell('docker volume rm '+PROJECT_NAME+'-shared ' + REDIRECT, capture=True)
-                            
-        
-    
+    # Also, remove shared volume (and ignore any error which means it is still in use):
+    os_shell('docker volume rm {}-shared {}'.format(PROJECT_NAME, REDIRECT), capture=True)
+    # ..and temp volume, ignoring errors which mean it does not exist (never requested)
+    os_shell('docker volume rm {}-{}-{}-tmp {}'.format(PROJECT_NAME, service,instance, REDIRECT), capture=True)
+
 
 #task
 def ssh(service=None, instance=None, command=None, capture=False, jsonout=False):
