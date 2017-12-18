@@ -1901,10 +1901,16 @@ def ssh(service=None, instance=None, command=None, capture=False, jsonout=False)
             out_dict = {'stdout': out.stdout, 'stderr':out.stderr, 'exit_code':out.exit_code}
             print(json.dumps(out_dict)) # This goes to stdout and is ready to be loaded as json             
         else:
-            os_shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), interactive=True)
+            if not os_shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{} -- "{}"'.format(port, IP, command), interactive=True):
+                sys.exit(1)
+            else:
+                sys.exit(0)
             
     else:
-        os_shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True)
+        if not os_shell(command='ssh -t -p {} -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -i keys/id_rsa reyns@{}'.format(port, IP), interactive=True):
+            sys.exit(1)
+        else:
+            sys.exit(0)
 
 #task
 def shell(service=None, instance=None, command=None, capture=False, jsonout=False):
@@ -1929,10 +1935,15 @@ def shell(service=None, instance=None, command=None, capture=False, jsonout=Fals
             out_dict = {'stdout': out.stdout, 'stderr':out.stderr, 'exit_code':out.exit_code}
             print(json.dumps(out_dict)) # This goes to stdout and is ready to be loaded as json             
         else:
-            os_shell(command='docker exec -it {} sudo -i -u reyns bash -c "{}"'.format(container_id, command), interactive=True)
-            
+            if not os_shell(command='docker exec -it {} sudo -i -u reyns bash -c "{}"'.format(container_id, command), interactive=True):
+                sys.exit(1)
+            else:
+                sys.exit(0)
     else:
-        os_shell(command='docker exec -it {} sudo -i -u reyns bash '.format(container_id), interactive=True)
+        if not os_shell(command='docker exec -it {} sudo -i -u reyns bash '.format(container_id), interactive=True):
+            sys.exit(1)
+        else:
+            sys.exit(0)
 
 #task
 # Deprecated, included in the tasks handling in the main
