@@ -929,9 +929,19 @@ def rerun(service, instance=None):
     service = running_instances[0][0]
     instance  = running_instances[0][1]
 
+    # Load host conf 
+    host_conf = load_host_conf()
+
     # Clean    
     clean(service,instance)
-    run(service,instance,from_rerun=True)
+    
+    # Re-run with the right conf
+    try:
+        last_conf = host_conf['last_conf']
+        run(service,instance,from_rerun=True, conf=last_conf)
+    except KeyError:
+        run(service,instance,from_rerun=True)
+    
 
 
 # TODO: clarify difference between False and None.
@@ -1701,7 +1711,7 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
     
     
 #task
-def clean(service=None, instance=None, group=None, force=False, conf=None):
+def clean(service=None, instance=None, group=None, force=False, conf=None, strict=False):
     '''Clean a given service. If service name is set to "all" then clean all the services according 
     to the conf. If service name is set to "reallyall" then all services on the host are cleaned'''
 
@@ -1725,7 +1735,7 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
         if last_conf:
             if conf:
                 if conf != last_conf:
-                    if not confirm('You specificed the conf file "{}" while the last conf used is "{}". Are you sure to proceed?'.format(conf, last_conf)):
+                    if not strict and not confirm('You specificed the conf file "{}" while the last conf used is "{}". Are you sure to proceed?'.format(conf, last_conf)):
                         abort('Exiting...')
             else:
                 conf = last_conf
@@ -1761,17 +1771,18 @@ def clean(service=None, instance=None, group=None, force=False, conf=None):
         # Understand if There is more
         more_runnign_services_conf = []
         
-        for item in ps(capture=True):
-            # TODO: let ps return a list of namedtuples..
-            service = item[-1].split(',')[0]
-            instance  = item[-1].split('=')[1]
-            registered = False
-            for service_conf in services_run_conf:
-                if service == service_conf['service'] and instance == service_conf['instance']:
-                    registered = True
-            if not registered:
-                more_runnign_services_conf.append({'service':service, 'instance':instance})
-                
+        if not strict:
+            for item in ps(capture=True):
+                # TODO: let ps return a list of namedtuples..
+                service = item[-1].split(',')[0]
+                instance  = item[-1].split('=')[1]
+                registered = False
+                for service_conf in services_run_conf:
+                    if service == service_conf['service'] and instance == service_conf['instance']:
+                        registered = True
+                if not registered:
+                    more_runnign_services_conf.append({'service':service, 'instance':instance})
+                    
         if one_in_conf and more_runnign_services_conf:
             print('\nMoreover, the following services instances will be clean as well as part of this project:')
         elif more_runnign_services_conf:
