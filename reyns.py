@@ -2018,7 +2018,7 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
     content=[]
     
     # TODO: improve, use the first char position of the index to parse. Also, use a better coding please..!    
-    for line in str(out.stdout).split('\n'):
+    for line in out.stdout.encode('utf-8').split('\n'):
         
         if not index:
             count = 0
