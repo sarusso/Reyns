@@ -21,6 +21,12 @@ import subprocess
 from collections import namedtuple
 from time import sleep
 
+# Python 3.5 compatibility
+try:
+    type(raw_input)
+except NameError:
+    raw_input = input
+
 
 #--------------------------
 # Platform detection
@@ -2018,7 +2024,12 @@ def ps(service=None, instance=None, capture=False, onlyrunning=False, info=False
     content=[]
     
     # TODO: improve, use the first char position of the index to parse. Also, use a better coding please..!    
-    for line in out.stdout.encode('utf-8').split('\n'):
+    
+    try:
+        str_out_splitted = out.stdout.encode('utf-8').split('\n')
+    except TypeError:
+        str_out_splitted = out.stdout.split('\n')
+    for line in str_out_splitted:
         
         if not index:
             count = 0
