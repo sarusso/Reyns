@@ -61,7 +61,7 @@ DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/data_' + PROJECT_NAM
 SERVICES_IMAGES_DIR = os.getenv('SERVICES_IMAGES_DIR', os.getcwd() + '/services')
 BASE_IMAGES_DIR     = os.getenv('BASE_IMAGES_DIR', os.getcwd() + '/base')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
-SUPPORTED_OSES      = ['ubuntu14.04','centos7.2']
+SUPPORTED_OSES      = ['ubuntu14.04','centos7.2','ubuntu18.04']
 REDIRECT            = '&> /dev/null'
 
 # Sanitize conf
@@ -688,8 +688,17 @@ def init(os_to_init='ubuntu14.04', verbose=False, cache=False):
     if os_to_init=='ubuntu14.04':
         if os_shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 1:
             print('Updating DNS service as well...')
-            build(service='reyns-dns-ubuntu14.04', cache=cache)
+            build(service='reyns-dns-ubuntu14.04', cache=cache, verbose=verbose)
             out = os_shell('docker tag reyns/reyns-dns-ubuntu14.04 reyns/reyns-dns', capture=True)
+            if out.exit_code != 0:
+                print(format_shell_error(out.stdout, out.stderr, out.exit_code))
+                abort('Something wrong happened, see output above')
+    
+    if os_to_init=='ubuntu18.04':
+        if os_shell('docker inspect reyns/reyns-dns', capture=True).exit_code != 1:
+            print('Updating DNS service as well...')
+            build(service='reyns-dns-ubuntu18.04', cache=cache, verbose=verbose)
+            out = os_shell('docker tag reyns/reyns-dns-ubuntu18.04 reyns/reyns-dns', capture=True)
             if out.exit_code != 0:
                 print(format_shell_error(out.stdout, out.stderr, out.exit_code))
                 abort('Something wrong happened, see output above')
@@ -1089,8 +1098,6 @@ def run(service=None, instance=None, group=None, instance_type=None, interactive
             if out.exit_code != 0:
                 print(format_shell_error(out.stdout, out.stderr, out.exit_code))
                 abort('Something wrong happened, see output above')
-
-
 
     # Run a specific service
     print('Running service "{}" ("{}/{}"), instance "{}"...'.format(service, PROJECT_NAME, service, instance))
