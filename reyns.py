@@ -58,11 +58,13 @@ def running_on_unix():
 PROJECT_NAME        = os.getenv('PROJECT_NAME', 'reyns').lower()
 PROJECT_DIR         = os.getenv('PROJECT_DIR', os.getcwd())
 DATA_DIR            = os.getenv('DATA_DIR', PROJECT_DIR + '/data_' + PROJECT_NAME)
+CWD                 = os.getcwd()
 SERVICES_IMAGES_DIR = os.getenv('SERVICES_IMAGES_DIR', os.getcwd() + '/services')
 BASE_IMAGES_DIR     = os.getenv('BASE_IMAGES_DIR', os.getcwd() + '/base')
 LOG_LEVEL           = os.getenv('LOG_LEVEL', 'INFO')
 SUPPORTED_OSES      = ['ubuntu14.04','centos7.2','ubuntu18.04']
 REDIRECT            = '&> /dev/null'
+VERSION             = 'v0.10.0'
 
 # Sanitize conf
 def earlyabort(message):
@@ -2262,7 +2264,82 @@ def status():
         print('No running services.')
 
 
+def using_local_reyns():
+    '''Check if this Reyns is a local (project) installation or a system/user wide one'''
+    if CWD.endswith('.Reyns'):   
+        this_reyns_path = CWD[:-7]
+    elif CWD.endswith('.Reyns/'):
+        this_reyns_path = CWD[:-8]
+    else:
+        this_reyns_path = None
+    
+    if this_reyns_path:
+        if PROJECT_DIR == this_reyns_path:
+            return True
+    return False
 
+ 
+#task
+def setup():
+    
+    # Check Reyns required version
+    try:
+        with open(PROJECT_DIR + '/reyns.conf') as f:
+            version = json.loads(f.read())['version']
+    except IOError, KeyError:
+        version=None
+    
+    logger.debug('Required Reyns version: "{}"'.format(version))
+
+    # Start checking versions
+    version_is_ok = False
+    last_commit_info = os_shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
+    if last_commit_info:
+       # Check versions with commit hashes
+       this_commit_hash = last_commit_info.split('\n')[0].split(' ')[1]
+       logger.debug('This Reyns version: "{}"'.format(this_commit_hash))
+       if this_commit_hash == version:
+           version_is_ok = True
+    else:
+       # Check versions with numbering
+       logger.critical('Checking versions without Git not yet supported. Can you use the project\'s reyns/setup command instead?')
+       sys.exit(1)
+
+    # Do we have to up/down grade?
+    if not version_is_ok:
+        if using_local_reyns():
+            print('NOW UP/DOWN GRADING REYNS')
+            #git checkout master
+            #git pull
+            #git checkout version 
+        else:
+            logger.critical('Different Reyns version required but not using local Reyns, cannot update it. Can you use the project\'s reyns/setup command instead?')
+            sys.exit(1)
+    else:
+        print('Reyns version is OK')
+    
+    # Do we have a local setup to execute?
+    if os.path.isfile(PROJECT_DIR+'/setup.sh'):
+        print('Executing project\'s "setup.sh" scrip now...')
+        out = os_shell('cd {} && ./setup.sh'.format(PROJECT_DIR), interactive=True)
+    
+    # Done
+    print('\nDone')
+
+
+
+#task
+def daemon(recursive=False):
+
+    # Do we have a local setup to execute?
+    if using_local_reyns():
+        start_daemon_cmd = 'cd {} && PATH=$PATH:{}/.Reyns {}/utils/daemon.sh recursive={}'.format(PROJECT_DIR, PROJECT_DIR,CWD, recursive)
+    else:
+        start_daemon_cmd = 'cd {} && {}/utils/daemon.sh recursive={}'.format(PROJECT_DIR,CWD, recursive)
+
+    logger.info('Running start daemon command: "{}"'.format(start_daemon_cmd))
+    out = os_shell(start_daemon_cmd, interactive=True)
+    #out = os_shell('cd utils && ./daemon.sh'.format(), interactive=True)
 
 
 
@@ -2388,11 +2465,13 @@ if __name__ == '__main__':
     tasks['clean']        = [clean, '    Clean a given service']
     tasks['getip']        = [getip, '    Get the IP address of a given service']
     tasks['info']         = [info, '     Obtain info about a given service']    
-    tasks['install_demo'] = [install_demo, '     Install demo project in current directory']  
+    tasks['instdemo']     = [install_demo, ' Install demo project in current directory']  
     tasks['help']         = [help, '     Show this help']  
     tasks['version']      = [version, '  Get Reyns version']
     tasks['uninstall']    = [uninstall, 'Uninstall Reyns' ]
-    tasks['init']         = [init, '    Init base Reyns images' ]
+    tasks['init']         = [init, '     Init base Reyns images' ]
+    tasks['setup']        = [setup, '    Setup Reyns project' ]
+    tasks['daemon']        = [daemon, '   Run a simple daemon for a Reyns project' ]
     tasks['_install']     = [install, ' Install Reyns' ]
     tasks['_start']       = [start, '   Start a stopped service (if you know what you are doing)' ]
     tasks['_stop']        = [stop, '    Stop a running service (if you know what you are doing)' ]
