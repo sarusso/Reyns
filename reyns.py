@@ -624,9 +624,9 @@ def version():
     
     last_commit_info = os_shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if not last_commit_info:
-        print('Reyns v1.0.0')
+        print('Reyns v0.10.0')
     else:
-        print('Reyns v1.0.0')
+        print('Reyns v0.10.0')
         last_commit_info_lines = last_commit_info.split('\n')
         commit_shorthash = last_commit_info_lines[0].split(' ')[1][0:7]
         commit_date      = last_commit_info_lines[-1].replace('  ', '')
