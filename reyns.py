@@ -2336,7 +2336,7 @@ def setup():
             print('Reyns version is OK')
 
     # If no cmds dire already exisstent, make it
-    if not os.path.isfile('reyns/build'):
+    if not os.path.isfile(PROJECT_DIR+'/reyns/build'):
         print('Making cmds structure...')
         if not os_shell('utils/make_cmds_structure.sh', interactive=True):
             sys.exit(1)
