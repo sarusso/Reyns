@@ -2287,51 +2287,53 @@ def setup():
         with open(PROJECT_DIR + '/reyns.conf') as f:
             version = json.loads(f.read())['version']
     except (IOError, KeyError):
+        print('No specific Reyns version required, skipping version checking...')
         version=None
+    else:
+        
+        logger.debug('Required Reyns version: "{}"'.format(version))
     
-    logger.debug('Required Reyns version: "{}"'.format(version))
-
-    # Start checking versions
-    version_is_ok = False
-    last_commit_info = os_shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
-    if last_commit_info:
-        # Check versions with commit hashes
-        this_commit_hash = last_commit_info.split('\n')[0].split(' ')[1]
-        logger.debug('This Reyns version: "{}"'.format(this_commit_hash))
-        if this_commit_hash == version:
-            version_is_ok = True
-    else:
-        # Check versions with numbering
-        logger.critical('Checking versions without Git not yet supported. Can you use the project\'s reyns/setup command instead?')
-        sys.exit(1)
-
-    # Do we have to up/down grade?
-    if not version_is_ok:
-        if using_local_reyns():
-            print('Reyns (local) needs to be up/down graded to "{}"'.format(version))
-            
-            #    echo "This codebase version requires a different Reyns version. Updating Reyns..."
-            #    cd .Reyns
-            #    git checkout master
-            #    git pull
-            #    git checkout $REYNS_COMMIT_HASH
-            #    echo ""
-            #    echo "Done."
-            #    cd ..
-            
-            if not os_shell('git checkout master && git pull && git checkout {}'.format(version),interactive=True):
-                sys.exit(1)
-
-            # Copy cmds tree
-            print('Making cmds structure...')
-            if not os_shell('utils/make_cmds_structure.sh', interactive=True):
-                sys.exit(1)
-
+        # Start checking versions
+        version_is_ok = False
+        last_commit_info = os_shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
+        if last_commit_info:
+            # Check versions with commit hashes
+            this_commit_hash = last_commit_info.split('\n')[0].split(' ')[1]
+            logger.debug('This Reyns version: "{}"'.format(this_commit_hash))
+            if this_commit_hash == version:
+                version_is_ok = True
         else:
-            logger.critical('Different Reyns version required but not using local Reyns, cannot update it. Can you use the project\'s reyns/setup command instead?')
+            # Check versions with numbering
+            logger.critical('Checking versions without Git not yet supported. Can you use the project\'s reyns/setup command instead?')
             sys.exit(1)
-    else:
-        print('Reyns version is OK')
+    
+        # Do we have to up/down grade?
+        if not version_is_ok:
+            if using_local_reyns():
+                print('Reyns (local) needs to be up/down graded to "{}"'.format(version))
+                
+                #    echo "This codebase version requires a different Reyns version. Updating Reyns..."
+                #    cd .Reyns
+                #    git checkout master
+                #    git pull
+                #    git checkout $REYNS_COMMIT_HASH
+                #    echo ""
+                #    echo "Done."
+                #    cd ..
+                
+                if not os_shell('git checkout master && git pull && git checkout {}'.format(version),interactive=True):
+                    sys.exit(1)
+    
+                # Copy cmds tree
+                print('Making cmds structure...')
+                if not os_shell('utils/make_cmds_structure.sh', interactive=True):
+                    sys.exit(1)
+    
+            else:
+                logger.critical('Different Reyns version required but not using local Reyns, cannot update it. Can you use the project\'s reyns/setup command instead?')
+                sys.exit(1)
+        else:
+            print('Reyns version is OK')
 
     # If no cmds dire already exisstent, make it
     if not os.path.isfile('reyns/build'):
