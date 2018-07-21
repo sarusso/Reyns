@@ -2350,7 +2350,7 @@ def daemon(recursive=False):
 
     # Do we have a local setup to execute?
     if using_local_reyns():
-        start_daemon_cmd = 'cd {} && PATH=$PATH:{}/.Reyns {}/utils/daemon.sh recursive={}'.format(PROJECT_DIR, PROJECT_DIR,CWD, recursive)
+        start_daemon_cmd = 'cd {} && PATH={}/.Reyns:$PATH {}/utils/daemon.sh recursive={}'.format(PROJECT_DIR, PROJECT_DIR,CWD, recursive)
     else:
         start_daemon_cmd = 'cd {} && {}/utils/daemon.sh recursive={}'.format(PROJECT_DIR,CWD, recursive)
 
