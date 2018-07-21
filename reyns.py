@@ -2355,7 +2355,7 @@ def daemon(recursive=False):
         start_daemon_cmd = 'cd {} && {}/utils/daemon.sh recursive={}'.format(PROJECT_DIR,CWD, recursive)
 
     logger.info('Running start daemon command: "{}"'.format(start_daemon_cmd))
-    out = os_shell(start_daemon_cmd, interactive=True)
+    os_shell(start_daemon_cmd, interactive=True)
     #out = os_shell('cd utils && ./daemon.sh'.format(), interactive=True)
 
 

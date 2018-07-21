@@ -74,7 +74,7 @@ do
 
         # Log that we started the update loop
         echo ""
-        echo "Started updated check loop @ $DATE"
+        echo "Started update check loop @ $DATE"
 
     else
         sleep 60
