@@ -2323,6 +2323,7 @@ def setup():
                 sys.exit(1)
 
             # Copy cmds tree
+            print('Making cmds structure...')
             if not os_shell('utils/make_cmds_structure.sh', interactive=True):
                 sys.exit(1)
 
@@ -2332,7 +2333,11 @@ def setup():
     else:
         print('Reyns version is OK')
 
-
+    # If no cmds dire already exisstent, make it
+    if not os.path.isfile('reyns/build'):
+        print('Making cmds structure...')
+        if not os_shell('utils/make_cmds_structure.sh', interactive=True):
+            sys.exit(1)
 
     # Do we have a local setup to execute?
     if os.path.isfile(PROJECT_DIR+'/setup.sh'):
