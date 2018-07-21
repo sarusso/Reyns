@@ -2286,7 +2286,7 @@ def setup():
     try:
         with open(PROJECT_DIR + '/reyns.conf') as f:
             version = json.loads(f.read())['version']
-    except IOError, KeyError:
+    except (IOError, KeyError):
         version=None
     
     logger.debug('Required Reyns version: "{}"'.format(version))
@@ -2295,33 +2295,43 @@ def setup():
     version_is_ok = False
     last_commit_info = os_shell('cd ' + os.getcwd() + ' && git log | head -n3', capture=True).stdout
     if last_commit_info:
-       # Check versions with commit hashes
-       this_commit_hash = last_commit_info.split('\n')[0].split(' ')[1]
-       logger.debug('This Reyns version: "{}"'.format(this_commit_hash))
-       if this_commit_hash == version:
-           version_is_ok = True
+        # Check versions with commit hashes
+        this_commit_hash = last_commit_info.split('\n')[0].split(' ')[1]
+        logger.debug('This Reyns version: "{}"'.format(this_commit_hash))
+        if this_commit_hash == version:
+            version_is_ok = True
     else:
-       # Check versions with numbering
-       logger.critical('Checking versions without Git not yet supported. Can you use the project\'s reyns/setup command instead?')
-       sys.exit(1)
+        # Check versions with numbering
+        logger.critical('Checking versions without Git not yet supported. Can you use the project\'s reyns/setup command instead?')
+        sys.exit(1)
 
     # Do we have to up/down grade?
     if not version_is_ok:
         if using_local_reyns():
-            print('NOW UP/DOWN GRADING REYNS')
-            #git checkout master
-            #git pull
-            #git checkout version 
+            print('Reyns (local) needs to be up/down graded to "{}"'.format(version))
+            
+            #    echo "This codebase version requires a different Reyns version. Updating Reyns..."
+            #    cd .Reyns
+            #    git checkout master
+            #    git pull
+            #    git checkout $REYNS_COMMIT_HASH
+            #    echo ""
+            #    echo "Done."
+            #    cd ..
+            
+            if not os_shell('git checkout master && git pull && git checkout {}'.format(version),interactive=True):
+                sys.exit(1)
         else:
             logger.critical('Different Reyns version required but not using local Reyns, cannot update it. Can you use the project\'s reyns/setup command instead?')
             sys.exit(1)
     else:
         print('Reyns version is OK')
-    
+
     # Do we have a local setup to execute?
     if os.path.isfile(PROJECT_DIR+'/setup.sh'):
         print('Executing project\'s "setup.sh" scrip now...')
-        out = os_shell('cd {} && ./setup.sh'.format(PROJECT_DIR), interactive=True)
+        if not os_shell('cd {} && ./setup.sh'.format(PROJECT_DIR), interactive=True):
+            sys.exit(1)
     
     # Done
     print('\nDone')
