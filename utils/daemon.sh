@@ -37,11 +37,14 @@ else
     echo "Now building..."
     reyns build:all
 
-    if [[ "x$BRANCH" == "xmaster" ]] ; then
-        RUN_CMD="reyns run:all,conf=production"
-    else
-        RUN_CMD="reyns run:all"
-    fi
+    # Check if there is a conf for this branch name
+	if [[ -f $BRANCH.conf ]] ; then
+	    echo "Using conf \"$BRANCH.conf\"."
+	    RUN_CMD="reyns run:all,conf=$BRANCH"
+	else
+	    echo "Using default conf as no \"$BRANCH.conf\" has been found."
+	    RUN_CMD="reyns run:all"
+	fi
 
     # Clean before running
     reyns clean:all,force=True
@@ -158,9 +161,12 @@ do
         # All good if we are here. Restart everything
         reyns clean:all,force=True
 
-        if [[ "x$BRANCH" == "xmaster" ]] ; then
-            RUN_CMD="reyns run:all,conf=production"
+        # Check if there is a conf for this branch name
+        if [[ -f $BRANCH.conf ]] ; then
+            echo "Using conf \"$BRANCH.conf\"."
+            RUN_CMD="reyns run:all,conf=$BRANCH"
         else
+            echo "Using default conf as no \"$BRANCH.conf\" has been found."
             RUN_CMD="reyns run:all"
         fi
 
