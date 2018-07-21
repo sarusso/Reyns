@@ -2321,15 +2321,22 @@ def setup():
             
             if not os_shell('git checkout master && git pull && git checkout {}'.format(version),interactive=True):
                 sys.exit(1)
+
+            # Copy cmds tree
+            if not os_shell('utils/make_cmds_structure.sh', interactive=True):
+                sys.exit(1)
+
         else:
             logger.critical('Different Reyns version required but not using local Reyns, cannot update it. Can you use the project\'s reyns/setup command instead?')
             sys.exit(1)
     else:
         print('Reyns version is OK')
 
+
+
     # Do we have a local setup to execute?
     if os.path.isfile(PROJECT_DIR+'/setup.sh'):
-        print('Executing project\'s "setup.sh" scrip now...')
+        print('\nExecuting project\'s "setup.sh" scrip now...')
         if not os_shell('cd {} && ./setup.sh'.format(PROJECT_DIR), interactive=True):
             sys.exit(1)
     
