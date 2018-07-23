@@ -1891,10 +1891,8 @@ def ssh(service=None, instance=None, command=None, capture=False, jsonout=False)
     if running_on_osx():
 
         # Get container ID
-        console_out = os_shell('reyns info:{},{}'.format(service,instance),capture=True)
-        #DEBUG print(console_out)            
-        info = console_out.stdout.split('\n')
-        container_id = info[2].strip().split(' ')[0]
+        container_info = ps(service=service, instance=instance, capture=True, info=True)
+        container_id = container_info[0][0]
 
         # Get inspect data
         console_out = os_shell('docker inspect {}'.format(container_id),capture=True)
@@ -1903,7 +1901,7 @@ def ssh(service=None, instance=None, command=None, capture=False, jsonout=False)
 
         # Check that we are operating on the right container
         if not inspect[0]['Id'].startswith(container_id):
-            abort('Reyns internal error (containers ID do not match)')
+            abort('Reyns internal error (containers ID do not match: "{}" vs "{}" )'.format(container_id, inspect[0]['Id']))
 
         # Get host's port for SSH forwarding
         try:
