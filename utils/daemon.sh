@@ -37,6 +37,16 @@ else
     echo "Now building..."
     reyns build:all
 
+    # If the above failed, try with no cache
+	if [ ! $? -eq 0 ]; then
+	    echo "Error in rebuilding services, now trying without cache..."
+	    reyns build:all,cache=False
+	    if [ ! $? -eq 0 ]; then
+	        echo "Error: failed rebuilding services even without cache."
+	        continue
+	    fi
+	fi
+
     # Check if there is a conf for this branch name
 	if [[ -f $BRANCH.conf ]] ; then
 	    echo "Using conf \"$BRANCH.conf\"."
@@ -148,7 +158,7 @@ do
         echo "Now building..."
         reyns build:all
 
-        # If the above failed, try with no cached
+        # If the above failed, try with no cache
         if [ ! $? -eq 0 ]; then
             echo "Error in rebuilding services, now trying without cache..."
             reyns build:all,cache=False
